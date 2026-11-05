@@ -1,0 +1,21 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local env files (explicit, in addition to .env* above)
+.env
+.env.local
+
+# Graphify knowledge-graph cache
+graphify-out/
+
+# Stray Windows console-redirect artifact
+CONOUT$
+
+# Claude Code personal (non-shared) settings
+.claude/settings.local.json

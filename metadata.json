@@ -1,0 +1,6 @@
+{
+  "name": "WorkPulse - Daily Work Tracker & AI Hub",
+  "description": "Daily work tracker and productivity hub with Google Sheets sync, smart task rollover, and Gemini AI standup reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

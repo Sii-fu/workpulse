@@ -1,0 +1,218 @@
+import { WorkLog, ReportFormat, ReportTone } from '../types';
+
+export interface GenerateReportParams {
+  logs: WorkLog[];
+  format: ReportFormat;
+  tone: ReportTone;
+  customApiKey?: string;
+  recipientName?: string;
+}
+
+export async function generateAiReport(params: GenerateReportParams): Promise<{ text: string; source: 'gemini' | 'template' }> {
+  const { logs, format, tone, customApiKey, recipientName } = params;
+
+  if (logs.length === 0) {
+    return {
+      text: 'No logs selected. Please select at least one task or log entry to generate a report.',
+      source: 'template',
+    };
+  }
+
+  // Build structured data context
+  const completed = logs.filter((l) => l.status === 'completed');
+  const inProgress = logs.filter((l) => l.status === 'in_progress');
+  const blocked = logs.filter((l) => l.status === 'blocked');
+
+  const logsSummary = logs
+    .map((l, i) => {
+      const duration = l.durationMinutes ? ` (${l.durationMinutes}m)` : '';
+      const tags = l.tags.length ? ` [${l.tags.join(' ')}]` : '';
+      const link = l.linkUrl ? ` - Link: ${l.linkUrl}` : '';
+      return `${i + 1}. [${l.status.toUpperCase()}] [Project: ${l.projectName}] ${l.description}${duration}${tags}${link}`;
+    })
+    .join('\n');
+
+  const systemInstruction = `You are an elite executive productivity assistant for high-performing software engineers and team leads.
+Your job is to transform raw task logs into concise, beautifully formatted, human-ready updates without robotic filler or marketing jargon.
+Follow the exact requested format, tone, and audience constraints faithfully.`;
+
+  const formatDescription =
+    format === 'whatsapp'
+      ? `A concise, polite WhatsApp message for a direct manager or lead. Use WhatsApp markdown (*bold*, _italic_). Include emoji highlights. Keep it mobile-friendly and scannable.`
+      : format === 'slack'
+      ? `A clean Slack/Teams daily standup update with exactly three sections:
+🚀 *What I completed today:*
+⏳ *In progress / Rolling over:*
+🛑 *Blockers / Waiting on:*`
+      : `An Executive Summary Memo for leadership, directors, or clients. Grouped by project impact, key deliverables, and risks. Polished corporate tone.`;
+
+  const prompt = `Please generate a work report based on these logged tasks:
+
+--- LOGGED WORK ENTRIES ---
+${logsSummary}
+---------------------------
+
+Target Format: ${formatDescription}
+Tone: ${tone} (e.g. casual & direct, formal corporate, brief bullet-only, or client-facing)
+${recipientName ? `Addressed to: ${recipientName}` : ''}
+
+Generate the final message text now. Do not wrap in markdown code fence unless code is included. Output directly.`;
+
+  try {
+    const res = await fetch('/api/gemini/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        systemInstruction,
+        customApiKey: customApiKey || undefined,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.text) {
+        return { text: data.text.trim(), source: 'gemini' };
+      }
+    }
+  } catch (err) {
+    console.warn('Gemini API call failed or unavailable, using offline template generator:', err);
+  }
+
+  // High-fidelity fallback template generator
+  return {
+    text: generateFallbackTemplate(logs, format, tone, recipientName),
+    source: 'template',
+  };
+}
+
+export function generateFallbackTemplate(
+  logs: WorkLog[],
+  format: ReportFormat,
+  tone: ReportTone,
+  recipientName?: string
+): string {
+  const completed = logs.filter((l) => l.status === 'completed');
+  const inProgress = logs.filter((l) => l.status === 'in_progress');
+  const blocked = logs.filter((l) => l.status === 'blocked');
+  const todayStr = new Date().toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const greeting = recipientName
+    ? tone === 'casual'
+      ? `Hi ${recipientName},`
+      : `Dear ${recipientName},`
+    : tone === 'casual'
+    ? 'Hey team,'
+    : 'Hello,';
+
+  if (format === 'whatsapp') {
+    let out = `${greeting} quick progress update for *${todayStr}*:\n\n`;
+
+    if (completed.length > 0) {
+      out += `✅ *Done Today*\n`;
+      completed.forEach((l) => {
+        out += `• *[${l.projectName}]* ${l.description}\n`;
+      });
+      out += '\n';
+    }
+
+    if (inProgress.length > 0) {
+      out += `⏳ *In Progress*\n`;
+      inProgress.forEach((l) => {
+        out += `• *[${l.projectName}]* ${l.description}\n`;
+      });
+      out += '\n';
+    }
+
+    if (blocked.length > 0) {
+      out += `🛑 *Blockers / Waiting On*\n`;
+      blocked.forEach((l) => {
+        out += `• *[${l.projectName}]* ${l.description}\n`;
+      });
+      out += '\n';
+    }
+
+    out += `Let me know if you need anything clarified! 👍`;
+    return out;
+  }
+
+  if (format === 'slack') {
+    let out = `*Daily Standup — ${todayStr}*\n\n`;
+
+    out += `🚀 *What I completed today:*\n`;
+    if (completed.length > 0) {
+      completed.forEach((l) => {
+        const link = l.linkUrl ? ` (<${l.linkUrl}|Link>)` : '';
+        out += `• [${l.projectName}] ${l.description}${link}\n`;
+      });
+    } else {
+      out += `• None completed today\n`;
+    }
+    out += '\n';
+
+    out += `⏳ *In progress / Rolling over:*\n`;
+    if (inProgress.length > 0) {
+      inProgress.forEach((l) => {
+        out += `• [${l.projectName}] ${l.description}\n`;
+      });
+    } else {
+      out += `• No ongoing tasks in flight\n`;
+    }
+    out += '\n';
+
+    out += `🛑 *Blockers / Waiting on:*\n`;
+    if (blocked.length > 0) {
+      blocked.forEach((l) => {
+        out += `• [${l.projectName}] ${l.description}\n`;
+      });
+    } else {
+      out += `• None, clear path forward\n`;
+    }
+
+    return out;
+  }
+
+  // Executive format
+  let memo = `MEMORANDUM: Daily Work & Milestone Progress\n`;
+  memo += `DATE: ${todayStr}\n`;
+  memo += `PREPARED FOR: ${recipientName || 'Engineering & Product Leadership'}\n`;
+  memo += `STATUS: ${blocked.length > 0 ? 'Requires Attention' : 'On Track'}\n\n`;
+
+  memo += `1. EXECUTIVE HIGHLIGHTS\n`;
+  if (completed.length > 0) {
+    completed.forEach((l) => {
+      memo += `  - ${l.projectName}: ${l.description}\n`;
+    });
+  } else {
+    memo += `  - Active research and development in progress.\n`;
+  }
+  memo += `\n`;
+
+  memo += `2. WORK IN FLIGHT & NEXT STEPS\n`;
+  if (inProgress.length > 0) {
+    inProgress.forEach((l) => {
+      memo += `  - ${l.projectName}: ${l.description}\n`;
+    });
+  } else {
+    memo += `  - All queued items for this cycle completed.\n`;
+  }
+  memo += `\n`;
+
+  if (blocked.length > 0) {
+    memo += `3. CRITICAL BLOCKERS & RISKS\n`;
+    blocked.forEach((l) => {
+      memo += `  - [ACTION NEEDED] ${l.projectName}: ${l.description}\n`;
+    });
+  } else {
+    memo += `3. RISKS & DEPENDENCIES\n`;
+    memo += `  - No critical risks identified at this time.\n`;
+  }
+
+  return memo;
+}
