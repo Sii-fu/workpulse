@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
 import { minutesFromSeconds } from '../utils/duration';
@@ -101,7 +102,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
     setSynthesizedItems([]);
     setSelectedLogIds(new Set());
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr();
 
     // Scoping (see isEodCandidate): fully logged tasks are never offered again; tasks with new
     // time since their last log are.

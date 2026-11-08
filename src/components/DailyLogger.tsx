@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { localDateStr, localTimeStr } from '../utils/dates';
 import { downscaleImage } from '../utils/image';
 import { Project, TaskStatus, WorkLog, ThemeId } from '../types';
 import {
@@ -52,10 +53,11 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   onAddProject,
   onAddTag,
 }) => {
-  const today = new Date().toISOString().split('T')[0];
-  const nowTime = new Date().toTimeString().slice(0, 5);
+  const today = localDateStr();
+  const nowTime = localTimeStr();
 
   const [date, setDate] = useState<string>(today);
+  const dateTouched = useRef(false); // true once the user picked a date by hand
   const [time, setTime] = useState<string>(nowTime);
   const [projectId, setProjectId] = useState<string>(projects[0]?.id || '');
   const [description, setDescription] = useState<string>('');
@@ -77,6 +79,11 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Keep the date on "today" if the app stays open past midnight, unless the user chose one (B8).
+  useEffect(() => {
+    if (!dateTouched.current) setDate(today);
+  }, [today]);
+
   // Load draft on mount
   useEffect(() => {
     const draft = loadActiveDraft();
@@ -88,7 +95,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       if (draft.linkUrl) setLinkUrl(draft.linkUrl);
       if (draft.durationMinutes) setDurationMinutes(draft.durationMinutes);
       if (draft.energyRating) setEnergyRating(draft.energyRating);
-      if (draft.date) setDate(draft.date);
+      // Only restore a draft's date if it is still today: an old draft must not file today's work under an old date (B8).
+      if (draft.date && draft.date === localDateStr()) setDate(draft.date);
     } else if (projects[0]?.id) {
       setProjectId(projects[0].id);
     }
@@ -177,7 +185,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
     onAddLog({
       date,
-      time: time || new Date().toTimeString().slice(0, 5),
+      time: time || localTimeStr(),
       projectId: activeProject?.id || 'default',
       projectName: activeProject?.name || 'General',
       description: description.trim(),
@@ -194,7 +202,10 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
     setImageBase64('');
     setSelectedTags([]);
     clearActiveDraft();
-    setTime(new Date().toTimeString().slice(0, 5));
+    // Back to today after each submit (B8)
+    dateTouched.current = false;
+    setDate(localDateStr());
+    setTime(localTimeStr());
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -269,7 +280,10 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                dateTouched.current = true;
+                setDate(e.target.value);
+              }}
               className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2 py-1 text-xs focus:outline-hidden cursor-pointer"
             />
             <input

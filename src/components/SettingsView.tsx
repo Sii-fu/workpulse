@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { localDateStr } from '../utils/dates';
 import {
   Project,
   ThemeId,
@@ -11,6 +12,7 @@ import {
   ToastMessage,
 } from '../types';
 import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
+import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
@@ -48,6 +50,7 @@ interface SettingsViewProps {
   backlog: BacklogTask[];
   onResetSeedData: () => void;
   onImportBackup: (data: BackupData) => void;
+  onFixLogDates: (fixes: DateFix[]) => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
 }
 
@@ -64,6 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   backlog,
   onResetSeedData,
   onImportBackup,
+  onFixLogDates,
   onNotify,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
@@ -174,10 +178,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Export JSON
   const handleExportJSON = () => {
     downloadTextFile(
-      `workpulse-backup-${new Date().toISOString().split('T')[0]}.json`,
+      `workpulse-backup-${localDateStr()}.json`,
       buildBackup({ logs, backlog, projects, tags, settings }),
     );
     onNotify('Exported JSON backup (the Gemini API key is not included)', 'success');
+  };
+
+  const misdatedLogs = React.useMemo(() => findMisdatedLogs(logs), [logs]);
+
+  const handleFixDates = () => {
+    const examples = misdatedLogs
+      .slice(0, 5)
+      .map((f) => `${f.from} -> ${f.to}: ${f.description.slice(0, 40)}`)
+      .join('\n');
+    if (
+      window.confirm(
+        `Move ${misdatedLogs.length} log(s) to the correct local date?\n\n${examples}${
+          misdatedLogs.length > 5 ? '\n...' : ''
+        }\n\nOnly the date changes. A backup file of your current data is downloaded first.`,
+      )
+    ) {
+      onFixLogDates(misdatedLogs);
+    }
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,7 +239,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `workpulse-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `workpulse-logs-${localDateStr()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     onNotify('Exported CSV spreadsheet', 'success');
@@ -767,6 +789,25 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   </button>
                 </div>
               </div>
+
+              {misdatedLogs.length > 0 && (
+                <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-2.5">
+                  <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
+                    Fix Log Dates ({misdatedLogs.length})
+                  </span>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {misdatedLogs.length} log(s) made between 00:00 and 06:00 local time were filed under the previous day
+                    (older versions used the UTC date). Move them to the day you actually worked. Nothing changes until you confirm.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleFixDates}
+                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] transition-all cursor-pointer"
+                  >
+                    Review and fix dates
+                  </button>
+                </div>
+              )}
 
               <div className="p-4 rounded-[var(--radius-card)] border border-rose-500/20 bg-rose-500/5 space-y-2">
                 <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">

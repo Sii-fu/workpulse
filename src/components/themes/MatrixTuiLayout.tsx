@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
 import { Terminal, Send, Trash2, Copy, Check } from 'lucide-react';
 
@@ -152,8 +153,8 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       projects.find((p) => p.name.toLowerCase().includes(projName.toLowerCase())) || projects[0];
 
     onAddLog({
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
+      date: localDateStr(),
+      time: localTimeStr(),
       projectId: matchedProject?.id || 'default',
       projectName: matchedProject?.name || 'General',
       description: desc,

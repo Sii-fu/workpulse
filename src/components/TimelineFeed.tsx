@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { localDateStr, rangeStart, DateRange } from '../utils/dates';
 import { WorkLog, Project, TaskStatus, ThemeId } from '../types';
 import {
   Search,
@@ -78,15 +79,8 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
   }, [logs]);
 
   const filteredLogs = useMemo(() => {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    const day = today.getDay();
-    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(today.setDate(diffToMonday));
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const todayStr = localDateStr();
+    const fromDate = rangeStart(selectedDateRange as DateRange, todayStr);
 
     return logs.filter((log) => {
       if (searchQuery.trim()) {
@@ -110,10 +104,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
       }
 
       if (selectedDateRange === 'today') return log.date === todayStr;
-      if (selectedDateRange === 'week') return new Date(log.date) >= startOfWeek;
-      if (selectedDateRange === 'month') return new Date(log.date) >= startOfMonth;
-
-      return true;
+      return fromDate === null || log.date >= fromDate;
     });
   }, [logs, searchQuery, selectedProject, selectedStatus, selectedTag, selectedDateRange]);
 

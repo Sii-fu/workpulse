@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { localDateStr, lastNDays, dayLabel } from '../utils/dates';
 import { WorkLog, Project } from '../types';
 import {
   Download,
@@ -39,11 +40,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     projectStats,
     dailyTimeline,
   } = useMemo(() => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
-    cutoffDate.setHours(0, 0, 0, 0);
-
-    const fLogs = logs.filter((l) => new Date(l.date) >= cutoffDate);
+    // Exactly the last `daysLimit` days including today, compared as date strings (B7).
+    const days = lastNDays(localDateStr(), daysLimit);
+    const cutoff = days[0];
+    const fLogs = logs.filter((l) => l.date >= cutoff);
 
     let mins = 0;
     let completed = 0;
@@ -57,16 +57,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
     // Daily breakdown for the bar chart
     const dailyMap: Record<string, { date: string; label: string; minutes: number; tasks: number }> = {};
-    for (let i = daysLimit - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-      dailyMap[dateStr] = { date: dateStr, label, minutes: 0, tasks: 0 };
-    }
+    days.forEach((dateStr) => {
+      dailyMap[dateStr] = { date: dateStr, label: dayLabel(dateStr), minutes: 0, tasks: 0 };
+    });
 
     fLogs.forEach((l) => {
-      const taskMins = l.durationMinutes || 30;
+      const taskMins = l.durationMinutes || 0;
       mins += taskMins;
 
       if (l.status === 'completed') completed++;
