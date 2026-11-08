@@ -104,10 +104,11 @@ def check(name):
 class Session:
     """A fresh browser context with console-error capture."""
 
-    def __init__(self, pw, url, theme="modern", mode="dark", width=1440, height=900, headed=False):
+    def __init__(self, pw, url, theme="modern", mode="dark", width=1440, height=900, headed=False, touch=False):
         self.url = url
         self.browser = pw.chromium.launch(headless=not headed)
-        self.ctx = self.browser.new_context(viewport={"width": width, "height": height}, color_scheme="light")
+        self.ctx = self.browser.new_context(viewport={"width": width, "height": height}, color_scheme="light",
+                                            has_touch=touch, is_mobile=touch)
         settings = dict(SEED_SETTINGS, theme=theme, colorMode=mode)
         self.ctx.add_init_script(
             "try{ if(!localStorage.getItem('workpulse_settings')) "
@@ -439,6 +440,174 @@ def theme_cards_keyboard(s):
     assert checked() == (start + 1) % 4, "ArrowRight did not move the theme choice"
     s.page.keyboard.press("ArrowLeft")
     assert checked() == start, "ArrowLeft did not move it back"
+    s.no_errors()
+
+
+# -- feed parity across themes (P2) ------------------------------------------------------------
+ROWS = '[id^="log-row-"]'
+
+
+def _quick_add(s, theme, text):
+    """Write a log through the theme's own input and return its row."""
+    p = s.page
+    if theme == "minimalist":
+        ta = p.get_by_label("What you worked on today")
+        ta.fill(text)
+        ta.press("Control+Enter")
+    elif theme == "compact":
+        inp = p.get_by_label("Quick log description")
+        inp.fill(text)
+        inp.press("Enter")
+    elif theme == "matrix":
+        inp = p.get_by_label("Command line")
+        inp.fill(text)
+        inp.press("Enter")
+    else:
+        p.locator(SEL["log_textarea"]).first.fill(text)
+        btn(p, SEL["commit_log"]).first.click()
+    p.wait_for_timeout(400)
+    assert any(l["description"] == text for l in s.ls("workpulse_logs")), f"{theme}: log was not saved"
+    row = p.locator(ROWS).filter(has_text=text)
+    expect(row).to_have_count(1)
+    return row
+
+
+def _parity(theme):
+    def run(s):
+        p = s.page
+        s.set_theme(theme)
+        s.tab("feed")
+        text = f"Parity {theme} entry"
+        edited = text + " edited"
+
+        row = _quick_add(s, theme, text)
+
+        # filter: search narrows the list to the new log, and clearing brings the rest back
+        total = p.locator(ROWS).count()
+        assert total >= 2, f"{theme}: expected the seed logs plus the new one"
+        p.get_by_role("searchbox", name="Search logs").fill(text)
+        p.wait_for_timeout(200)
+        assert p.locator(ROWS).count() == 1, f"{theme}: search did not narrow the list"
+        btn(p, "Clear filters").first.click()
+        p.wait_for_timeout(200)
+        assert p.locator(ROWS).count() == total, f"{theme}: Clear filters did not restore the list"
+
+        # edit: the same four actions exist in every theme
+        row = p.locator(ROWS).filter(has_text=text)
+        for name in ("Edit log", "Duplicate log", "Copy log text", "Delete log"):
+            expect(row.get_by_role("button", name=name)).to_be_visible()
+        row.get_by_role("button", name="Edit log").click()
+        p.wait_for_timeout(300)
+        if theme != "modern":
+            expect(p.get_by_role("dialog")).to_be_visible(timeout=3000)
+            ta = p.get_by_role("dialog").locator("textarea").first
+        else:
+            ta = p.locator(SEL["log_textarea"]).first
+        expect(ta, f"{theme}: edit form did not load the log").to_have_value(text)
+        ta.fill(edited)
+        btn(p, SEL["save_edit"]).first.click()
+        p.wait_for_timeout(400)
+        assert any(l["description"] == edited and l.get("editedAt") for l in s.ls("workpulse_logs")), f"{theme}: edit not saved"
+        assert p.get_by_role("dialog").count() == 0, f"{theme}: editor did not close after saving"
+        row = p.locator(ROWS).filter(has_text=edited)
+        expect(row).to_have_count(1)
+
+        # select a log and write a standup from it
+        row.get_by_label("Select log for standup").check()
+        btn(p, "Standup from 1").first.click()
+        expect(p.get_by_role("dialog")).to_be_visible(timeout=3000)
+        p.keyboard.press("Escape")
+        p.wait_for_timeout(250)
+        btn(p, re.compile(r"^Clear$")).first.click()
+
+        # search palette: pick the log from another screen while a filter hides it
+        p.get_by_label("Filter by status").first.select_option("blocked")
+        s.tab("settings")
+        p.keyboard.press(SEL["palette_trigger_key"])
+        p.locator(SEL["palette_input"]).fill(edited)
+        p.keyboard.press("Enter")
+        p.wait_for_timeout(700)
+        target = p.locator(ROWS).filter(has_text=edited)
+        expect(target).to_have_count(1)
+        assert p.evaluate("() => document.activeElement && document.activeElement.id.startsWith('log-row-')"), \
+            f"{theme}: palette did not take you to the log"
+        assert p.get_by_label("Filter by status").first.input_value() == "all", f"{theme}: a filter still hides the picked log"
+
+        # delete
+        target.get_by_role("button", name="Delete log").click()
+        p.wait_for_timeout(300)
+        assert not any(l["description"] == edited for l in s.ls("workpulse_logs")), f"{theme}: delete did not remove it"
+        s.no_errors()
+    return run
+
+
+for _t in THEMES:
+    CHECKS.append((f"parity:{_t}", _parity(_t)))
+
+
+@check("quick_log_details")
+def quick_log_details(s):
+    """Minimalist, Compact and Matrix: 'details' opens the full form with what was typed."""
+    p = s.page
+    for theme, field, opener in (
+        ("minimalist", p.get_by_label("What you worked on today"), "Add details"),
+        ("compact", p.get_by_label("Quick log description"), "Add details"),
+        ("matrix", p.get_by_label("Command line"), "DETAILS"),
+    ):
+        s.set_theme(theme)
+        s.tab("feed")
+        text = f"Detailed {theme} entry"
+        field.fill(text)
+        btn(p, opener).first.click()
+        dlg = p.get_by_role("dialog")
+        expect(dlg).to_be_visible(timeout=3000)
+        expect(dlg.locator("textarea").first, f"{theme}: typed text did not reach the full form").to_have_value(text)
+        expect(dlg.get_by_label("Link to attach (PR, Jira, Figma, Docs)")).to_be_visible()  # the full form, not a one-liner
+        btn(dlg, SEL["commit_log"]).first.click()
+        p.wait_for_timeout(400)
+        assert any(l["description"] == text for l in s.ls("workpulse_logs")), f"{theme}: detailed log not saved"
+        assert p.get_by_role("dialog").count() == 0, f"{theme}: dialog stayed open after committing"
+    s.no_errors()
+
+
+@check("mobile_log_actions")
+def mobile_log_actions(s):
+    """On a phone (touch, 390 px) every theme shows a log's four actions inside the screen,
+    each at least 44 px tall, with no sideways scrolling needed."""
+    for theme in THEMES:
+        settings = dict(SEED_SETTINGS, theme=theme, colorMode="dark")
+        ctx = s.browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+        ctx.add_init_script("try{ localStorage.setItem('workpulse_settings', %s) }catch(e){}" % json.dumps(json.dumps(settings)))
+        page = ctx.new_page()
+        try:
+            page.goto(s.url)
+            page.wait_for_load_state("networkidle")
+            row = page.locator(ROWS).first
+            expect(row).to_be_visible(timeout=3000)
+            for name in ("Edit log", "Duplicate log", "Copy log text", "Delete log"):
+                b = row.get_by_role("button", name=name)
+                box = b.bounding_box()
+                assert box, f"{theme}: '{name}' is not rendered"
+                assert box["x"] >= 0 and box["x"] + box["width"] <= 391, f"{theme}: '{name}' is off screen ({box['x']:.0f}+{box['width']:.0f})"
+                assert box["height"] >= 43.5 and box["width"] >= 43.5, f"{theme}: '{name}' is {box['width']:.0f}x{box['height']:.0f}, under 44 px"
+                assert float(b.evaluate("e => getComputedStyle(e.parentElement).opacity")) > 0.9, f"{theme}: '{name}' is hidden on touch"
+            overflow = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+            assert overflow <= 1, f"{theme}: page scrolls sideways by {overflow}px"
+        finally:
+            ctx.close()
+
+
+@check("sheets_sync_below_xl")
+def sheets_sync_below_xl(s):
+    """With a Sheet linked, Sync is reachable on a narrow screen (the status pill only shows from xl)."""
+    p = s.page
+    settings = s.ls("workpulse_settings")
+    settings["googleScriptUrl"] = "https://script.google.com/macros/s/AKfycbSMOKE/exec"
+    p.evaluate("v => localStorage.setItem('workpulse_settings', v)", json.dumps(settings))
+    p.set_viewport_size({"width": 1024, "height": 800})
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    expect(p.get_by_role("button", name=re.compile(r"^Sync to Google Sheet"))).to_be_visible(timeout=3000)
     s.no_errors()
 
 

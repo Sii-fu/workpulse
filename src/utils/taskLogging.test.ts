@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate } from './taskLogging';
+import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate, isPendingTask } from './taskLogging';
 import type { BacklogTask } from '../types';
 
 const TODAY = '2026-11-08';
@@ -43,5 +43,14 @@ describe('isEodCandidate', () => {
   });
   it('default scope requires today', () => {
     expect(isEodCandidate(task({ dueDate: '2026-01-01', originalDate: '2026-01-01', elapsedSeconds: 60 }), TODAY, false)).toBe(false);
+  });
+});
+
+describe('isPendingTask', () => {
+  it('is true until the task is checked off or reaches Done', () => {
+    expect(isPendingTask(task({ stage: 'planned' }))).toBe(true);
+    expect(isPendingTask(task({ stage: 'blocked' }))).toBe(true);
+    expect(isPendingTask(task({ completed: true }))).toBe(false);
+    expect(isPendingTask(task({ stage: 'done' }))).toBe(false);
   });
 });

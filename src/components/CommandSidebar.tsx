@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { defaultProject } from '../utils/projects';
 import { localDateStr } from '../utils/dates';
+import { isPendingTask } from '../utils/taskLogging';
 import { BacklogTask, Project, ThemeId, WorkLog } from '../types';
 import {
   ListTodo,
@@ -54,7 +55,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
   const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
 
   const todayStr = localDateStr();
-  const pendingTasks = backlog.filter((t) => !t.completed);
+  const pendingTasks = backlog.filter(isPendingTask);
   const rolledOverCount = pendingTasks.filter((t) => t.isRolledOver).length;
   const todayLogs = logs.filter((l) => l.date === todayStr);
 

@@ -414,3 +414,12 @@
     display: block !important;
   }
 }
+
+/* A log picked in the search palette: its row flashes once so the eye finds it. */
+@keyframes log-flash {
+  from { background-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+  to { background-color: transparent; }
+}
+.log-flash {
+  animation: log-flash 1.6s ease-out;
+}

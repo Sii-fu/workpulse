@@ -47,6 +47,9 @@ import { SearchPaletteModal } from './components/SearchPaletteModal';
 import { LightboxModal } from './components/LightboxModal';
 import { ReminderBanner } from './components/ReminderBanner';
 import { ToastContainer } from './components/ToastContainer';
+import { LogEditorDialog } from './components/feed/LogEditorDialog';
+import { LogListProps, QuickLogProps } from './components/feed/types';
+import { isPendingTask } from './utils/taskLogging';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
 
 // Distinct Sub-Layouts Per Theme
@@ -96,6 +99,8 @@ export default function App() {
 
   // Selected logs for AI standup
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
+  // Log picked in the search palette; the timeline scrolls to it and clears this.
+  const [focusLogId, setFocusLogId] = useState<string | null>(null);
 
   // Sync state
   const [isSyncingSheet, setIsSyncingSheet] = useState(false);
@@ -808,7 +813,7 @@ export default function App() {
 
   const todayStr = localDateStr();
   const hasLogsToday = logs.some((l) => l.date === todayStr);
-  const pendingTasksCount = backlog.filter((t) => !t.completed && t.stage !== 'done').length;
+  const pendingTasksCount = backlog.filter(isPendingTask).length;
 
   if (!dataLoaded) {
     return (
@@ -817,6 +822,40 @@ export default function App() {
       </div>
     );
   }
+
+  // Everything a timeline needs to list, select, edit and copy logs. All four themes get the same
+  // set, so a feature cannot quietly exist in one theme only.
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    addToast('Copied to clipboard!');
+  };
+  const logListProps: LogListProps = {
+    logs,
+    projects,
+    onEditLog: handleEditLog,
+    onDeleteLog: handleDeleteLog,
+    onDuplicateLog: handleDuplicateLog,
+    onOpenImage: (base64) => setActiveLightboxImage(base64),
+    onCopyText: copyToClipboard,
+    selectedLogIds,
+    onToggleSelectLog: handleToggleSelectLog,
+    onSelectAllVisible: (ids) => setSelectedLogIds(ids),
+    onClearSelection: () => setSelectedLogIds([]),
+    onOpenAiStandupWithSelected: () => setIsAiStandupOpen(true),
+    onOpenEodSynthesizer: handleOpenEodSynthesizer,
+    focusLogId,
+    onFocusLogHandled: () => setFocusLogId(null),
+  };
+  const quickLogProps: QuickLogProps = {
+    availableTags: tags,
+    onAddLog: handleAddLog,
+    onOpenDetails: (draft) => {
+      setEditingLog(null);
+      setPrefillLog(draft);
+    },
+  };
+  // Modern edits in its inline form; the other themes use the same form in a dialog.
+  const showEditorDialog = settings.theme !== 'modern' && (editingLog !== null || prefillLog !== null);
 
   return (
     <div
@@ -870,37 +909,14 @@ export default function App() {
         {activeTab === 'feed' && (
           <div>
             {/* 1. MINIMALIST: The Zen Notebook (Borderless Inline Writing & Narrative Chronicle) */}
-            {settings.theme === 'minimalist' && (
-              <MinimalistZenLayout
-                logs={logs}
-                projects={projects}
-                availableTags={tags}
-                onAddLog={handleAddLog}
-                onDeleteLog={handleDeleteLog}
-                onDuplicateLog={handleDuplicateLog}
-                onOpenImage={(base64) => setActiveLightboxImage(base64)}
-                onCopyText={(text) => {
-                  navigator.clipboard.writeText(text);
-                  addToast('Copied to clipboard!');
-                }}
-              />
-            )}
+            {settings.theme === 'minimalist' && <MinimalistZenLayout {...logListProps} {...quickLogProps} />}
 
             {/* 2. COMPACT: The Linear High-Density Console (Horizontal Bar + Full Data Table) */}
             {settings.theme === 'compact' && (
               <CompactConsoleLayout
-                logs={logs}
+                {...logListProps}
+                {...quickLogProps}
                 backlog={backlog}
-                projects={projects}
-                availableTags={tags}
-                onAddLog={handleAddLog}
-                onDeleteLog={handleDeleteLog}
-                onDuplicateLog={handleDuplicateLog}
-                onOpenImage={(base64) => setActiveLightboxImage(base64)}
-                onCopyText={(text) => {
-                  navigator.clipboard.writeText(text);
-                  addToast('Copied to clipboard!');
-                }}
                 onToggleTask={handleToggleBacklogTask}
                 onConvertTaskToLog={handleConvertTaskToLog}
               />
@@ -909,18 +925,11 @@ export default function App() {
             {/* 3. MATRIX CLI: The Retro UNIX Terminal User Interface (CLI Prompt + Tmux Bar) */}
             {settings.theme === 'matrix' && (
               <MatrixTuiLayout
-                onOpenImage={(base64) => setActiveLightboxImage(base64)}
-                logs={logs}
+                {...logListProps}
+                onAddLog={quickLogProps.onAddLog}
+                onOpenDetails={quickLogProps.onOpenDetails}
                 backlog={backlog}
-                projects={projects}
                 hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
-                onAddLog={handleAddLog}
-                onDeleteLog={handleDeleteLog}
-                onDuplicateLog={handleDuplicateLog}
-                onCopyText={(text) => {
-                  navigator.clipboard.writeText(text);
-                  addToast('Copied to clipboard!');
-                }}
                 onToggleTask={handleToggleBacklogTask}
                 onConvertTaskToLog={handleConvertTaskToLog}
                 onOpenAiStandup={() => setIsAiStandupOpen(true)}
@@ -949,25 +958,7 @@ export default function App() {
                     />
                   </div>
 
-                  <TimelineFeed
-                    logs={logs}
-                    projects={projects}
-                    activeTheme={settings.theme}
-                    onEditLog={handleEditLog}
-                    onDeleteLog={handleDeleteLog}
-                    onDuplicateLog={handleDuplicateLog}
-                    onOpenImage={(base64) => setActiveLightboxImage(base64)}
-                    selectedLogIds={selectedLogIds}
-                    onToggleSelectLog={handleToggleSelectLog}
-                    onSelectAllVisible={(ids) => setSelectedLogIds(ids)}
-                    onClearSelection={() => setSelectedLogIds([])}
-                    onOpenAiStandupWithSelected={() => setIsAiStandupOpen(true)}
-                    onCopyText={(text) => {
-                      navigator.clipboard.writeText(text);
-                      addToast('Copied to clipboard!');
-                    }}
-                    onOpenEodSynthesizer={handleOpenEodSynthesizer}
-                  />
+                  <TimelineFeed {...logListProps} />
                 </div>
 
                 {/* Right 4 Cols: Consolidated Sticky Command Sidebar */}
@@ -1093,7 +1084,10 @@ export default function App() {
         onClose={() => setIsSearchOpen(false)}
         logs={logs}
         projects={projects}
-        onSelectLog={(log) => addToast(`Viewing log: ${log.projectName}`, 'info')}
+        onSelectLog={(log) => {
+          setActiveTab('feed');
+          setFocusLogId(log.id);
+        }}
         onOpenImage={(base64) => setActiveLightboxImage(base64)}
       />
 
@@ -1104,6 +1098,24 @@ export default function App() {
       />
 
       {/* Dismissable Toast Notifications */}
+      {showEditorDialog && (
+        <LogEditorDialog
+          projects={projects}
+          availableTags={tags}
+          activeTheme={settings.theme}
+          editingLog={editingLog}
+          prefill={prefillLog}
+          onAddLog={handleAddLog}
+          onUpdateLog={handleUpdateLog}
+          onAddProject={handleAddProject}
+          onAddTag={handleAddTag}
+          onClose={() => {
+            setEditingLog(null);
+            setPrefillLog(null);
+          }}
+        />
+      )}
+
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
     </div>
   );

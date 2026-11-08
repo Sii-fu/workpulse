@@ -37,6 +37,8 @@ interface DailyLoggerProps {
   onAddLog: (log: Omit<WorkLog, 'id' | 'createdAt'>) => void;
   onAddProject: (name: string, color: string) => void;
   onAddTag: (tag: string) => void;
+  /** The dialog already says what the form is for; skip the "pre-filled from task" strip. */
+  hidePrefillBanner?: boolean;
 }
 
 const PRESET_DURATIONS = [
@@ -60,6 +62,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   onAddLog,
   onAddProject,
   onAddTag,
+  hidePrefillBanner,
 }) => {
   const today = localDateStr();
   const nowTime = localTimeStr();
@@ -356,7 +359,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
             </div>
           )}
 
-          {prefillData && !editingLog && (
+          {prefillData && !editingLog && !hidePrefillBanner && (
             <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <Zap className="w-3.5 h-3.5 text-[var(--accent-text)] fill-current shrink-0" />

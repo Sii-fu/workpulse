@@ -1,34 +1,21 @@
 import React, { useState } from 'react';
-import { defaultProject, activeProjectsOf } from '../../utils/projects';
-import { localDateStr, localTimeStr } from '../../utils/dates';
-import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
-import {
-  CornerDownLeft,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  ExternalLink,
-  Copy,
-  Trash2,
-  CopyCheck,
-  ListTodo,
-  Check,
-  Zap,
-} from 'lucide-react';
+import { activeProjectsOf } from '../../utils/projects';
+import { isPendingTask } from '../../utils/taskLogging';
+import { useQuickLog } from '../../hooks/useQuickLog';
+import { useLogFilters } from '../../hooks/useLogFilters';
+import { useFocusLog, logRowId } from '../../hooks/useFocusLog';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { LogListProps, QuickLogProps, TaskQueueProps } from '../feed/types';
+import { LogFilterBar } from '../feed/LogFilterBar';
+import { SelectionBar } from '../feed/SelectionBar';
+import { SelectBox } from '../feed/SelectBox';
+import { LogActions } from '../feed/LogActions';
+import { StatusBadge } from '../feed/StatusBadge';
+import { MicroTasks } from '../feed/MicroTasks';
+import { IconButton } from '../ui/IconButton';
+import { CornerDownLeft, ListTodo, Check, Zap, SquarePen, X } from 'lucide-react';
 
-interface CompactConsoleLayoutProps {
-  logs: WorkLog[];
-  backlog: BacklogTask[];
-  projects: Project[];
-  availableTags: string[];
-  onAddLog: (log: Omit<WorkLog, 'id' | 'createdAt'>) => void;
-  onDeleteLog: (id: string) => void;
-  onDuplicateLog: (log: WorkLog) => void;
-  onOpenImage: (base64: string) => void;
-  onCopyText: (text: string) => void;
-  onToggleTask: (taskId: string) => void;
-  onConvertTaskToLog?: (task: BacklogTask) => void;
-}
+type CompactConsoleLayoutProps = LogListProps & QuickLogProps & TaskQueueProps;
 
 export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   logs,
@@ -36,55 +23,48 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   projects,
   availableTags,
   onAddLog,
+  onOpenDetails,
+  onEditLog,
   onDeleteLog,
   onDuplicateLog,
   onOpenImage,
   onCopyText,
   onToggleTask,
   onConvertTaskToLog,
+  selectedLogIds,
+  onToggleSelectLog,
+  onSelectAllVisible,
+  onClearSelection,
+  onOpenAiStandupWithSelected,
+  onOpenEodSynthesizer,
+  focusLogId,
+  onFocusLogHandled,
 }) => {
-  const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState(defaultProject(projects)?.id || '');
-  const [status, setStatus] = useState<TaskStatus>('completed');
-  const [duration, setDuration] = useState('30');
+  const quick = useQuickLog(projects, onAddLog, { withDuration: true });
+  const list = useLogFilters(logs);
+  useFocusLog(focusLogId, list.reset, onFocusLogHandled);
   const [showBacklog, setShowBacklog] = useState(false);
+  // The table needs about 760 px; below that each log becomes a card so its actions stay on screen.
+  const isWide = useMediaQuery('(min-width: 768px)');
 
-  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
-
-  const handleQuickSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!description.trim()) return;
-
-    onAddLog({
-      date: localDateStr(),
-      time: localTimeStr(),
-      projectId: activeProject?.id || 'default',
-      projectName: activeProject?.name || 'General',
-      description: description.trim(),
-      status,
-      tags: [],
-      durationMinutes: parseInt(duration) || undefined,
-      energyRating: 4,
-    });
-
-    setDescription('');
-  };
-
-  const pendingTasks = backlog.filter((t) => !t.completed && t.stage !== 'done');
+  const pendingTasks = backlog.filter(isPendingTask);
+  const control = 'h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] cursor-pointer';
 
   return (
     <div className="space-y-3 font-mono text-xs">
-      
       {/* 1. Horizontal Single-Line Command Bar (Zero Vertical Wastage) */}
       <form
-        onSubmit={handleQuickSubmit}
+        onSubmit={(e) => {
+          e.preventDefault();
+          quick.submit();
+        }}
         className="glass-panel p-1.5 flex flex-wrap sm:flex-nowrap items-center gap-1.5 border border-[var(--border-app)] shadow-xs"
       >
-        {/* Project selector */}
         <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs font-semibold text-[var(--text-main)] cursor-pointer"
+          value={quick.projectId}
+          onChange={(e) => quick.setProjectId(e.target.value)}
+          aria-label="Project"
+          className={`${control} font-semibold`}
         >
           {activeProjectsOf(projects).map((p) => (
             <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
@@ -93,62 +73,80 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           ))}
         </select>
 
-        {/* Inline input */}
         <input
           type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          value={quick.description}
+          onChange={(e) => quick.setDescription(e.target.value)}
           aria-label="Quick log description"
           placeholder="Fast single-line log (e.g. Fixed caching race condition)..."
-          className="flex-1 h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--accent)] font-sans"
+          className="flex-1 min-w-[10rem] h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] focus:border-[var(--accent)] font-sans"
         />
 
-        {/* Status */}
         <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as TaskStatus)}
-          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] cursor-pointer"
+          value={quick.status}
+          onChange={(e) => quick.setStatus(e.target.value as typeof quick.status)}
+          aria-label="Status"
+          className={control}
         >
           <option value="completed" className="bg-[var(--bg-surface)]">DONE</option>
           <option value="in_progress" className="bg-[var(--bg-surface)]">IN_PROG</option>
           <option value="blocked" className="bg-[var(--bg-surface)]">BLOCKED</option>
         </select>
 
-        {/* Duration */}
-        <div className="flex items-center gap-1 h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded">
+        {availableTags.length > 0 && (
+          <select value={quick.tag} onChange={(e) => quick.setTag(e.target.value)} aria-label="Tag" className={`${control} max-w-[7rem]`}>
+            <option value="" className="bg-[var(--bg-surface)]">no tag</option>
+            {availableTags.map((t) => (
+              <option key={t} value={t} className="bg-[var(--bg-surface)]">
+                {t}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <div className="flex items-center gap-1 h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded">
           <input
             type="number"
             aria-label="Duration in minutes"
             min={5}
             step={5}
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            className="w-8 text-center text-xs bg-transparent"
+            value={quick.duration}
+            onChange={(e) => quick.setDuration(e.target.value)}
+            className="w-10 text-center text-xs bg-transparent"
           />
           <span className="text-[10px] text-[var(--text-muted)]">m</span>
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           className="h-8 px-3 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
         >
           <span>LOG</span>
-          <CornerDownLeft className="w-3 h-3 opacity-70" />
+          <CornerDownLeft className="w-3 h-3" aria-hidden="true" />
         </button>
 
-        {/* Toggle Backlog Drawer */}
+        <IconButton
+          label="Add details"
+          hint="Add a link, screenshot, several tags or a date"
+          onClick={() => onOpenDetails(quick.detailsDraft())}
+          className="h-8 border border-[var(--border-control)] bg-[var(--bg-subtle)]"
+        >
+          <SquarePen className="w-3.5 h-3.5" />
+        </IconButton>
+
         <button
           type="button"
           onClick={() => setShowBacklog(!showBacklog)}
+          aria-expanded={showBacklog}
           className={`h-8 px-2.5 rounded border border-[var(--border-control)] text-xs flex items-center gap-1 cursor-pointer transition-colors ${
             showBacklog
               ? 'bg-[var(--accent)] text-[var(--on-accent)] font-bold'
               : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
           title="Toggle Tasks Drawer"
+          aria-label={`Pending tasks: ${pendingTasks.length}`}
         >
-          <ListTodo className="w-3.5 h-3.5" />
+          <ListTodo className="w-3.5 h-3.5" aria-hidden="true" />
           <span>{pendingTasks.length}</span>
         </button>
       </form>
@@ -157,13 +155,10 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       {showBacklog && (
         <div className="glass-panel p-3 border border-[var(--border-app)] space-y-2">
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
-            <span>Pending Fast Backlog ({pendingTasks.length})</span>
-            <button
-              onClick={() => setShowBacklog(false)}
-              className="hover:text-[var(--text-main)] text-xs"
-            >
-              ✕
-            </button>
+            <span>Pending tasks ({pendingTasks.length})</span>
+            <IconButton label="Close tasks drawer" onClick={() => setShowBacklog(false)}>
+              <X className="w-3.5 h-3.5" />
+            </IconButton>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {pendingTasks.map((t) => (
@@ -172,14 +167,9 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                 className="p-2 rounded bg-[var(--bg-subtle)] border border-[var(--border-app)] hover:border-[var(--accent)] flex items-center justify-between gap-2"
               >
                 <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => onToggleTask(t.id)}
-                    className="hover:text-success text-[10px] text-[var(--text-muted)] cursor-pointer p-0.5 rounded"
-                    title="Toggle completed"
-                  >
+                  <IconButton label={`Check off task: ${t.title}`} hint="Check off task" onClick={() => onToggleTask(t.id)} className="hover:text-success">
                     <Check className="w-3.5 h-3.5" />
-                  </button>
+                  </IconButton>
                   <span className="truncate">{t.title}</span>
                 </div>
                 {onConvertTaskToLog && (
@@ -188,8 +178,9 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                     onClick={() => onConvertTaskToLog(t)}
                     className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold cursor-pointer shrink-0 flex items-center gap-1"
                     title="Log to Work Log and Sheet"
+                    aria-label={`Log task: ${t.title}`}
                   >
-                    <Zap className="w-2.5 h-2.5 fill-current" />
+                    <Zap className="w-2.5 h-2.5 fill-current" aria-hidden="true" />
                     <span>LOG</span>
                   </button>
                 )}
@@ -199,94 +190,164 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         </div>
       )}
 
-      {/* 2. Full-Width Dense Spreadsheet Feed (Locked to h-9/h-10) */}
+      <LogFilterBar {...list} projects={projects} shown={list.visible.length} total={logs.length} dense />
+
+      <SelectionBar
+        visibleIds={list.visible.map((l) => l.id)}
+        selectedIds={selectedLogIds}
+        onSelectAll={onSelectAllVisible}
+        onClear={onClearSelection}
+        onGenerateStandup={onOpenAiStandupWithSelected}
+        onOpenEod={onOpenEodSynthesizer}
+        dense
+      />
+
+      {/* 2a. Phones: one card per log */}
+      {!isWide && (
+        <ul className="space-y-2 font-sans">
+          {list.visible.length === 0 && (
+            <li className="glass-panel px-3 py-8 text-center text-[var(--text-muted)]">
+              {logs.length === 0 ? 'Nothing logged yet. Use the bar above.' : 'No logs match these filters.'}
+            </li>
+          )}
+          {list.visible.map((log) => {
+            const project = projects.find((p) => p.id === log.projectId);
+            return (
+              <li key={log.id} id={logRowId(log.id)} tabIndex={-1} className="glass-panel p-3 space-y-1.5 scroll-mt-24">
+                <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: project?.color || '#6366f1' }} aria-hidden="true" />
+                    <span className="font-semibold text-[var(--text-main)] truncate">{log.projectName}</span>
+                  </span>
+                  <StatusBadge status={log.status} variant="bracket" />
+                </div>
+                <p className="text-xs text-[var(--text-main)] whitespace-pre-line">{log.description}</p>
+                <p className="font-mono text-[10px] text-[var(--text-muted)]">
+                  {log.date} {log.time} · {log.durationMinutes ? `${log.durationMinutes}m` : '-'}
+                  {log.tags.length > 0 && ` · ${log.tags.join(' ')}`}
+                </p>
+                {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}
+                <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
+                  <span className="flex items-center gap-3 text-[10px]">
+                    {log.imageBase64 && (
+                      <button type="button" onClick={() => onOpenImage(log.imageBase64 as string)} className="text-[var(--accent-text)] hover:underline cursor-pointer">
+                        [IMG]
+                      </button>
+                    )}
+                    {log.linkUrl && (
+                      <a href={log.linkUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--accent-text)] hover:underline" aria-label={`Open link ${log.linkUrl}`}>
+                        [LINK]
+                      </a>
+                    )}
+                  </span>
+                  <LogActions log={log} onCopyText={onCopyText} onEdit={onEditLog} onDuplicate={onDuplicateLog} onDelete={onDeleteLog} variant="text" />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* 2b. Full-Width Dense Spreadsheet Feed */}
+      {isWide && (
       <div className="glass-panel overflow-x-auto border border-[var(--border-app)] shadow-xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] uppercase tracking-wider text-[10px] h-9">
+              <th className="pl-2.5 w-8"><span className="sr-only">Select</span></th>
               <th className="px-2.5 w-24">Date</th>
               <th className="px-2.5 w-32">Project</th>
               <th className="px-2.5">Work Description</th>
               <th className="px-2.5 w-24">Status</th>
               <th className="px-2.5 w-16 text-right">Mins</th>
-              <th className="px-2.5 w-24 text-right">Hotkeys</th>
+              <th className="px-2.5 w-36 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-app)]">
-            {logs.map((log) => {
+            {list.visible.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-[var(--text-muted)] font-sans">
+                  {logs.length === 0 ? 'Nothing logged yet. Use the bar above.' : 'No logs match these filters.'}
+                </td>
+              </tr>
+            )}
+            {list.visible.map((log) => {
               const project = projects.find((p) => p.id === log.projectId);
 
               return (
                 <tr
                   key={log.id}
-                  className="h-9 hover:bg-[var(--bg-subtle-hover)] transition-colors group"
+                  id={logRowId(log.id)}
+                  tabIndex={-1}
+                  className="min-h-9 hover:bg-[var(--bg-subtle-hover)] transition-colors group align-top scroll-mt-24"
                 >
-                  <td className="px-2.5 text-[var(--text-muted)] whitespace-nowrap">
-                    {log.date}
+                  <td className="pl-2.5 pt-1.5">
+                    <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
                   </td>
-                  <td className="px-2.5 font-semibold text-[var(--text-main)] whitespace-nowrap truncate max-w-[130px]">
+                  <td className="px-2.5 py-2 text-[var(--text-muted)] whitespace-nowrap">{log.date}</td>
+                  <td className="px-2.5 py-2 font-semibold text-[var(--text-main)] whitespace-nowrap truncate max-w-[130px]">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span
                         className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{ backgroundColor: project?.color || '#6366f1' }}
+                        aria-hidden="true"
                       />
                       <span className="truncate" title={log.projectName}>
                         {log.projectName}
                       </span>
                     </span>
                   </td>
-                  <td className="px-2.5 text-[var(--text-main)] font-sans truncate max-w-[420px]">
-                    <span className="truncate">{log.description}</span>
-                    {log.imageBase64 && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenImage(log.imageBase64 as string)}
-                        className="ml-2 text-[10px] text-[var(--accent-text)] hover:underline cursor-pointer"
-                        title="View screenshot"
-                      >
-                        [IMG]
-                      </button>
-                    )}
-                    {log.linkUrl && (
-                      <a
-                        href={log.linkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 text-[10px] text-[var(--accent-text)] hover:underline"
-                        title={log.linkUrl}
-                      >
-                        [LINK]
-                      </a>
-                    )}
+                  <td className="px-2.5 py-2 text-[var(--text-main)] font-sans max-w-[420px]">
+                    <span className="block truncate" title={log.description}>
+                      {log.description}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--text-muted)] empty:hidden">
+                      {log.tags.map((t) => (
+                        <span key={t}>{t}</span>
+                      ))}
+                      {log.imageBase64 && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenImage(log.imageBase64 as string)}
+                          className="text-[var(--accent-text)] hover:underline cursor-pointer"
+                          title="View screenshot"
+                          aria-label="View screenshot"
+                        >
+                          [IMG]
+                        </button>
+                      )}
+                      {log.linkUrl && (
+                        <a
+                          href={log.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--accent-text)] hover:underline"
+                          title={log.linkUrl}
+                          aria-label={`Open link ${log.linkUrl}`}
+                        >
+                          [LINK]
+                        </a>
+                      )}
+                    </span>
+                    {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}
                   </td>
-                  <td className="px-2.5 whitespace-nowrap">
-                    {log.status === 'completed' ? (
-                      <span className="text-success font-bold text-[10px]">[DONE]</span>
-                    ) : log.status === 'in_progress' ? (
-                      <span className="text-info font-bold text-[10px]">[IN_PROG]</span>
-                    ) : (
-                      <span className="text-danger font-bold text-[10px]">[BLOCK]</span>
-                    )}
+                  <td className="px-2.5 py-2 whitespace-nowrap">
+                    <StatusBadge status={log.status} variant="bracket" />
                   </td>
-                  <td className="px-2.5 text-right tabular-nums text-[var(--text-muted)] whitespace-nowrap">
+                  <td className="px-2.5 py-2 text-right tabular-nums text-[var(--text-muted)] whitespace-nowrap">
                     {log.durationMinutes ? `${log.durationMinutes}m` : '-'}
                   </td>
-                  <td className="px-2.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => onDuplicateLog(log)}
-                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-[var(--accent-text)] text-[10px] cursor-pointer"
-                        title="Duplicate"
-                      >
-                        DUP
-                      </button>
-                      <button
-                        onClick={() => onDeleteLog(log.id)}
-                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-danger text-[10px] cursor-pointer"
-                        title="Delete"
-                      >
-                        DEL
-                      </button>
+                  <td className="px-2.5 py-1.5 text-right whitespace-nowrap">
+                    <div className="flex justify-end">
+                      <LogActions
+                        log={log}
+                        onCopyText={onCopyText}
+                        onEdit={onEditLog}
+                        onDuplicate={onDuplicateLog}
+                        onDelete={onDeleteLog}
+                        variant="text"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -295,7 +356,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           </tbody>
         </table>
       </div>
-
+      )}
     </div>
   );
 };

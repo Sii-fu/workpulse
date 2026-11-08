@@ -4,14 +4,13 @@ import {
   Sparkles,
   Search,
   Settings,
-  Layers,
-  BarChart3,
-  ListTodo,
   FileSpreadsheet,
   Terminal,
   Sun,
   Moon,
+  RefreshCw,
 } from 'lucide-react';
+import { NAV_TABS } from '../utils/nav';
 
 interface TopBarProps {
   activeTab: AppNavTab;
@@ -111,57 +110,21 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Zone 2: Navigation Links (Desktop) */}
         <nav aria-label="Main" className="hidden md:flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-[var(--radius-btn)] border border-[var(--border-app)]">
-          <button
-            onClick={() => setActiveTab('feed')}
-            aria-current={activeTab === 'feed' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-              activeTab === 'feed'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Timeline</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('backlog')}
-            aria-current={activeTab === 'backlog' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-              activeTab === 'backlog'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <ListTodo className="w-3.5 h-3.5" />
-            <span>Tasks</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analytics')}
-            aria-current={activeTab === 'analytics' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-              activeTab === 'analytics'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Analytics</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            aria-current={activeTab === 'settings' ? 'page' : undefined}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Settings</span>
-          </button>
+          {NAV_TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              aria-current={activeTab === id ? 'page' : undefined}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                activeTab === id
+                  ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
         </nav>
 
         {/* Zone 3: Actions (Search, AI Standup, Dark/Light Toggle) */}
@@ -177,6 +140,25 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">AI Standup</span>
           </button>
+
+          {/* Sync, for screens too narrow for the status pill above */}
+          {hasGoogleSheetLinked && onSyncGoogleSheet && (
+            <button
+              type="button"
+              onClick={onSyncGoogleSheet}
+              disabled={isSyncing}
+              className="xl:hidden relative p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] border border-transparent hover:border-[var(--border-control)] transition-colors cursor-pointer disabled:opacity-50"
+              title={unsyncedCount > 0 ? `Sync ${unsyncedCount} unsynced logs to Google Sheet` : 'Google Sheet is up to date. Sync again.'}
+              aria-label={unsyncedCount > 0 ? `Sync to Google Sheet, ${unsyncedCount} waiting` : 'Sync to Google Sheet'}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+              {unsyncedCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[10px] font-bold flex items-center justify-center" aria-hidden="true">
+                  {unsyncedCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Quick Search palette (Cmd+K) */}
           <button

@@ -2,23 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { parseLogCommand } from '../../utils/logCommand';
 import { defaultProject, activeProjectsOf } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
-import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
-import { Terminal, Send, Trash2, Copy, Check } from 'lucide-react';
+import { TaskStatus } from '../../types';
+import { isPendingTask } from '../../utils/taskLogging';
+import { useLogFilters } from '../../hooks/useLogFilters';
+import { useFocusLog, logRowId } from '../../hooks/useFocusLog';
+import { LogListProps, QuickLogProps, TaskQueueProps } from '../feed/types';
+import { LogFilterBar } from '../feed/LogFilterBar';
+import { SelectionBar } from '../feed/SelectionBar';
+import { SelectBox } from '../feed/SelectBox';
+import { LogActions } from '../feed/LogActions';
+import { StatusBadge } from '../feed/StatusBadge';
+import { MicroTasks } from '../feed/MicroTasks';
 
-interface MatrixTuiLayoutProps {
-  logs: WorkLog[];
-  backlog: BacklogTask[];
-  projects: Project[];
-  hasGoogleSheetLinked: boolean;
-  onAddLog: (log: Omit<WorkLog, 'id' | 'createdAt'>) => void;
-  onDeleteLog: (id: string) => void;
-  onDuplicateLog: (log: WorkLog) => void;
-  onCopyText: (text: string) => void;
-  onToggleTask: (taskId: string) => void;
-  onConvertTaskToLog?: (task: BacklogTask) => void;
-  onOpenAiStandup: () => void;
-  onOpenImage?: (base64: string) => void;
-}
+type MatrixTuiLayoutProps = LogListProps &
+  Omit<QuickLogProps, 'availableTags'> &
+  TaskQueueProps & {
+    hasGoogleSheetLinked: boolean;
+    onOpenAiStandup: () => void;
+  };
 
 export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   logs,
@@ -26,6 +27,8 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   projects,
   hasGoogleSheetLinked,
   onAddLog,
+  onOpenDetails,
+  onEditLog,
   onDeleteLog,
   onDuplicateLog,
   onCopyText,
@@ -33,7 +36,17 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   onConvertTaskToLog,
   onOpenAiStandup,
   onOpenImage,
+  selectedLogIds,
+  onToggleSelectLog,
+  onSelectAllVisible,
+  onClearSelection,
+  onOpenAiStandupWithSelected,
+  onOpenEodSynthesizer,
+  focusLogId,
+  onFocusLogHandled,
 }) => {
+  const list = useLogFilters(logs);
+  useFocusLog(focusLogId, list.reset, onFocusLogHandled);
   const [cliInput, setCliInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([
     'WORKPULSE UNIX SUBSYSTEM v3.8.0-RELEASE',
@@ -65,6 +78,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
         '  log -m "description" [-p "Project"] [-s completed|in_progress|blocked] [-t mins]',
         '  tasks                     (list pending tasks with index numbers)',
         '  done <number>             (log task & commit to sheet, e.g. "done 1")',
+        '  details [text]            (open the full log form: link, screenshot, tags, date)',
         '  standup                   (trigger AI standup generator)',
         '  clear                     (clear terminal history)',
         '  or simply type text to log to default project',
@@ -79,6 +93,15 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       return;
     }
 
+    if (lower === 'details' || lower.startsWith('details ')) {
+      const text = cmd.slice('details'.length).trim();
+      const project = defaultProject(projects);
+      onOpenDetails({ description: text, projectId: project?.id || '', status: 'completed' });
+      setCommandHistory((prev) => [...prev, `$ ${cmd}`, '>> Opening the full log form...']);
+      setCliInput('');
+      return;
+    }
+
     if (lower === 'standup') {
       onOpenAiStandup();
       setCommandHistory((prev) => [...prev, `$ ${cmd}`, '>> Opening AI Standup Hub...']);
@@ -87,7 +110,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
     }
 
     if (lower === 'tasks') {
-      const pending = backlog.filter((t) => !t.completed && t.stage !== 'done');
+      const pending = backlog.filter(isPendingTask);
       const lines = pending.length
         ? pending.map(
             (t, idx) =>
@@ -108,7 +131,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
     if (lower.startsWith('done ') || lower.startsWith('logtask ')) {
       const parts = cmd.split(' ');
       const idx = parseInt(parts[1]) - 1;
-      const pending = backlog.filter((t) => !t.completed && t.stage !== 'done');
+      const pending = backlog.filter(isPendingTask);
       if (pending[idx]) {
         if (onConvertTaskToLog) {
           onConvertTaskToLog(pending[idx]);
@@ -215,6 +238,17 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
           >
             EXEC
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              onOpenDetails({ description: cliInput.trim(), projectId: defaultProject(projects)?.id || '', status: 'completed' });
+              setCliInput('');
+            }}
+            title="Open the full log form: link, screenshot, tags, date"
+            className="px-2 py-0.5 border border-[var(--border-control)] text-[var(--text-main)] font-bold text-[10px] uppercase cursor-pointer hover:bg-[var(--bg-subtle)]"
+          >
+            DETAILS
+          </button>
         </form>
       </div>
 
@@ -222,43 +256,82 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       <div className="border border-[var(--border-app)] bg-[var(--bg-surface)] p-3 space-y-2">
         <div className="flex items-center justify-between border-b border-[var(--border-app)] pb-1.5 text-[11px] text-[var(--text-muted)]">
           <span>+---[ STORED WORK LOGS ]---+</span>
-          <span>TOTAL: {logs.length} RECORDS</span>
+          <span>
+            SHOWING: {list.visible.length} / {logs.length} RECORDS
+          </span>
         </div>
 
+        <LogFilterBar {...list} projects={projects} shown={list.visible.length} total={logs.length} dense />
+
+        <SelectionBar
+          visibleIds={list.visible.map((l) => l.id)}
+          selectedIds={selectedLogIds}
+          onSelectAll={onSelectAllVisible}
+          onClear={onClearSelection}
+          onGenerateStandup={onOpenAiStandupWithSelected}
+          onOpenEod={onOpenEodSynthesizer}
+          dense
+        />
+
         <div className="divide-y divide-[var(--border-app)] text-[11px]">
-          {logs.map((log) => (
-            <div key={log.id} className="py-2.5 space-y-1 hover:bg-[var(--bg-subtle)]/30 px-1">
-              <div className="flex items-center justify-between">
-                <span className="font-bold">
-                  [{log.date} {log.time}] [{log.projectName.toUpperCase()}]
+          {list.visible.length === 0 && (
+            <p className="py-6 text-center text-[var(--text-muted)]">
+              {logs.length === 0 ? '>> no records. type a message above.' : '>> no records match these filters.'}
+            </p>
+          )}
+          {list.visible.map((log) => (
+            <div
+              key={log.id}
+              id={logRowId(log.id)}
+              tabIndex={-1}
+              className="py-2.5 space-y-1 hover:bg-[var(--bg-subtle)]/30 px-1 group scroll-mt-24"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold flex items-center gap-1.5 min-w-0">
+                  <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
+                  <span className="truncate">
+                    [{log.date} {log.time}] [{log.projectName.toUpperCase()}]
+                  </span>
                 </span>
-                <span className={log.status === 'completed' ? 'text-[var(--text-main)]' : 'text-warning'}>
-                  [{log.status.toUpperCase()}]
-                </span>
+                <StatusBadge status={log.status} variant="bracket" />
               </div>
-              <p className="text-[var(--text-main)] opacity-90">&gt; {log.description}</p>
-              <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-0.5">
-                <span>
-                  TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ')}
+              <p className="text-[var(--text-main)] whitespace-pre-line">&gt; {log.description}</p>
+              {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-[var(--text-muted)] pt-0.5">
+                <span className="flex flex-wrap items-center gap-x-2">
+                  <span>
+                    TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ') || '-'}
+                  </span>
                   {log.imageBase64 && onOpenImage && (
-                    <button onClick={() => onOpenImage(log.imageBase64 as string)} className="ml-2 hover:text-[var(--text-main)] cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => onOpenImage(log.imageBase64 as string)}
+                      className="hover:text-[var(--text-main)] cursor-pointer"
+                      aria-label="View screenshot"
+                    >
                       [IMG]
                     </button>
                   )}
                   {log.linkUrl && (
-                    <a href={log.linkUrl} target="_blank" rel="noopener noreferrer" className="ml-2 hover:text-[var(--text-main)]">
+                    <a
+                      href={log.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-[var(--text-main)]"
+                      aria-label={`Open link ${log.linkUrl}`}
+                    >
                       [LINK]
                     </a>
                   )}
                 </span>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => onDuplicateLog(log)} className="hover:text-[var(--text-main)] cursor-pointer">
-                    [CLONE]
-                  </button>
-                  <button onClick={() => onDeleteLog(log.id)} className="hover:text-danger cursor-pointer">
-                    [RM]
-                  </button>
-                </div>
+                <LogActions
+                  log={log}
+                  onCopyText={onCopyText}
+                  onEdit={onEditLog}
+                  onDuplicate={onDuplicateLog}
+                  onDelete={onDeleteLog}
+                  variant="bracket"
+                />
               </div>
             </div>
           ))}

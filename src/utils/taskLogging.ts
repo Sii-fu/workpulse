@@ -33,3 +33,8 @@ export function isEodCandidate(t: BacklogTask, todayStr: string, isCustomSelecti
   const hasActivity = unlogged > 0 || t.completed || t.stage !== 'planned';
   return isToday && hasActivity;
 }
+
+// A task that still needs doing: not checked off and not in the Done stage.
+export function isPendingTask(t: BacklogTask): boolean {
+  return !t.completed && t.stage !== 'done';
+}
