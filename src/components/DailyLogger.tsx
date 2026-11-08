@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { downscaleImage } from '../utils/image';
 import { Project, TaskStatus, WorkLog, ThemeId } from '../types';
 import {
   saveActiveDraft,
@@ -159,13 +160,12 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setImageBase64(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    downscaleImage(file)
+      .then((dataUrl) => setImageBase64(dataUrl))
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Could not load that image.');
+        e.target.value = '';
+      });
   };
 
   const handleSubmit = (e?: React.FormEvent) => {

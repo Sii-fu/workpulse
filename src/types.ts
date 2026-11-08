@@ -74,4 +74,13 @@ export interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
+  action?: { label: string; onClick: () => void };
+}
+
+export interface BackupData {
+  logs: WorkLog[];
+  backlog: BacklogTask[];
+  projects: Project[];
+  tags: string[];
+  settings: AppSettings;
 }

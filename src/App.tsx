@@ -10,15 +10,19 @@ import {
   ToastMessage,
   TaskStatus,
   TaskStage,
+  BackupData,
 } from './types';
 import {
   loadStoredData,
-  saveLogs,
-  saveBacklog,
-  saveProjects,
-  saveTags,
-  saveSettings,
+  saveLogs as storeLogs,
+  saveBacklog as storeBacklog,
+  saveProjects as storeProjects,
+  saveTags as storeTags,
+  saveSettings as storeSettings,
+  replaceAllData,
+  SaveResult,
 } from './utils/storage';
+import { buildBackup, downloadTextFile } from './utils/backup';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -105,13 +109,39 @@ export default function App() {
   const loggerRef = useRef<HTMLDivElement>(null);
 
   // Helper to add toast
-  const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const addToast = (
+    message: string,
+    type: 'success' | 'error' | 'info' = 'success',
+    action?: ToastMessage['action'],
+  ) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    setToasts((prev) => [...prev, { id, type, message, action }]);
+    setTimeout(
+      () => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      },
+      action ? 6000 : 3500,
+    );
   };
+
+  // Save wrappers: a failed save (storage full or blocked) shows one error toast per 30 s
+  // instead of failing silently. Callers can still read the returned result.
+  const lastSaveErrorAt = useRef(0);
+  const persist = (result: SaveResult, what: string): SaveResult => {
+    if (!result.ok && Date.now() - lastSaveErrorAt.current > 30000) {
+      lastSaveErrorAt.current = Date.now();
+      addToast(
+        `Could not save ${what}: browser storage is full or blocked. Export a backup now (Settings).`,
+        'error',
+      );
+    }
+    return result;
+  };
+  const saveLogs = (v: WorkLog[]) => persist(storeLogs(v), 'work logs');
+  const saveBacklog = (v: BacklogTask[]) => persist(storeBacklog(v), 'tasks');
+  const saveProjects = (v: Project[]) => persist(storeProjects(v), 'projects');
+  const saveTags = (v: string[]) => persist(storeTags(v), 'tags');
+  const saveSettings = (v: AppSettings) => persist(storeSettings(v), 'settings');
 
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -124,6 +154,9 @@ export default function App() {
     setBacklog(loaded.backlog);
     setProjects(loaded.projects);
     setTags(loaded.tags);
+    if (loaded.warnings.length > 0) {
+      addToast(loaded.warnings.join(' '), 'error');
+    }
 
     const activeTheme = loaded.settings?.theme || 'modern';
     const activeMode = loaded.settings?.colorMode || (activeTheme === 'minimalist' ? 'light' : 'dark');
@@ -223,8 +256,7 @@ export default function App() {
 
     const updated = [newLog, ...logs];
     setLogs(updated);
-    saveLogs(updated);
-    addToast('Work log recorded successfully!');
+    if (saveLogs(updated).ok) addToast('Work log recorded successfully!');
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
@@ -236,11 +268,24 @@ export default function App() {
   };
 
   const handleDeleteLog = (id: string) => {
+    const index = logs.findIndex((l) => l.id === id);
+    if (index === -1) return;
+    const removed = logs[index];
     const updated = logs.filter((l) => l.id !== id);
     setLogs(updated);
     saveLogs(updated);
     setSelectedLogIds((prev) => prev.filter((i) => i !== id));
-    addToast('Work log removed', 'info');
+    addToast('Work log removed', 'info', {
+      label: 'Undo',
+      onClick: () =>
+        setLogs((prev) => {
+          if (prev.some((l) => l.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(index, next.length), 0, removed);
+          saveLogs(next);
+          return next;
+        }),
+    });
   };
 
   const handleDuplicateLog = (log: WorkLog) => {
@@ -253,8 +298,7 @@ export default function App() {
     };
     const updated = [duplicated, ...logs];
     setLogs(updated);
-    saveLogs(updated);
-    addToast('Log duplicated for today', 'success');
+    if (saveLogs(updated).ok) addToast('Log duplicated for today', 'success');
   };
 
   // Backlog & Focus Workspace handlers
@@ -474,10 +518,23 @@ export default function App() {
   };
 
   const handleDeleteBacklogTask = (taskId: string) => {
+    const index = backlog.findIndex((t) => t.id === taskId);
+    if (index === -1) return;
+    const removed = backlog[index];
     const updated = backlog.filter((t) => t.id !== taskId);
     setBacklog(updated);
     saveBacklog(updated);
-    addToast('Task removed', 'info');
+    addToast('Task removed', 'info', {
+      label: 'Undo',
+      onClick: () =>
+        setBacklog((prev) => {
+          if (prev.some((t) => t.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(index, next.length), 0, removed);
+          saveBacklog(next);
+          return next;
+        }),
+    });
   };
 
   const handleAddProject = (name: string, color: string) => {
@@ -502,7 +559,15 @@ export default function App() {
   };
 
   const handleResetSeedData = () => {
-    if (window.confirm('Reset all work logs and backlog to the default software engineering seed data?')) {
+    if (
+      window.confirm(
+        'Replace all work logs, tasks, projects and tags with the demo data? A backup file of your current data will be downloaded first.',
+      )
+    ) {
+      downloadTextFile(
+        `workpulse-pre-reset-${new Date().toISOString().split('T')[0]}.json`,
+        buildBackup({ logs, backlog, projects, tags, settings }),
+      );
       const seed = getInitialSeedData();
       setLogs(seed.logs);
       setBacklog(seed.backlog);
@@ -512,8 +577,19 @@ export default function App() {
       saveBacklog(seed.backlog);
       saveProjects(seed.projects);
       saveTags(seed.tags);
-      addToast('Reset to software engineering seed data');
+      addToast('Reset to demo data. Your previous data was downloaded as a backup file.');
     }
+  };
+
+  const handleImportBackup = (data: BackupData) => {
+    // Keep this machine's API key; backups never contain one.
+    const result = replaceAllData({ ...data, settings: { ...data.settings, geminiApiKey: settings.geminiApiKey } });
+    if (!result.ok) {
+      addToast('Import failed: browser storage is full. Nothing was changed.', 'error');
+      return;
+    }
+    // Reload so the normal loader normalises the imported data (stages, rollover, theme).
+    window.location.reload();
   };
 
   const handleSyncGoogleSheet = async () => {
@@ -772,7 +848,8 @@ export default function App() {
             logs={logs}
             backlog={backlog}
             onResetSeedData={handleResetSeedData}
-            onNotify={(msg, type) => addToast(msg, type || 'info')}
+            onImportBackup={handleImportBackup}
+            onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
           />
         )}
 

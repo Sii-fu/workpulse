@@ -23,6 +23,17 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
             {toast.type === 'info' && <Info className="w-4 h-4 text-blue-600 shrink-0" />}
             <span className="font-medium text-xs md:text-sm">{toast.message}</span>
           </div>
+          {toast.action && (
+            <button
+              onClick={() => {
+                toast.action?.onClick();
+                onDismiss(toast.id);
+              }}
+              className="shrink-0 px-2 py-1 rounded text-xs font-bold text-[var(--accent)] hover:underline cursor-pointer"
+            >
+              {toast.action.label}
+            </button>
+          )}
           <button
             onClick={() => onDismiss(toast.id)}
             className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors p-1"
