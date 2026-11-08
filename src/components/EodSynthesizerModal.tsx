@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
 import {
   Sparkles,
@@ -94,39 +95,21 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     setAiWarning(null);
+    // Never keep results from an earlier run: they could be pushed a second time (B4).
+    setSynthesizedItems([]);
+    setSelectedLogIds(new Set());
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Scoping: Strict "Today Only" & Unsent Tasks (Unless explicitly selected by user)
-    const candidateTasks = tasksToUse.filter((t) => {
-      // If user manually multi-selected these tasks in the workspace, synthesize them
-      if (isCustomSelection) {
-        if (t.stage === 'planned' && !t.completed && (!t.elapsedSeconds || t.elapsedSeconds === 0)) return false;
-        return true;
-      }
-
-      // Default scoping: ALWAYS ignore already synthesized tasks
-      if (t.isSynthesized) return false;
-
-      // Planned tasks with no work done are NEVER logged
-      if (t.stage === 'planned' && !t.completed && (!t.elapsedSeconds || t.elapsedSeconds === 0)) return false;
-
-      const isToday =
-        t.dueDate === todayStr ||
-        t.originalDate === todayStr ||
-        t.completedAt?.startsWith(todayStr) ||
-        t.startedAt?.startsWith(todayStr);
-
-      const hasActivity = (t.elapsedSeconds && t.elapsedSeconds > 0) || t.completed || t.stage !== 'planned';
-
-      return isToday && hasActivity;
-    });
+    // Scoping (see isEodCandidate): fully logged tasks are never offered again; tasks with new
+    // time since their last log are.
+    const candidateTasks = tasksToUse.filter((t) => isEodCandidate(t, todayStr, isCustomSelection));
 
     if (candidateTasks.length === 0) {
       setIsLoading(false);
       setErrorMsg(
         isCustomSelection
-          ? 'Selected tasks have no activity to log.'
+          ? 'Selected tasks have no new time to log (tasks that were already logged are skipped).'
           : 'All tasks for today have already been logged to Google Sheet! Only new, unsent tasks with activity will be included in subsequent syntheses.'
       );
       return;
@@ -137,7 +120,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tasks: candidateTasks,
+          tasks: candidateTasks.map(withUnloggedTime),
           projects,
           date: todayStr,
           customApiKey: geminiApiKey,
@@ -611,7 +594,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={isSubmitting || isLoading || selectedLogIds.size === 0}
+              disabled={isSubmitting || isLoading || !!errorMsg || selectedLogIds.size === 0}
               className="px-5 py-2 text-xs font-bold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-md shadow-[var(--accent-glow)] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (

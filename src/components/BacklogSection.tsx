@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BacklogTask, Project, ThemeId, TaskStage } from '../types';
 import {
   Play,
@@ -92,6 +92,16 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
       return next;
     });
   };
+
+  // Drop selections for tasks that were deleted or have since been logged (e.g. after an EOD push).
+  useEffect(() => {
+    setSelectedTaskIds((prev) => {
+      if (prev.size === 0) return prev;
+      const selectable = new Set(backlog.filter((t) => !t.isSynthesized).map((t) => t.id));
+      const next = new Set(Array.from(prev).filter((id) => selectable.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [backlog]);
 
   const handleClearSelection = () => {
     setSelectedTaskIds(new Set());

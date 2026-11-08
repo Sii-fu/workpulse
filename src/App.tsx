@@ -23,6 +23,7 @@ import {
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
+import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -382,6 +383,9 @@ export default function App() {
           isRunning: targetStage === 'in_progress',
           completedAt: undefined,
           startedAt: targetStage === 'in_progress' ? new Date().toISOString() : t.startedAt,
+          // New work after reopening can be logged again; loggedSeconds keeps what was already logged.
+          isSynthesized: false,
+          synthesizedAt: undefined,
         };
       }
       return t;
@@ -404,9 +408,31 @@ export default function App() {
 
   const handleConvertTaskToLog = (task: BacklogTask) => {
     const project = projects.find((p) => p.id === task.projectId) || projects[0];
-    const durationMins = task.elapsedSeconds && task.elapsedSeconds > 0
-      ? Math.max(5, Math.round(task.elapsedSeconds / 60))
-      : 30;
+    const nowIso = new Date().toISOString();
+    const newSeconds = unloggedSeconds(task);
+
+    // Mark the task as logged so the EOD synthesizer does not log it a second time (B3).
+    const markDone = (t: BacklogTask): BacklogTask => ({
+      ...t,
+      completed: true,
+      stage: 'done' as TaskStage,
+      isRunning: false,
+      completedAt: nowIso,
+      isSynthesized: true,
+      synthesizedAt: nowIso,
+      loggedSeconds: task.elapsedSeconds || 0,
+    });
+
+    // Completed again after a reopen with no new tracked time: nothing new to log.
+    if (loggedSecondsOf(task) > 0 && newSeconds === 0) {
+      const done = backlog.map((t) => (t.id === task.id ? markDone(t) : t));
+      setBacklog(done);
+      saveBacklog(done);
+      addToast('Task completed (no new time to log)', 'info');
+      return;
+    }
+
+    const durationMins = newSeconds > 0 ? Math.max(5, Math.round(newSeconds / 60)) : 30;
 
     const newLog: WorkLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -419,20 +445,10 @@ export default function App() {
       tags: ['#deep-work'],
       durationMinutes: durationMins,
       energyRating: 4,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
-    const updatedBacklog = backlog.map((t) =>
-      t.id === task.id
-        ? {
-            ...t,
-            completed: true,
-            stage: 'done' as TaskStage,
-            isRunning: false,
-            completedAt: new Date().toISOString(),
-          }
-        : t
-    );
+    const updatedBacklog = backlog.map((t) => (t.id === task.id ? markDone(t) : t));
     setBacklog(updatedBacklog);
     saveBacklog(updatedBacklog);
 
@@ -472,6 +488,11 @@ export default function App() {
 
     // Preserve tasks 100% visible in their respective sections - ONLY update isSynthesized & synthesizedAt
     const touchedTaskIds = new Set(items.flatMap((i) => i.taskIds));
+    // The seconds each task contributed to these logs (the modal sends only not-yet-logged time).
+    const addedSeconds = new Map<string, number>();
+    items.forEach((i) =>
+      i.underlyingTasks.forEach((u) => addedSeconds.set(u.id, (addedSeconds.get(u.id) || 0) + (u.elapsedSeconds || 0))),
+    );
     const nowIso = new Date().toISOString();
     const updatedBacklog = backlog.map((t) => {
       if (touchedTaskIds.has(t.id)) {
@@ -479,6 +500,7 @@ export default function App() {
           ...t,
           isSynthesized: true,
           synthesizedAt: nowIso,
+          loggedSeconds: loggedSecondsOf(t) + (addedSeconds.get(t.id) || 0),
         };
       }
       return t;

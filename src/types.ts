@@ -41,6 +41,8 @@ export interface BacklogTask {
   isRunning?: boolean;
   isSynthesized?: boolean;
   synthesizedAt?: string;
+  // Seconds of this task's tracked time already written into a log (undefined = nothing yet).
+  loggedSeconds?: number;
 }
 
 export interface Project {
