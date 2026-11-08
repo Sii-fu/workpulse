@@ -15,7 +15,7 @@ import {
 interface AnalyticsViewProps {
   logs: WorkLog[];
   projects: Project[];
-  onNotify: (msg: string) => void;
+  onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
@@ -108,7 +108,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   }, [dailyTimeline, metricType]);
 
   // 1-Click Markdown Export generator
-  const handleExportMarkdown = () => {
+  const handleExportMarkdown = async () => {
     let md = `# WorkPulse Timesheet & Activity Summary\n`;
     md += `*Period: Past ${daysLimit} days (Generated: ${new Date().toLocaleDateString()})*\n\n`;
     md += `## High-Level Metrics\n`;
@@ -134,7 +134,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       md += `- ${statusIcon} **[${l.projectName}]** ${l.description}${duration} — *${l.date}*\n`;
     });
 
-    navigator.clipboard.writeText(md);
+    try {
+      await navigator.clipboard.writeText(md);
+    } catch {
+      onNotify('Could not copy to the clipboard. Check the browser permission and try again.', 'error');
+      return;
+    }
     setCopiedMarkdown(true);
     onNotify('Markdown summary copied to clipboard!');
     setTimeout(() => setCopiedMarkdown(false), 2500);

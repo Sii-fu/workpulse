@@ -17,6 +17,7 @@ interface MatrixTuiLayoutProps {
   onToggleTask: (taskId: string) => void;
   onConvertTaskToLog?: (task: BacklogTask) => void;
   onOpenAiStandup: () => void;
+  onOpenImage?: (base64: string) => void;
 }
 
 export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
@@ -31,6 +32,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   onToggleTask,
   onConvertTaskToLog,
   onOpenAiStandup,
+  onOpenImage,
 }) => {
   const [cliInput, setCliInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([
@@ -235,7 +237,19 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               </div>
               <p className="text-[#00ff66] opacity-90">&gt; {log.description}</p>
               <div className="flex items-center justify-between text-[10px] text-[#3a8a4c] pt-0.5">
-                <span>TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ')}</span>
+                <span>
+                  TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ')}
+                  {log.imageBase64 && onOpenImage && (
+                    <button onClick={() => onOpenImage(log.imageBase64 as string)} className="ml-2 hover:text-[#00ff66] cursor-pointer">
+                      [IMG]
+                    </button>
+                  )}
+                  {log.linkUrl && (
+                    <a href={log.linkUrl} target="_blank" rel="noopener noreferrer" className="ml-2 hover:text-[#00ff66]">
+                      [LINK]
+                    </a>
+                  )}
+                </span>
                 <div className="flex items-center gap-2">
                   <button onClick={() => onDuplicateLog(log)} className="hover:text-[#00ff66] cursor-pointer">
                     [CLONE]
