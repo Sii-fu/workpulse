@@ -8,6 +8,7 @@ import {
   BacklogTask,
   ReportTone,
   BackupData,
+  ToastMessage,
 } from '../types';
 import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
@@ -47,7 +48,7 @@ interface SettingsViewProps {
   backlog: BacklogTask[];
   onResetSeedData: () => void;
   onImportBackup: (data: BackupData) => void;
-  onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
 }
 
 type SettingsSection = 'appearance' | 'sheets' | 'ai' | 'projects' | 'data';
@@ -152,6 +153,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
     const updated = projects.filter((p) => p.id !== id);
     onUpdateProjects(updated);
+    onNotify('Project removed', 'info', { label: 'Undo', onClick: () => onUpdateProjects(projects) });
   };
 
   const handleAddTag = (e: React.FormEvent) => {

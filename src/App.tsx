@@ -109,12 +109,19 @@ export default function App() {
   const loggerRef = useRef<HTMLDivElement>(null);
 
   // Helper to add toast
-  const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const addToast = (
+    message: string,
+    type: 'success' | 'error' | 'info' = 'success',
+    action?: ToastMessage['action'],
+  ) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    setToasts((prev) => [...prev, { id, type, message, action }]);
+    setTimeout(
+      () => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      },
+      action ? 6000 : 3500,
+    );
   };
 
   // Save wrappers: a failed save (storage full or blocked) shows one error toast per 30 s
@@ -261,11 +268,24 @@ export default function App() {
   };
 
   const handleDeleteLog = (id: string) => {
+    const index = logs.findIndex((l) => l.id === id);
+    if (index === -1) return;
+    const removed = logs[index];
     const updated = logs.filter((l) => l.id !== id);
     setLogs(updated);
     saveLogs(updated);
     setSelectedLogIds((prev) => prev.filter((i) => i !== id));
-    addToast('Work log removed', 'info');
+    addToast('Work log removed', 'info', {
+      label: 'Undo',
+      onClick: () =>
+        setLogs((prev) => {
+          if (prev.some((l) => l.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(index, next.length), 0, removed);
+          saveLogs(next);
+          return next;
+        }),
+    });
   };
 
   const handleDuplicateLog = (log: WorkLog) => {
@@ -498,10 +518,23 @@ export default function App() {
   };
 
   const handleDeleteBacklogTask = (taskId: string) => {
+    const index = backlog.findIndex((t) => t.id === taskId);
+    if (index === -1) return;
+    const removed = backlog[index];
     const updated = backlog.filter((t) => t.id !== taskId);
     setBacklog(updated);
     saveBacklog(updated);
-    addToast('Task removed', 'info');
+    addToast('Task removed', 'info', {
+      label: 'Undo',
+      onClick: () =>
+        setBacklog((prev) => {
+          if (prev.some((t) => t.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(index, next.length), 0, removed);
+          saveBacklog(next);
+          return next;
+        }),
+    });
   };
 
   const handleAddProject = (name: string, color: string) => {
@@ -816,7 +849,7 @@ export default function App() {
             backlog={backlog}
             onResetSeedData={handleResetSeedData}
             onImportBackup={handleImportBackup}
-            onNotify={(msg, type) => addToast(msg, type || 'info')}
+            onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
           />
         )}
 
