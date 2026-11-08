@@ -259,7 +259,7 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
             
             {/* In Progress Section */}
             <div className="space-y-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-warning font-mono flex items-center gap-1.5">
+              <h2 className="text-xs font-bold text-warning flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5" />
                 <span>In Progress ({inProgress.length})</span>
               </h2>
@@ -387,7 +387,7 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
 
             {/* Dedicated Blocked & Roadblocks Section */}
             <div className="space-y-3 pt-4 border-t border-[var(--border-app)]">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-danger font-mono flex items-center gap-1.5">
+              <h2 className="text-xs font-bold text-danger flex items-center gap-1.5">
                 <AlertOctagon className="w-3.5 h-3.5 text-danger" />
                 <span>Blocked & Roadblocks ({blocked.length})</span>
               </h2>
@@ -471,7 +471,7 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
             {/* Paused Tasks Section */}
             {paused.length > 0 && (
               <div className="space-y-3 pt-4 border-t border-[var(--border-app)]">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-info font-mono flex items-center gap-1.5">
+                <h2 className="text-xs font-bold text-info flex items-center gap-1.5">
                   <PauseCircle className="w-3.5 h-3.5 text-info" />
                   <span>Paused Tasks ({paused.length})</span>
                 </h2>
@@ -526,7 +526,7 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
 
             {/* Planned Queue Section */}
             <div className="space-y-3 pt-4 border-t border-[var(--border-app)]">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono flex items-center gap-1.5">
+              <h2 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1.5">
                 <ListTodo className="w-3.5 h-3.5" />
                 <span>Queue Backlog ({planned.length})</span>
               </h2>
@@ -638,7 +638,7 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
             {/* Completed Drawer in Minimalist */}
             {done.length > 0 && (
               <div className="space-y-2 pt-4 border-t border-[var(--border-app)]">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono flex items-center gap-1.5">
+                <h2 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                   <span>Completed Today ({done.length})</span>
                 </h2>

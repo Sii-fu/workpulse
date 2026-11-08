@@ -832,6 +832,22 @@ def mobile_first_run(s):
         ctx.close()
 
 
+@check("toast_pauses_on_hover")
+def toast_pauses_on_hover(s):
+    """A toast goes away by itself, but not while the pointer is on it."""
+    p = s.page
+    p.locator(SEL["log_textarea"]).first.fill("Toast test entry")
+    btn(p, SEL["commit_log"]).first.click()
+    toast = p.get_by_role("status").filter(has_text="recorded")
+    expect(toast).to_be_visible(timeout=3000)
+    toast.hover()
+    p.wait_for_timeout(5000)  # longer than the 3.5 s a toast normally lasts
+    expect(toast).to_be_visible()
+    p.mouse.move(5, 400)
+    expect(toast).to_have_count(0, timeout=6000)
+    s.no_errors()
+
+
 @check("modal_escape_all_themes")
 def modal_escape_all_themes(s):
     """The search palette must open and close with the keyboard in every theme."""

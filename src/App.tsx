@@ -142,13 +142,9 @@ export default function App() {
     action?: ToastMessage['action'],
   ) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    setToasts((prev) => [...prev, { id, type, message, action }]);
-    setTimeout(
-      () => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      },
-      action || type === 'error' ? 8000 : 3500,
-    );
+    // Errors and anything with an action (Undo, Retry) stay 8 s; the toast itself dismisses on a
+    // timer that hovering or focusing it pauses (see ToastContainer).
+    setToasts((prev) => [...prev, { id, type, message, action, durationMs: action || type === 'error' ? 8000 : 3500 }]);
   };
 
   // Save wrappers: a failed save (storage full or blocked) shows one error toast per 30 s

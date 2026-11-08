@@ -85,6 +85,8 @@ export interface ToastMessage {
   type: 'success' | 'error' | 'info';
   message: string;
   action?: { label: string; onClick: () => void };
+  /** How long it stays before going away on its own. Hovering or focusing it pauses the clock. */
+  durationMs?: number;
 }
 
 export interface BackupData {

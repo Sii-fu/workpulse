@@ -218,7 +218,7 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       <>
                                         <button
                                           onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                          className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-xs font-bold cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold cursor-pointer"
                                           title="Resume [R]"
                                         >
                                           [R] RESUME
@@ -510,7 +510,7 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       <>
                                         <button
                                           onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                          className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-xs font-bold cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold cursor-pointer"
                                           title="Resume [R]"
                                         >
                                           [R] RESUME

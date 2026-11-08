@@ -252,7 +252,7 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               <button
                                 type="button"
                                 onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                className="px-2.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid font-bold cursor-pointer"
+                                className="px-2.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] font-bold cursor-pointer"
                               >
                                 Resume
                               </button>
@@ -541,7 +541,7 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
               {paused.length > 0 && (
                 <div className="glass-panel p-4 shadow-xs space-y-3 border border-info/20 bg-info/5">
                   <div className="flex items-center justify-between pb-2 border-b border-info/20">
-                    <h4 className="text-xs font-bold text-info flex items-center gap-1.5 uppercase font-mono">
+                    <h4 className="text-xs font-bold text-info flex items-center gap-1.5">
                       <PauseCircle className="w-3.5 h-3.5 text-info" />
                       <span>Paused Tasks ({paused.length})</span>
                     </h4>
@@ -596,7 +596,7 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
               {blocked.length > 0 && (
                 <div className="glass-panel p-4 shadow-xs space-y-3 border border-danger/25 bg-danger/5">
                   <div className="flex items-center justify-between pb-2 border-b border-danger/20">
-                    <h4 className="text-xs font-bold text-danger flex items-center gap-1.5 uppercase font-mono">
+                    <h4 className="text-xs font-bold text-danger flex items-center gap-1.5">
                       <AlertOctagon className="w-3.5 h-3.5 text-danger" />
                       <span>Blocked Tasks ({blocked.length})</span>
                     </h4>
@@ -631,7 +631,7 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           </div>
                           <button
                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                            className="px-3 py-1 rounded bg-warning-solid text-white font-bold text-xs cursor-pointer shrink-0"
+                            className="px-3 py-1 rounded bg-[var(--accent)] text-[var(--on-accent)] font-bold text-xs cursor-pointer shrink-0"
                           >
                             Unblock & Resume
                           </button>
