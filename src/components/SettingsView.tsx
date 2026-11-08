@@ -272,7 +272,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
 
         <button
           onClick={handleSaveAll}
-          className="px-5 py-2.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all cursor-pointer flex items-center gap-2"
+          className="px-5 py-2.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all cursor-pointer flex items-center gap-2"
         >
           <Check className="w-4 h-4" />
           <span>Save All Settings</span>
@@ -300,7 +300,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)]'
               }`}
             >
-              <span className={activeSection === item.id ? 'text-[var(--accent)]' : ''}>
+              <span className={activeSection === item.id ? 'text-[var(--accent-text)]' : ''}>
                 {item.icon}
               </span>
               <span>{item.label}</span>
@@ -370,7 +370,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                       }}
                       className={`p-4 rounded-[var(--radius-card)] border transition-all cursor-pointer relative ${
                         isSelected
-                          ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30 bg-[var(--bg-subtle-hover)]'
+                          ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30 bg-[var(--bg-surface)]'
                           : 'border-[var(--border-app)] bg-[var(--bg-subtle)]/40 hover:border-[var(--border-focus)]'
                       }`}
                     >
@@ -387,7 +387,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                       </p>
                       <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono border-t border-[var(--border-app)] pt-2">
                         <span>Palette: {th.palette}</span>
-                        {isSelected && <span className="font-bold text-[var(--accent)]">● ACTIVE</span>}
+                        {isSelected && <span className="font-bold text-[var(--accent-text)]">● ACTIVE</span>}
                       </div>
                     </div>
                   );
@@ -415,7 +415,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                         onClick={() => setSelectedColorMode('light')}
                         className={`px-3 py-1.5 rounded-[var(--radius-btn)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
                           selectedColorMode === 'light'
-                            ? 'bg-[var(--accent)] text-white shadow-xs'
+                            ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-xs'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -427,7 +427,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                         onClick={() => setSelectedColorMode('dark')}
                         className={`px-3 py-1.5 rounded-[var(--radius-btn)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
                           selectedColorMode === 'dark'
-                            ? 'bg-[var(--accent)] text-white shadow-xs'
+                            ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-xs'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -436,7 +436,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                       </button>
                     </div>
                   ) : (
-                    <span className="text-xs font-mono text-emerald-400 font-semibold px-2.5 py-1 rounded bg-black border border-emerald-900">
+                    <span className="text-xs font-mono text-success font-semibold px-2.5 py-1 rounded bg-[var(--bg-app)] border border-success">
                       OLED LOCKED
                     </span>
                   )}
@@ -475,7 +475,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     type="button"
                     onClick={handleTestSheet}
                     disabled={isTestingSheet || !googleScriptUrl.trim()}
-                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-white text-xs font-semibold shadow-xs hover:bg-[var(--accent-hover)] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
+                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold shadow-xs hover:bg-[var(--accent-hover)] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
                   >
                     {isTestingSheet ? (
                       <>
@@ -492,19 +492,19 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   <div
                     className={`p-3 rounded-[var(--radius-btn)] text-xs border ${
                       sheetTestResult.success
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                        ? 'bg-success/10 border-success/30 text-success'
+                        : 'bg-danger/10 border-danger/30 text-danger'
                     }`}
                   >
                     <p className="font-bold flex items-center gap-1.5">
                       {sheetTestResult.success ? (
                         <>
-                          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <Check className="w-4 h-4 text-success shrink-0" />
                           <span>Connection Verified</span>
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <AlertCircle className="w-4 h-4 text-danger shrink-0" />
                           <span>Connection Error</span>
                         </>
                       )}
@@ -525,7 +525,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     onClick={handleCopyAppsScript}
                     className="px-3 py-1 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
                   >
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
                   </button>
                 </div>
@@ -646,7 +646,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-white text-xs font-semibold hover:bg-[var(--accent-hover)] transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold hover:bg-[var(--accent-hover)] transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Project</span>
@@ -674,7 +674,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                             <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: p.color }} />
                           </td>
                           <td className="p-3 font-semibold text-[var(--text-main)]">
-                            {p.name} {p.isArchived && <span className="text-[10px] text-amber-500 font-mono">(Archived)</span>}
+                            {p.name} {p.isArchived && <span className="text-[10px] text-warning font-mono">(Archived)</span>}
                           </td>
                           <td className="p-3 text-[var(--text-muted)] font-mono tabular-nums">
                             {count} logs recorded
@@ -692,7 +692,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                               <button
                                 type="button"
                                 onClick={() => handleDeleteProject(p.id)}
-                                className="p-1 text-[var(--text-muted)] hover:text-rose-500 cursor-pointer"
+                                className="p-1 text-[var(--text-muted)] hover:text-danger cursor-pointer"
                                 title="Delete"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -721,7 +721,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   />
                   <button
                     type="submit"
-                    className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-[var(--accent)] text-white text-xs font-semibold cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold cursor-pointer"
                   >
                     Add Tag
                   </button>
@@ -737,7 +737,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                       <button
                         type="button"
                         onClick={() => handleDeleteTag(t)}
-                        className="text-[var(--text-muted)] hover:text-rose-500 cursor-pointer"
+                        className="text-[var(--text-muted)] hover:text-danger cursor-pointer"
                       >
                         ✕
                       </button>
@@ -820,8 +820,8 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 </div>
               )}
 
-              <div className="p-4 rounded-[var(--radius-card)] border border-rose-500/20 bg-rose-500/5 space-y-2">
-                <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">
+              <div className="p-4 rounded-[var(--radius-card)] border border-danger/20 bg-danger/5 space-y-2">
+                <span className="text-xs font-bold text-danger uppercase tracking-wider">
                   Start Fresh
                 </span>
                 <p className="text-xs text-[var(--text-muted)]">
@@ -831,14 +831,14 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 <button
                   type="button"
                   onClick={onStartFresh}
-                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-xs font-semibold transition-all cursor-pointer"
                 >
                   Start with empty data
                 </button>
               </div>
 
-              <div className="p-4 rounded-[var(--radius-card)] border border-rose-500/20 bg-rose-500/5 space-y-2">
-                <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">
+              <div className="p-4 rounded-[var(--radius-card)] border border-danger/20 bg-danger/5 space-y-2">
+                <span className="text-xs font-bold text-danger uppercase tracking-wider">
                   Reset Data
                 </span>
                 <p className="text-xs text-[var(--text-muted)]">
@@ -847,7 +847,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 <button
                   type="button"
                   onClick={onResetSeedData}
-                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-xs font-semibold transition-all cursor-pointer"
                 >
                   Reset to Seed Preset
                 </button>

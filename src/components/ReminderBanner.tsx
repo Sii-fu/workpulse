@@ -25,16 +25,16 @@ export const ReminderBanner: React.FC<ReminderBannerProps> = ({
   }
 
   return (
-    <div className="no-print mb-4 p-3.5 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 flex items-center justify-between gap-4 transition-all">
+    <div className="no-print mb-4 p-3.5 rounded-lg border border-warning/40 bg-warning/15 text-warning flex items-center justify-between gap-4 transition-all">
       <div className="flex items-center gap-3">
-        <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+        <div className="p-1.5 rounded-md bg-warning/20 text-warning">
           <Clock className="w-4 h-4" />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+          <p className="text-xs font-semibold uppercase tracking-wider text-warning">
             End of Day Check-in
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-300/80">
+          <p className="text-xs text-warning">
             It is past 5:00 PM and no work logs have been recorded for today yet. Take a moment to log your wins before signing off!
           </p>
         </div>
@@ -42,14 +42,14 @@ export const ReminderBanner: React.FC<ReminderBannerProps> = ({
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onScrollToLogger}
-          className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded text-xs font-medium bg-warning-solid hover:bg-warning-solid-hover text-white transition-colors flex items-center gap-1.5"
         >
           <span>Log Work</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onDismiss}
-          className="p-1 rounded text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+          className="p-1 rounded text-warning hover:bg-warning/20"
           title="Dismiss reminder"
         >
           <X className="w-4 h-4" />

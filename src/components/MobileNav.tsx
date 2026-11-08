@@ -20,7 +20,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           onClick={() => onTabChange('feed')}
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[56px] py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
             activeTab === 'feed'
-              ? 'text-[var(--accent)] font-bold'
+              ? 'text-[var(--accent-text)] font-bold'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -32,14 +32,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           onClick={() => onTabChange('backlog')}
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[56px] py-1 text-xs font-semibold rounded-md transition-all cursor-pointer relative ${
             activeTab === 'backlog'
-              ? 'text-[var(--accent)] font-bold'
+              ? 'text-[var(--accent-text)] font-bold'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
           <ListTodo className="w-4 h-4 mb-0.5" />
           <span className="text-[10px]">Tasks</span>
           {pendingTasksCount && pendingTasksCount > 0 ? (
-            <span className="absolute top-1 right-2.5 w-4 h-4 rounded-full bg-[var(--accent)] text-white text-[9px] flex items-center justify-center font-mono font-bold">
+            <span className="absolute top-1 right-2.5 w-4 h-4 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[9px] flex items-center justify-center font-mono font-bold">
               {pendingTasksCount}
             </span>
           ) : null}
@@ -49,7 +49,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           onClick={() => onTabChange('analytics')}
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[56px] py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
             activeTab === 'analytics'
-              ? 'text-[var(--accent)] font-bold'
+              ? 'text-[var(--accent-text)] font-bold'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -61,7 +61,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           onClick={() => onTabChange('settings')}
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[56px] py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
             activeTab === 'settings'
-              ? 'text-[var(--accent)] font-bold'
+              ? 'text-[var(--accent-text)] font-bold'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >

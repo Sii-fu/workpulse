@@ -164,7 +164,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               onClick={() => setTimeRange(r)}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 timeRange === r
-                  ? 'bg-[var(--accent)] text-white font-semibold shadow-xs'
+                  ? 'bg-[var(--accent)] text-[var(--on-accent)] font-semibold shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -182,7 +182,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           >
             {copiedMarkdown ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <Check className="w-3.5 h-3.5 text-success" />
                 <span>Copied!</span>
               </>
             ) : (
@@ -217,7 +217,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
           <span className="text-xs text-[var(--text-muted)] font-medium">Completed</span>
-          <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
+          <p className="text-2xl font-bold font-mono text-success mt-1 tabular-nums">
             {completedCount}
           </p>
           <span className="text-[11px] text-[var(--text-muted)]">Tasks finished</span>
@@ -225,7 +225,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
           <span className="text-xs text-[var(--text-muted)] font-medium">In Progress</span>
-          <p className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400 mt-1 tabular-nums">
+          <p className="text-2xl font-bold font-mono text-info mt-1 tabular-nums">
             {inProgressCount}
           </p>
           <span className="text-[11px] text-[var(--text-muted)]">Active in flight</span>
@@ -233,7 +233,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
           <span className="text-xs text-[var(--text-muted)] font-medium">Blocked</span>
-          <p className="text-2xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-1 tabular-nums">
+          <p className="text-2xl font-bold font-mono text-danger mt-1 tabular-nums">
             {blockedCount}
           </p>
           <span className="text-[11px] text-[var(--text-muted)]">Awaiting unblock</span>
@@ -285,7 +285,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 <div key={item.date} className="flex-1 flex flex-col items-center h-full justify-end group relative">
                   
                   {/* Tooltip on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 px-2 py-1 rounded bg-neutral-900 text-white text-[10px] font-mono pointer-events-none whitespace-nowrap z-20 shadow-sm">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 px-2 py-1 rounded bg-[var(--text-main)] text-[var(--bg-app)] text-[10px] font-mono pointer-events-none whitespace-nowrap z-20 shadow-sm">
                     {item.label}: {metricType === 'hours' ? `${val.toFixed(1)}h` : `${val} tasks`}
                   </div>
 
@@ -404,17 +404,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <div className="h-2 rounded-full bg-[var(--bg-subtle)] overflow-hidden flex">
               <div
                 style={{ width: `${filteredLogs.length > 0 ? (completedCount / filteredLogs.length) * 100 : 0}%` }}
-                className="bg-emerald-500 h-full"
+                className="bg-success-solid h-full"
                 title={`Completed: ${completedCount}`}
               />
               <div
                 style={{ width: `${filteredLogs.length > 0 ? (inProgressCount / filteredLogs.length) * 100 : 0}%` }}
-                className="bg-blue-500 h-full"
+                className="bg-info-solid h-full"
                 title={`In Progress: ${inProgressCount}`}
               />
               <div
                 style={{ width: `${filteredLogs.length > 0 ? (blockedCount / filteredLogs.length) * 100 : 0}%` }}
-                className="bg-rose-500 h-full"
+                className="bg-danger-solid h-full"
                 title={`Blocked: ${blockedCount}`}
               />
             </div>

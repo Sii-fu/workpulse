@@ -269,7 +269,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           {/* Project selector with color indicator */}
           <div className="flex items-center gap-2">
             {activeTheme === 'matrix' ? (
-              <span className="font-mono text-xs text-[var(--accent)] font-bold">[PROJ]:</span>
+              <span className="font-mono text-xs text-[var(--accent-text)] font-bold">[PROJ]:</span>
             ) : (
               <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                 Project:
@@ -300,7 +300,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowNewProjectModal(true)}
-                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer"
+                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent-text)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer"
                 title="Create New Project"
               >
                 <FolderPlus className="w-4 h-4" />
@@ -331,9 +331,9 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
         {/* Textarea with Theme-Specific Chrome */}
         <div className="relative">
           {editingLog && (
-            <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-amber-500/10 border border-amber-500/40 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
+            <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-warning/10 border border-warning/40 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
               <span className="font-medium">
-                <span className="text-amber-500 font-bold">Editing log</span> from {editingLog.date} {editingLog.time}: change it below and save.
+                <span className="text-warning font-bold">Editing log</span> from {editingLog.date} {editingLog.time}: change it below and save.
               </span>
               <button
                 type="button"
@@ -356,8 +356,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           {prefillData && !editingLog && (
             <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 font-medium">
-                <Zap className="w-3.5 h-3.5 text-[var(--accent)] fill-current shrink-0" />
-                <span className="text-[var(--accent)] font-bold">Pre-filled from Planned Task:</span>
+                <Zap className="w-3.5 h-3.5 text-[var(--accent-text)] fill-current shrink-0" />
+                <span className="text-[var(--accent-text)] font-bold">Pre-filled from Planned Task:</span>
                 <span className="truncate max-w-[280px] sm:max-w-md italic">{prefillData.description}</span>
               </span>
               {onClearPrefill && (
@@ -373,7 +373,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           )}
 
           {activeTheme === 'matrix' && (
-            <div className="font-mono text-[11px] text-[var(--accent)] mb-1 flex items-center gap-1 opacity-80">
+            <div className="font-mono text-[11px] text-[var(--accent-text)] mb-1 flex items-center gap-1 opacity-80">
               <span>$ workpulse log --input &gt;</span>
             </div>
           )}
@@ -389,14 +389,14 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 : 'What did you accomplish or work on? Use markdown, paste PR links, or write bullets... (Ctrl + Enter to log)'
             }
             rows={3}
-            className={`w-full bg-[var(--bg-subtle)]/70 focus:bg-[var(--bg-surface)] border border-[var(--border-app)] focus:border-[var(--border-focus)] rounded-[var(--radius-card)] p-3 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]/60 focus:outline-hidden transition-all resize-y leading-relaxed ${
+            className={`w-full bg-[var(--bg-subtle)]/70 focus:bg-[var(--bg-surface)] border border-[var(--border-app)] focus:border-[var(--border-focus)] rounded-[var(--radius-card)] p-3 text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden transition-all resize-y leading-relaxed ${
               activeTheme === 'modern' ? 'shadow-inner' : ''
             }`}
           />
 
           {/* Live Character & Word Count */}
           <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--text-muted)]">
-            <span className="opacity-80 flex items-center gap-1">
+            <span className="flex items-center gap-1">
               <span>Press</span>
               <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-app)] font-mono text-[10px]">
                 Ctrl + Enter
@@ -420,7 +420,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               onClick={() => setStatus('completed')}
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'completed'
-                  ? 'bg-emerald-600 text-white shadow-xs'
+                  ? 'bg-success-solid text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
               }`}
             >
@@ -433,7 +433,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               onClick={() => setStatus('in_progress')}
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'in_progress'
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-info-solid text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
               }`}
             >
@@ -446,7 +446,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               onClick={() => setStatus('blocked')}
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'blocked'
-                  ? 'bg-rose-600 text-white shadow-xs'
+                  ? 'bg-danger-solid text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
               }`}
             >
@@ -467,7 +467,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                   onClick={() => handleToggleTag(tag)}
                   className={`text-xs px-2.5 py-0.5 rounded-[var(--radius-btn)] transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-[var(--accent)] text-white font-medium shadow-xs'
+                      ? 'bg-[var(--accent)] text-[var(--on-accent)] font-medium shadow-xs'
                       : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
                   }`}
                 >
@@ -489,7 +489,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 />
                 <button
                   type="submit"
-                  className="text-xs px-1.5 py-0.5 bg-[var(--accent)] text-white rounded cursor-pointer"
+                  className="text-xs px-1.5 py-0.5 bg-[var(--accent)] text-[var(--on-accent)] rounded cursor-pointer"
                 >
                   Add
                 </button>
@@ -505,7 +505,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowNewTagInput(true)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--accent)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-dashed border-[var(--border-app)] hover:border-[var(--accent)] transition-colors cursor-pointer"
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-text)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-dashed border-[var(--border-app)] hover:border-[var(--accent)] transition-colors cursor-pointer"
                 title="Add custom tag"
               >
                 + Tag
@@ -523,7 +523,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="Attach URL (PR, Jira, Figma, Docs)"
-              className="w-full bg-transparent text-xs text-[var(--text-main)] placeholder-[var(--text-muted)]/60 focus:outline-hidden"
+              className="w-full bg-transparent text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden"
             />
           </div>
 
@@ -554,7 +554,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 <button
                   type="button"
                   onClick={() => setImageBase64('')}
-                  className="text-rose-500 hover:text-rose-600 p-0.5 cursor-pointer"
+                  className="text-danger hover:text-danger p-0.5 cursor-pointer"
                   title="Remove image"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -604,7 +604,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                       onClick={() => setDurationMinutes(preset.mins)}
                       className={`text-xs px-2.5 py-1 rounded-[var(--radius-btn)] transition-all cursor-pointer ${
                         durationMinutes === preset.mins
-                          ? 'bg-[var(--accent)] text-white font-semibold'
+                          ? 'bg-[var(--accent)] text-[var(--on-accent)] font-semibold'
                           : 'bg-[var(--bg-surface)] border border-[var(--border-app)] text-[var(--text-main)] hover:border-[var(--accent)]'
                       }`}
                     >
@@ -650,8 +650,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                       onClick={() => setEnergyRating(lvl)}
                       className={`p-1.5 rounded transition-transform cursor-pointer ${
                         energyRating >= lvl
-                          ? 'text-amber-500 hover:scale-110'
-                          : 'text-neutral-500 opacity-40 hover:opacity-100 hover:text-amber-400'
+                          ? 'text-warning hover:scale-110'
+                          : 'text-[var(--text-subtle)] opacity-70 hover:opacity-100 hover:text-warning'
                       }`}
                       title={`Rating ${lvl} of 5`}
                     >
@@ -672,7 +672,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>{editingLog ? 'Save changes' : 'Commit Work Log'}</span>
@@ -724,7 +724,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 text-xs font-semibold bg-[var(--accent)] text-white rounded-[var(--radius-btn)] hover:bg-[var(--accent-hover)] cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold bg-[var(--accent)] text-[var(--on-accent)] rounded-[var(--radius-btn)] hover:bg-[var(--accent-hover)] cursor-pointer"
                 >
                   Create Project
                 </button>

@@ -121,7 +121,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-md bg-[var(--accent)] text-white shadow-xs">
+            <div className="p-2 rounded-md bg-[var(--accent)] text-[var(--on-accent)] shadow-xs">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -238,12 +238,12 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-text)]" />
                   <span>Synthesizing with Gemini...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                   <span>Regenerate Report</span>
                 </>
               )}
@@ -267,7 +267,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               </div>
             )}
             {aiError && (
-              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-warning/40 bg-warning/10 text-warning">
                 AI failed: {aiError} Showing template text instead. Check it before sending.
               </div>
             )}
@@ -302,7 +302,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               <button
                 onClick={handleOpenWhatsApp}
                 disabled={!generatedReport}
-                className="px-3.5 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-md bg-success-solid hover:bg-success-solid-hover text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Open in WhatsApp Web</span>

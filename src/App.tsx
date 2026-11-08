@@ -209,13 +209,16 @@ export default function App() {
   }, []);
 
   // 2. Sync theme & colorMode attributes to HTML root
+  // Wait for the saved settings: index.html already applied them before first paint, and the
+  // initial state here is only the default, which would flash the wrong theme.
   useEffect(() => {
+    if (!dataLoaded) return;
     document.documentElement.setAttribute('data-theme', settings.theme);
     document.documentElement.setAttribute(
       'data-mode',
       settings.theme === 'matrix' ? 'dark' : settings.colorMode
     );
-  }, [settings.theme, settings.colorMode]);
+  }, [dataLoaded, settings.theme, settings.colorMode]);
 
   // 3. Global Keyboard Shortcuts
   useEffect(() => {
@@ -823,7 +826,7 @@ export default function App() {
     <div
       data-theme={settings.theme}
       data-mode={settings.theme === 'matrix' ? 'dark' : settings.colorMode}
-      className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] transition-all antialiased selection:bg-[var(--accent)] selection:text-white pb-20 md:pb-6"
+      className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] transition-all antialiased selection:bg-[var(--accent)] selection:text-[var(--on-accent)] pb-20 md:pb-6"
     >
       {/* Top Bar Navigation */}
       <TopBar

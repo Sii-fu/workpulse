@@ -19,3 +19,7 @@ CONOUT$
 
 # Claude Code personal (non-shared) settings
 .claude/settings.local.json
+
+# Python bytecode from tests/smoke
+__pycache__/
+*.pyc

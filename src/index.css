@@ -1,10 +1,38 @@
 @import "tailwindcss";
 
+/* `dark:` follows the app's own mode (data-mode on <html>), never the OS preference. */
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+/* Role colours and solid fills, so components say "success" and not "emerald-400".
+   Values come from the theme blocks below; they are tuned per mode for contrast. */
+@theme inline {
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-success-solid: var(--success-solid);
+  --color-success-solid-hover: var(--success-solid-hover);
+  --color-warning-solid: var(--warning-solid);
+  --color-warning-solid-hover: var(--warning-solid-hover);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-info-solid: var(--info-solid);
+  --color-info-solid-hover: var(--info-solid-hover);
+  --color-on-solid: #ffffff;
+}
+
 @layer base {
   :root {
-    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    /* Noto Sans Bengali is a fallback only: it is downloaded when Bangla text actually appears. */
+    --font-display: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+    --font-body: 'DM Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', monospace;
+  }
+
+  /* Tailwind v4 dropped the placeholder-* utilities, so this is the one place placeholders get their colour. */
+  ::placeholder {
+    color: var(--text-subtle);
+    opacity: 1;
   }
 
   body {
@@ -31,24 +59,23 @@
   --border-focus: #6366f1;
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --text-subtle: #64748b;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --text-subtle: #8b96a7;
+  --border-control: #646974;
+  --accent: #6164ec;
+  --accent-hover: #4f52de;
+  --accent-text: #8889f4;
+  --on-accent: #ffffff;
   --accent-glow: rgba(99, 102, 241, 0.35);
   --radius-card: 1rem;
   --radius-btn: 0.625rem;
   --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
-  --font-family-theme: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
   color-scheme: dark;
 }
 
 [data-theme="modern"][data-mode="dark"] body,
 [data-theme="modern"]:not([data-mode="light"]) body {
   background-color: var(--bg-app);
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
-    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.08), transparent 40%);
-  background-attachment: fixed;
   color: var(--text-main);
 }
 
@@ -62,31 +89,28 @@
   --border-app: rgba(226, 232, 240, 0.9);
   --border-focus: #6366f1;
   --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --text-muted: #475569;
+  --text-subtle: #59677d;
+  --border-control: #8b8f99;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
+  --accent-text: #4f46e5;
+  --on-accent: #ffffff;
   --accent-glow: rgba(79, 70, 229, 0.2);
   --radius-card: 1rem;
   --radius-btn: 0.625rem;
   --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-  --font-family-theme: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
   color-scheme: light;
 }
 
 [data-theme="modern"][data-mode="light"] body {
   background-color: var(--bg-app);
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.08), transparent),
-    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.05), transparent 40%);
-  background-attachment: fixed;
   color: var(--text-main);
 }
 
 [data-theme="modern"] .glass-panel {
   background: var(--bg-surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-app);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-card);
@@ -107,15 +131,18 @@
   --border-app: #e3e2de;
   --border-focus: #37352f;
   --text-main: #37352f;
-  --text-muted: #787774;
-  --text-subtle: #9b9a97;
-  --accent: #2383e2;
-  --accent-hover: #1b6ec2;
+  --text-muted: #5d5c58;
+  --text-subtle: #646360;
+  --border-control: #8d8c88;
+  --accent: #2076cc;
+  --accent-hover: #1b64ad;
+  --accent-text: #1b65ad;
+  --on-accent: #ffffff;
   --accent-glow: transparent;
   --radius-card: 0.375rem;
   --radius-btn: 0.375rem;
   --shadow-card: none;
-  --font-family-theme: 'DM Sans', -apple-system, sans-serif;
+  --font-family-theme: 'DM Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
   color-scheme: light;
 }
 
@@ -129,15 +156,18 @@
   --border-app: #333333;
   --border-focus: #ffffff;
   --text-main: #f0f0ee;
-  --text-muted: #a0a09e;
-  --text-subtle: #737373;
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
+  --text-muted: #b1b1b0;
+  --text-subtle: #a9a9a7;
+  --border-control: #797978;
+  --accent: #3371d6;
+  --accent-hover: #2b62bd;
+  --accent-text: #74a6f9;
+  --on-accent: #ffffff;
   --accent-glow: transparent;
   --radius-card: 0.375rem;
   --radius-btn: 0.375rem;
   --shadow-card: none;
-  --font-family-theme: 'DM Sans', -apple-system, sans-serif;
+  --font-family-theme: 'DM Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
   color-scheme: dark;
 }
 
@@ -169,15 +199,18 @@
   --border-app: #283548;
   --border-focus: #3b82f6;
   --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-subtle: #64748b;
+  --text-muted: #9eacbf;
+  --text-subtle: #97a3b4;
+  --border-control: #6f747d;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
+  --accent-text: #799ff3;
+  --on-accent: #ffffff;
   --accent-glow: rgba(37, 99, 235, 0.25);
   --radius-card: 0.25rem;
   --radius-btn: 0.25rem;
   --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --font-family-theme: 'Plus Jakarta Sans', monospace;
+  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', monospace;
   color-scheme: dark;
 }
 
@@ -191,25 +224,24 @@
   --border-app: #cbd5e1;
   --border-focus: #2563eb;
   --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-subtle: #94a3b8;
+  --text-muted: #435063;
+  --text-subtle: #4b5665;
+  --border-control: #80848e;
   --accent: #1d4ed8;
   --accent-hover: #1e40af;
+  --accent-text: #1c4bcf;
+  --on-accent: #ffffff;
   --accent-glow: rgba(29, 78, 216, 0.15);
   --radius-card: 0.25rem;
   --radius-btn: 0.25rem;
   --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --font-family-theme: 'Plus Jakarta Sans', monospace;
+  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', monospace;
   color-scheme: light;
 }
 
 [data-theme="compact"] body {
   background-color: var(--bg-app);
   color: var(--text-main);
-  background-image: 
-    linear-gradient(to right, rgba(128, 128, 128, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(128, 128, 128, 0.06) 1px, transparent 1px);
-  background-size: 20px 20px;
 }
 
 [data-theme="compact"] .glass-panel {
@@ -230,15 +262,18 @@
   --border-app: #183e1e;
   --border-focus: #00ff66;
   --text-main: #00ff66;
-  --text-muted: #3a8a4c;
-  --text-subtle: #245830;
+  --text-muted: #5cc979;
+  --text-subtle: #47b866;
+  --border-control: #037a32;
   --accent: #00ff66;
   --accent-hover: #33ff88;
+  --accent-text: #00ff66;
+  --on-accent: #030704;
   --accent-glow: rgba(0, 255, 102, 0.4);
   --radius-card: 0px;
   --radius-btn: 0px;
   --shadow-card: 0 0 10px rgba(0, 255, 102, 0.1), inset 0 0 15px rgba(0, 255, 102, 0.02);
-  --font-family-theme: 'JetBrains Mono', monospace;
+  --font-family-theme: 'JetBrains Mono', 'Noto Sans Bengali', monospace;
   color-scheme: dark !important;
 }
 
@@ -266,7 +301,7 @@
 
 [data-theme="matrix"] * {
   border-radius: 0px !important;
-  font-family: 'JetBrains Mono', monospace !important;
+  font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace !important;
 }
 
 [data-theme="matrix"] .glass-panel {
@@ -278,14 +313,45 @@
 [data-theme="matrix"] input,
 [data-theme="matrix"] textarea,
 [data-theme="matrix"] select {
-  font-family: 'JetBrains Mono', monospace !important;
-  color: #00ff66 !important;
-  border-color: #183e1e !important;
-  caret-color: #00ff66 !important;
+  font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-app) !important;
+  caret-color: var(--accent) !important;
 }
 
 [data-theme="matrix"] .matrix-glow {
   text-shadow: 0 0 8px rgba(0, 255, 102, 0.6);
+}
+
+/* =========================================================================
+   5. ROLE COLOURS: success / warning / danger / info
+   Tuned per mode so each passes 4.5:1 as text on every surface of every theme, and on a
+   25% tint of itself. The *-solid fills carry white text at 4.5:1 or better.
+   ========================================================================= */
+:root,
+[data-mode="dark"] {
+  --success: #6ee7b7;
+  --warning: #fcd34d;
+  --danger: #fda4af;
+  --info: #93c5fd;
+}
+
+[data-mode="light"] {
+  --success: #065f46;
+  --warning: #78350f;
+  --danger: #9f1239;
+  --info: #1e40af;
+}
+
+:root {
+  --success-solid: #047857;
+  --success-solid-hover: #065f46;
+  --warning-solid: #b45309;
+  --warning-solid-hover: #92400e;
+  --danger-solid: #be123c;
+  --danger-solid-hover: #9f1239;
+  --info-solid: #1d4ed8;
+  --info-solid-hover: #1e40af;
 }
 
 /* Print Styles */

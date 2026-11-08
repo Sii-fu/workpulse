@@ -53,7 +53,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => setActiveTab('feed')}
           >
             {isMatrix ? (
-              <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--accent)] matrix-glow">
+              <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--accent-text)] matrix-glow">
                 <Terminal className="w-4 h-4" />
                 <span className="font-bold tracking-wider hidden sm:inline">root@workpulse:~$</span>
                 <span className="font-bold tracking-wider sm:hidden">~/pulse$</span>
@@ -61,7 +61,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               </div>
             ) : (
               <>
-                <div className="w-7 h-7 rounded-[var(--radius-btn)] bg-gradient-to-br from-[var(--accent)] to-cyan-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-[var(--accent-glow)]">
+                <div className="w-7 h-7 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center font-bold text-xs shadow-md shadow-[var(--accent-glow)]">
                   W
                 </div>
                 <div className="flex flex-col">
@@ -80,7 +80,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div
             className={`hidden xl:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-btn)] border ${
               hasGoogleSheetLinked
-                ? 'border-emerald-500/30 text-emerald-400 bg-emerald-950/20'
+                ? 'border-success/30 text-success bg-success/20'
                 : 'border-[var(--border-app)] text-[var(--text-muted)] bg-[var(--bg-subtle)]'
             }`}
             title={hasGoogleSheetLinked ? 'Connected to Google Sheets' : 'Local storage mode'}
@@ -96,7 +96,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   onSyncGoogleSheet();
                 }}
                 disabled={isSyncing}
-                className="hover:underline ml-1 font-semibold text-[var(--accent)] disabled:opacity-50 cursor-pointer"
+                className="hover:underline ml-1 font-semibold text-[var(--accent-text)] disabled:opacity-50 cursor-pointer"
               >
                 {isSyncing ? '...' : unsyncedCount > 0 ? `Sync (${unsyncedCount})` : 'Sync'}
               </button>
@@ -161,7 +161,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           {/* Quick AI Standup Trigger */}
           <button
             onClick={onOpenAiStandup}
-            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
             title="Generate AI Standup report (WhatsApp, Slack, Executive)"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -175,13 +175,13 @@ export const TopBar: React.FC<TopBarProps> = ({
             title="Search logs (Ctrl/Cmd + K)"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline text-[10px] font-mono opacity-60">⌘K</span>
+            <span className="hidden xl:inline text-[10px] font-mono">⌘K</span>
           </button>
 
           {/* Animated Sun / Moon Toggle Button (or Matrix CRT OLED badge) */}
           {isMatrix ? (
             <div
-              className="px-2 py-1 rounded-[var(--radius-btn)] border border-[#183e1e] bg-[#060e07] text-[#00ff66] font-mono text-[10px] font-bold tracking-wider matrix-glow select-none cursor-default"
+              className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-surface)] text-[var(--text-main)] font-mono text-[10px] font-bold tracking-wider matrix-glow select-none cursor-default"
               title="Matrix theme is permanently locked to OLED Phosphor Dark mode"
             >
               [CRT: OLED]
@@ -201,7 +201,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     : 'rotate-90 scale-0 opacity-0'
                 }`}
               >
-                <Moon className="w-4 h-4 text-indigo-400" />
+                <Moon className="w-4 h-4 text-[var(--accent-text)]" />
               </div>
               <div
                 className={`absolute transition-all duration-300 transform ${
@@ -210,7 +210,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     : '-rotate-90 scale-0 opacity-0'
                 }`}
               >
-                <Sun className="w-4 h-4 text-amber-500" />
+                <Sun className="w-4 h-4 text-warning" />
               </div>
             </button>
           )}

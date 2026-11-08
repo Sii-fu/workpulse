@@ -57,7 +57,7 @@ export const SearchPaletteModal: React.FC<SearchPaletteModalProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search all past work logs, projects, tags, links... (ESC to close)"
-            className="flex-1 bg-transparent text-xs sm:text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]/60 focus:outline-hidden"
+            className="flex-1 bg-transparent text-xs sm:text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden"
           />
           <button
             onClick={onClose}
@@ -106,7 +106,7 @@ export const SearchPaletteModal: React.FC<SearchPaletteModalProps> = ({
                       <span key={t}>{t}</span>
                     ))}
                     {log.linkUrl && (
-                      <span className="flex items-center gap-0.5 text-[var(--accent)]">
+                      <span className="flex items-center gap-0.5 text-[var(--accent-text)]">
                         <ExternalLink className="w-3 h-3" />
                         <span className="truncate max-w-[120px]">{log.linkUrl}</span>
                       </span>
@@ -117,7 +117,7 @@ export const SearchPaletteModal: React.FC<SearchPaletteModalProps> = ({
                           e.stopPropagation();
                           onOpenImage(log.imageBase64!);
                         }}
-                        className="flex items-center gap-0.5 hover:text-[var(--accent)]"
+                        className="flex items-center gap-0.5 hover:text-[var(--accent-text)]"
                       >
                         <ImageIcon className="w-3 h-3" />
                         <span>Proof</span>

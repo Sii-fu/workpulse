@@ -99,7 +99,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Fast single-line log (e.g. Fixed caching race condition)..."
-          className="flex-1 h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs text-[var(--text-main)] placeholder-[var(--text-muted)]/60 focus:outline-hidden focus:border-[var(--accent)] font-sans"
+          className="flex-1 h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden focus:border-[var(--accent)] font-sans"
         />
 
         {/* Status */}
@@ -129,7 +129,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         {/* Submit */}
         <button
           type="submit"
-          className="h-8 px-3 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+          className="h-8 px-3 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
         >
           <span>LOG</span>
           <CornerDownLeft className="w-3 h-3 opacity-70" />
@@ -141,7 +141,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           onClick={() => setShowBacklog(!showBacklog)}
           className={`h-8 px-2.5 rounded border border-[var(--border-app)] text-xs flex items-center gap-1 cursor-pointer transition-colors ${
             showBacklog
-              ? 'bg-[var(--accent)] text-white font-bold'
+              ? 'bg-[var(--accent)] text-[var(--on-accent)] font-bold'
               : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
           title="Toggle Tasks Drawer"
@@ -173,7 +173,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   <button
                     type="button"
                     onClick={() => onToggleTask(t.id)}
-                    className="hover:text-emerald-500 text-[10px] text-[var(--text-muted)] cursor-pointer p-0.5 rounded"
+                    className="hover:text-success text-[10px] text-[var(--text-muted)] cursor-pointer p-0.5 rounded"
                     title="Toggle completed"
                   >
                     <Check className="w-3.5 h-3.5" />
@@ -184,7 +184,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   <button
                     type="button"
                     onClick={() => onConvertTaskToLog(t)}
-                    className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[10px] font-bold cursor-pointer shrink-0 flex items-center gap-1"
+                    className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold cursor-pointer shrink-0 flex items-center gap-1"
                     title="Log to Work Log and Sheet"
                   >
                     <Zap className="w-2.5 h-2.5 fill-current" />
@@ -239,7 +239,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenImage(log.imageBase64 as string)}
-                        className="ml-2 text-[10px] text-[var(--accent)] hover:underline cursor-pointer"
+                        className="ml-2 text-[10px] text-[var(--accent-text)] hover:underline cursor-pointer"
                         title="View screenshot"
                       >
                         [IMG]
@@ -250,7 +250,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                         href={log.linkUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-2 text-[10px] text-[var(--accent)] hover:underline"
+                        className="ml-2 text-[10px] text-[var(--accent-text)] hover:underline"
                         title={log.linkUrl}
                       >
                         [LINK]
@@ -259,28 +259,28 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   </td>
                   <td className="px-2.5 whitespace-nowrap">
                     {log.status === 'completed' ? (
-                      <span className="text-emerald-500 font-bold text-[10px]">[DONE]</span>
+                      <span className="text-success font-bold text-[10px]">[DONE]</span>
                     ) : log.status === 'in_progress' ? (
-                      <span className="text-blue-400 font-bold text-[10px]">[IN_PROG]</span>
+                      <span className="text-info font-bold text-[10px]">[IN_PROG]</span>
                     ) : (
-                      <span className="text-rose-400 font-bold text-[10px]">[BLOCK]</span>
+                      <span className="text-danger font-bold text-[10px]">[BLOCK]</span>
                     )}
                   </td>
                   <td className="px-2.5 text-right tabular-nums text-[var(--text-muted)] whitespace-nowrap">
                     {log.durationMinutes ? `${log.durationMinutes}m` : '-'}
                   </td>
                   <td className="px-2.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100">
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => onDuplicateLog(log)}
-                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-[var(--accent)] text-[10px] cursor-pointer"
+                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-[var(--accent-text)] text-[10px] cursor-pointer"
                         title="Duplicate"
                       >
                         DUP
                       </button>
                       <button
                         onClick={() => onDeleteLog(log.id)}
-                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-rose-400 text-[10px] cursor-pointer"
+                        className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-danger text-[10px] cursor-pointer"
                         title="Delete"
                       >
                         DEL
