@@ -65,7 +65,7 @@ if not exist ".env.local" if not exist ".env" (
         echo # Optional: put your Gemini API key here to enable AI features.
         echo # Get one at https://aistudio.google.com/apikey
         echo # You can also paste a key inside the app under Settings instead.
-        echo GEMINI_API_KEY=
+        echo # GEMINI_API_KEY=your-key-here
     )
     echo [OK] Created .env.local ^(add your GEMINI_API_KEY there if you want AI features^)
 )
