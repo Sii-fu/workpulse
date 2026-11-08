@@ -31,8 +31,17 @@ if errorlevel 1 (
     echo         Then close this window and run run.bat again.
     goto :fail
 )
-for /f "tokens=1 delims=v." %%v in ('node -v') do set "NODE_MAJOR=%%v"
-if !NODE_MAJOR! LSS 20 (
+for /f "tokens=1,2 delims=v." %%a in ('node -v') do (
+    set "NODE_MAJOR=%%a"
+    set "NODE_MINOR=%%b"
+)
+REM Vite 8 needs Node 20.19+ or 22.12+ (odd releases like 21 are not supported)
+set "NODE_BAD=0"
+if !NODE_MAJOR! LSS 20 set "NODE_BAD=1"
+if !NODE_MAJOR! EQU 20 if !NODE_MINOR! LSS 19 set "NODE_BAD=1"
+if !NODE_MAJOR! EQU 21 set "NODE_BAD=1"
+if !NODE_MAJOR! EQU 22 if !NODE_MINOR! LSS 12 set "NODE_BAD=1"
+if "!NODE_BAD!"=="1" (
     for /f %%v in ('node -v') do echo [ERROR] Node.js %%v is too old. Version 20.19+ or 22.12+ is required.
     echo         Download the latest LTS from https://nodejs.org/
     goto :fail
@@ -47,6 +56,15 @@ if "!NEED_INSTALL!"=="0" (
     fc /b "package.json" "node_modules\.workpulse-installed" >nul 2>&1
     if errorlevel 1 set "NEED_INSTALL=1"
 )
+REM Reinstall when the lockfile changed too (for example after a git pull)
+if "!NEED_INSTALL!"=="0" if exist "package-lock.json" (
+    if not exist "node_modules\.workpulse-installed-lock" (
+        set "NEED_INSTALL=1"
+    ) else (
+        fc /b "package-lock.json" "node_modules\.workpulse-installed-lock" >nul 2>&1
+        if errorlevel 1 set "NEED_INSTALL=1"
+    )
+)
 if "!NEED_INSTALL!"=="1" (
     echo [..] Installing dependencies, this can take a minute the first time...
     call npm install --no-audit --no-fund --loglevel=error
@@ -55,6 +73,7 @@ if "!NEED_INSTALL!"=="1" (
         goto :fail
     )
     copy /y "package.json" "node_modules\.workpulse-installed" >nul
+    if exist "package-lock.json" copy /y "package-lock.json" "node_modules\.workpulse-installed-lock" >nul
 )
 echo [OK] Dependencies installed
 

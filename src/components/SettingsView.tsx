@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
+import { toCsv } from '../utils/csv';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
@@ -227,15 +228,23 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
 
   // Export CSV
   const handleExportCSV = () => {
-    let csv = 'ID,Date,Time,Project,Description,Status,Tags,Link,Duration_Mins,Energy_Rating\n';
-    logs.forEach((l) => {
-      const desc = `"${l.description.replace(/"/g, '""')}"`;
-      const tagsStr = `"${l.tags.join(' ')}"`;
-      const link = `"${l.linkUrl || ''}"`;
-      csv += `${l.id},${l.date},${l.time},"${l.projectName}",${desc},${l.status},${tagsStr},${link},${l.durationMinutes || 0},${l.energyRating || 0}\n`;
-    });
+    const csv = toCsv([
+      ['ID', 'Date', 'Time', 'Project', 'Description', 'Status', 'Tags', 'Link', 'Duration_Mins', 'Energy_Rating'],
+      ...logs.map((l) => [
+        l.id,
+        l.date,
+        l.time,
+        l.projectName,
+        l.description,
+        l.status,
+        l.tags.join(' '),
+        l.linkUrl || '',
+        l.durationMinutes || 0,
+        l.energyRating || 0,
+      ]),
+    ]);
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
