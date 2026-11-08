@@ -87,8 +87,10 @@ export function rollOverTasks(
 ): { tasks: BacklogTask[]; changed: boolean } {
   let changed = false;
   const tasks = backlog.map((task) => {
-    const normalizedStage = task.stage || (task.completed ? 'done' : 'planned');
-    const isDone = normalizedStage === 'done' || task.completed;
+    // `stage` and `completed` can disagree in old, imported or hand-edited data. Either one saying
+    // "done" wins, then `completed` is derived from the stage so they always agree afterwards (C3).
+    const isDone = task.stage === 'done' || task.completed === true;
+    const normalizedStage = isDone ? 'done' : task.stage || 'planned';
 
     if (!isDone && task.dueDate < todayStr) {
       changed = true;
