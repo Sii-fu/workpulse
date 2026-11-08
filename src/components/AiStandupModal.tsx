@@ -6,7 +6,7 @@ import { WorkLog, ReportFormat, ReportTone } from '../types';
 import { generateAiReport } from '../utils/aiGenerator';
 import { modelLabel } from '../utils/geminiModels';
 import {
-  Sparkles,
+  RefreshCw,
   Copy,
   ExternalLink,
   MessageSquare,
@@ -128,15 +128,12 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-md bg-[var(--accent)] text-[var(--on-accent)] shadow-xs">
-              <Sparkles className="w-4 h-4" />
-            </div>
             <div>
               <h2 id="standup-title" className="text-base font-bold text-[var(--text-main)]">
-                AI Standup & Communication Hub
+                Draft standup
               </h2>
               <p className="text-xs text-[var(--text-muted)]">
-                Transform {activeLogs.length} work log{activeLogs.length === 1 ? '' : 's'} into customized reports using Gemini AI.
+                Turn {activeLogs.length} work log{activeLogs.length === 1 ? '' : 's'} into a message for your team. Uses Gemini when a key is set, otherwise a template.
               </p>
             </div>
           </div>
@@ -164,9 +161,9 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
-                  <span>📱</span> WhatsApp to Lead
+                  WhatsApp message
                 </div>
-                <p className="text-[11px] opacity-80 mt-1">Concise, mobile-optimized, polite bullets with emoji highlights.</p>
+                <p className="text-xs opacity-80 mt-1">Short bullets that read well on a phone.</p>
               </button>
 
               <button
@@ -179,9 +176,9 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
-                  <span>💬</span> Slack / Teams Standup
+                  Slack or Teams
                 </div>
-                <p className="text-[11px] opacity-80 mt-1">Standard 3-part: Done, In-Progress, and Blockers.</p>
+                <p className="text-xs opacity-80 mt-1">Three parts: Done, In progress, Blockers.</p>
               </button>
 
               <button
@@ -194,9 +191,9 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
-                  <span>📊</span> Executive Memo
+                  Executive memo
                 </div>
-                <p className="text-[11px] opacity-80 mt-1">Structured leadership summary with milestone impact & risks.</p>
+                <p className="text-xs opacity-80 mt-1">A summary for leadership: impact and risks.</p>
               </button>
             </div>
           </div>
@@ -244,12 +241,12 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               {isGenerating ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-text)]" />
-                  <span>Synthesizing with Gemini...</span>
+                  <span>Drafting with Gemini...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)]" />
-                  <span>Regenerate Report</span>
+                  <RefreshCw className="w-3.5 h-3.5 text-[var(--accent-text)]" />
+                  <span>Regenerate</span>
                 </>
               )}
             </button>
@@ -260,19 +257,19 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
             <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span className="font-semibold">Generated Message Output (Editable):</span>
               {generationSource && (
-                <span className="text-[11px] opacity-75">
+                <span className="text-xs opacity-75">
                   Powered by {generationSource === 'gemini' ? modelLabel(aiModel) : 'High-Fidelity Smart Template'}
                 </span>
               )}
             </div>
 
             {activeLogs.length === 0 && (
-              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+              <div className="text-xs px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)]">
                 No logs for today yet. Add a log, or select logs in the timeline, then reopen the standup.
               </div>
             )}
             {aiError && (
-              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-warning/40 bg-warning/10 text-warning">
+              <div className="text-xs px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-warning/40 bg-warning/10 text-warning">
                 AI failed: {aiError} Showing template text instead. Check it before sending.
               </div>
             )}

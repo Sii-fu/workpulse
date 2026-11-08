@@ -46,19 +46,19 @@ SEL = {
     "edit_log": "Edit log",                           # button title
     "save_edit": "Save changes",
     "mode_toggle": 'button[title^="Switch to"]',   # its aria-label ("Toggle Light/Dark Mode") hides the title from role queries
-    "standup_trigger": 'button[title^="Generate AI Standup"]',
-    "standup_heading": "AI Standup",
-    "eod_trigger": 'button[title*="ynthesize"]',      # Timeline (modern) and Tasks tab
-    "eod_heading": "End-of-Day",
+    "standup_trigger": 'button[title^="Draft standup"]',   # the top bar's Standup button
+    "standup_heading": "Draft standup",
+    "eod_trigger": 'button[title^="End of day"]',      # the top bar's End of day button
+    "eod_heading": "End-of-day timesheet",
     "palette_trigger_key": "Control+k",
     "palette_input": "input[role=combobox]",
     "settings_section_appearance": re.compile(r"Appearance"),
     "settings_save": "Save All Settings",
     "theme_cards": {
-        "modern": "Modern SaaS",
-        "minimalist": "Minimalist (Zen",
-        "compact": "Compact (Power",
-        "matrix": "Matrix CLI",
+        "modern": "Modern",
+        "minimalist": "Minimalist",
+        "compact": "Compact",
+        "matrix": "Matrix",
     },
     "add_task_input": 'input[placeholder^="Add a task for"]',   # buttons are matched by visible text; icon-only ones by title
     "add_task_queue": re.compile(r"^Add to Queue$"),
@@ -148,7 +148,7 @@ class Session:
     def set_theme(self, theme):
         self.tab("settings")
         self.page.get_by_role("button", name=SEL["settings_section_appearance"]).first.click()
-        self.page.get_by_text(SEL["theme_cards"][theme]).first.click()
+        self.page.get_by_role("radio", name=re.compile(rf"^{SEL['theme_cards'][theme]}")).click()
         # the card only stages the choice; it is applied by the save button
         btn(self.page, SEL["settings_save"]).first.click()
         self.page.wait_for_timeout(300)
@@ -170,7 +170,8 @@ def btn(page, name):
 
 def task_row(page, title):
     """The nearest ancestor of the task title that holds action buttons."""
-    return page.locator(f"xpath=(//*[normalize-space(text())='{title}'])[1]/ancestor::*[.//button][1]")
+    # inside <main>: the running-task strip in the header also shows the title of a running task
+    return page.locator(f"xpath=(//main//*[normalize-space(text())='{title}'])[1]/ancestor::*[.//button][1]")
 
 
 def stage_of(s, title):
@@ -608,6 +609,90 @@ def sheets_sync_below_xl(s):
     p.reload()
     p.wait_for_load_state("networkidle")
     expect(p.get_by_role("button", name=re.compile(r"^Sync to Google Sheet"))).to_be_visible(timeout=3000)
+    s.no_errors()
+
+
+# -- identity features (P3) --------------------------------------------------------------------
+@check("running_strip")
+def running_strip(s):
+    """A running task shows on every screen with a live clock, and can be paused from there."""
+    p = s.page
+    strip = p.get_by_role("region", name="Running task")
+    expect(strip).to_be_visible(timeout=3000)
+    clock = re.compile(r"\b\d{2}:\d{2}:\d{2}\b")
+    first = clock.findall(strip.inner_text())
+    assert first, "no clock in the running strip"
+    p.wait_for_timeout(2300)
+    assert clock.findall(strip.inner_text()) != first, "the strip's clock did not tick"
+    s.tab("settings")
+    expect(strip).to_be_visible()  # still there on another screen
+    strip.get_by_role("button", name=re.compile(r"^Pause running task")).click()
+    p.wait_for_timeout(400)
+    assert strip.count() == 0, "strip stayed after the only running task was paused"
+    assert any(t.get("stage") == "paused" for t in s.ls("workpulse_backlog")), "pausing from the strip did not persist"
+    s.no_errors()
+
+
+@check("theme_menu")
+def theme_menu(s):
+    """The top bar switches theme at once, by keyboard too, and remembers it."""
+    p = s.page
+    p.get_by_role("button", name=re.compile(r"Theme|Switch theme|^Modern$")).first.click()
+    menu = p.get_by_role("menu", name="Theme")
+    expect(menu).to_be_visible(timeout=3000)
+    assert p.evaluate("document.activeElement.getAttribute('role')") == "menuitemradio", "focus did not enter the menu"
+    p.keyboard.press("Escape")
+    expect(menu).to_have_count(0)
+    p.get_by_role("button", name=re.compile(r"Theme|Switch theme|^Modern$")).first.click()
+    p.keyboard.press("ArrowDown")
+    p.keyboard.press("ArrowDown")
+    p.keyboard.press("Enter")  # modern -> minimalist -> compact
+    p.wait_for_timeout(300)
+    assert s.html_attrs()[0] == "compact", f"expected compact, got {s.html_attrs()}"
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    assert s.html_attrs()[0] == "compact", "theme not remembered after reload"
+    s.no_errors()
+
+
+@check("compact_keyboard")
+def compact_keyboard(s):
+    """Compact: j moves the row cursor, e opens the editor for that row, / jumps to search."""
+    p = s.page
+    s.set_theme("compact")
+    s.tab("feed")
+    p.locator("body").click(position={"x": 5, "y": 400})
+    p.keyboard.press("j")
+    p.keyboard.press("j")
+    cursor = p.locator('[id^="log-row-"][aria-current="true"]')
+    expect(cursor).to_have_count(1)
+    rows = p.locator('[id^="log-row-"]')
+    assert rows.nth(1).get_attribute("aria-current") == "true", "j j should land on the second row"
+    p.keyboard.press("e")
+    expect(p.get_by_role("dialog")).to_be_visible(timeout=3000)
+    p.keyboard.press("Escape")
+    p.wait_for_timeout(250)
+    p.keyboard.press("/")
+    assert p.evaluate("document.activeElement && document.activeElement.type") == "search", "/ did not focus the search box"
+    s.no_errors()
+
+
+@check("matrix_scanlines_opt_in")
+def matrix_scanlines_opt_in(s):
+    """Matrix has no scanline overlay until it is switched on in Settings."""
+    p = s.page
+    s.set_theme("matrix")
+    assert p.evaluate("document.documentElement.getAttribute('data-crt')") is None, "scanlines should be off by default"
+    s.tab("settings")
+    p.get_by_role("button", name=SEL["settings_section_appearance"]).first.click()
+    p.get_by_role("checkbox", name=re.compile("Scanlines")).check()
+    btn(p, SEL["settings_save"]).first.click()
+    p.wait_for_timeout(300)
+    assert p.evaluate("document.documentElement.getAttribute('data-crt')") == "on", "scanlines did not turn on"
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    assert p.evaluate("document.documentElement.getAttribute('data-crt')") == "on", "scanline setting not remembered"
+    assert s.ls("workpulse_settings").get("crtEffect") is True
     s.no_errors()
 
 

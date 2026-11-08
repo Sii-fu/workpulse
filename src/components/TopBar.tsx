@@ -1,7 +1,6 @@
 import React from 'react';
 import { ThemeId, ColorMode, AppNavTab } from '../types';
 import {
-  Sparkles,
   Search,
   Settings,
   FileSpreadsheet,
@@ -9,17 +8,23 @@ import {
   Sun,
   Moon,
   RefreshCw,
+  MessageSquareText,
+  ClipboardCheck,
 } from 'lucide-react';
 import { NAV_TABS } from '../utils/nav';
+import { LogoMark } from './ui/LogoMark';
+import { ThemeMenu } from './ui/ThemeMenu';
 
 interface TopBarProps {
   activeTab: AppNavTab;
   setActiveTab: (tab: AppNavTab) => void;
   activeTheme: ThemeId;
+  onThemeChange: (theme: ThemeId) => void;
   colorMode: ColorMode;
   onColorModeChange: (mode: ColorMode) => void;
   onOpenSearch: () => void;
   onOpenAiStandup: () => void;
+  onOpenEod: () => void;
   hasGoogleSheetLinked: boolean;
   onSyncGoogleSheet?: () => void;
   unsyncedCount?: number;
@@ -29,26 +34,62 @@ interface TopBarProps {
 const SEARCH_KEY =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K';
 
+// How the four tabs are drawn in each theme: a segmented control, ink underlines, flat tabs, or
+// inverted terminal tabs. The behaviour is the same; the voice is the theme's.
+function tabClass(theme: ThemeId, active: boolean): string {
+  const base = 'text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer';
+  switch (theme) {
+    case 'minimalist':
+      return `${base} px-3 py-2 -mb-px border-b-2 ${
+        active ? 'border-[var(--text-main)] text-[var(--text-main)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
+      }`;
+    case 'compact':
+      return `${base} px-2.5 py-1.5 rounded-[var(--radius-btn)] ${
+        active ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)]'
+      }`;
+    case 'matrix':
+      return `${base} px-2.5 py-1 ${
+        active ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+      }`;
+    default:
+      return `${base} px-3 py-1.5 rounded-[var(--radius-btn)] ${
+        active
+          ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] border border-[var(--border-control)]'
+          : 'text-[var(--text-muted)] hover:text-[var(--text-main)] border border-transparent'
+      }`;
+  }
+}
+
 export const TopBar: React.FC<TopBarProps> = ({
   activeTab,
   setActiveTab,
   activeTheme,
+  onThemeChange,
   colorMode,
   onColorModeChange,
   onOpenSearch,
   onOpenAiStandup,
+  onOpenEod,
   hasGoogleSheetLinked,
   onSyncGoogleSheet,
   unsyncedCount = 0,
   isSyncing,
 }) => {
   const isMatrix = activeTheme === 'matrix';
+  const isMinimalist = activeTheme === 'minimalist';
+  const isCompact = activeTheme === 'compact';
+
+  const pairBtn =
+    'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer';
 
   return (
-    <header className="no-print sticky top-0 z-40 w-full border-b border-[var(--border-app)] bg-[var(--bg-surface)] backdrop-blur-xl px-3 sm:px-6 py-2.5 transition-all">
+    <header
+      className={`no-print sticky top-0 z-40 w-full border-b border-[var(--border-app)] px-3 sm:px-6 ${
+        isCompact ? 'py-1.5' : 'py-2.5'
+      } ${isMinimalist ? 'bg-[var(--bg-app)]' : 'bg-[var(--bg-surface)]'}`}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 md:gap-8">
-        
-        {/* Zone 1: Brand Wordmark / Terminal Prompt */}
+        {/* Brand */}
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
@@ -58,68 +99,60 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             {isMatrix ? (
               <span className="flex items-center gap-1.5 font-mono text-xs text-[var(--accent-text)] matrix-glow">
-                <Terminal className="w-4 h-4" />
+                <Terminal className="w-4 h-4" aria-hidden="true" />
                 <span className="font-bold tracking-wider hidden sm:inline">root@workpulse:~$</span>
                 <span className="font-bold tracking-wider sm:hidden">~/pulse$</span>
-                <span className="w-1.5 h-3.5 bg-[var(--accent)] animate-pulse inline-block" />
+                <span className="w-1.5 h-3.5 bg-[var(--accent)] inline-block" />
               </span>
             ) : (
               <>
-                <span className="w-7 h-7 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center font-bold text-xs shadow-md shadow-[var(--accent-glow)]">
-                  W
-                </span>
-                <span className="flex flex-col text-left">
-                  <span className="font-bold text-sm tracking-tight text-[var(--text-main)] whitespace-nowrap leading-none">
-                    WorkPulse
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)] tracking-wider uppercase font-mono mt-0.5 hidden sm:inline">
-                    OS Hub
-                  </span>
+                <LogoMark className="w-6 h-6 text-[var(--accent-text)]" />
+                <span
+                  className={`text-[var(--text-main)] whitespace-nowrap leading-none ${
+                    isMinimalist ? 'text-lg font-semibold tracking-tight' : 'text-sm font-bold tracking-tight'
+                  }`}
+                  style={isMinimalist ? { fontFamily: 'var(--font-display)' } : undefined}
+                >
+                  WorkPulse
                 </span>
               </>
             )}
           </button>
 
-          {/* Sheets Status Indicator */}
-          <div
-            className={`hidden xl:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-btn)] border ${
-              hasGoogleSheetLinked
-                ? 'border-success/30 text-success bg-success/20'
-                : 'border-[var(--border-app)] text-[var(--text-muted)] bg-[var(--bg-subtle)]'
-            }`}
-            title={hasGoogleSheetLinked ? 'Connected to Google Sheets' : 'Local storage mode'}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-medium font-mono">
-              {hasGoogleSheetLinked ? 'G-Sheet Live' : 'Local Mode'}
-            </span>
-            {hasGoogleSheetLinked && onSyncGoogleSheet && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSyncGoogleSheet();
-                }}
-                disabled={isSyncing}
-                className="hover:underline ml-1 font-semibold text-[var(--accent-text)] disabled:opacity-50 cursor-pointer"
-              >
-                {isSyncing ? '...' : unsyncedCount > 0 ? `Sync (${unsyncedCount})` : 'Sync'}
-              </button>
-            )}
-          </div>
+          {/* Sheet status: only worth a pill when a Sheet is linked */}
+          {hasGoogleSheetLinked && (
+            <div
+              className="hidden xl:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-btn)] border border-success/30 text-success bg-success/15"
+              title="Connected to Google Sheets"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="font-medium">Sheet linked</span>
+              {onSyncGoogleSheet && (
+                <button
+                  onClick={onSyncGoogleSheet}
+                  disabled={isSyncing}
+                  className="hover:underline ml-1 font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  {isSyncing ? 'Syncing' : unsyncedCount > 0 ? `Sync (${unsyncedCount})` : 'Sync'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Zone 2: Navigation Links (Desktop) */}
-        <nav aria-label="Main" className="hidden md:flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-[var(--radius-btn)] border border-[var(--border-app)]">
+        {/* Navigation */}
+        <nav
+          aria-label="Main"
+          className={`hidden md:flex items-center gap-1 ${
+            activeTheme === 'modern' ? 'bg-[var(--bg-subtle)] p-1 rounded-[var(--radius-btn)] border border-[var(--border-app)]' : ''
+          } ${isMinimalist ? 'self-stretch' : ''}`}
+        >
           {NAV_TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               aria-current={activeTab === id ? 'page' : undefined}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === id
-                  ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
+              className={tabClass(activeTheme, activeTab === id)}
             >
               <Icon className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{label}</span>
@@ -127,21 +160,37 @@ export const TopBar: React.FC<TopBarProps> = ({
           ))}
         </nav>
 
-        {/* Zone 3: Actions (Search, AI Standup, Dark/Light Toggle) */}
-        <div className="flex items-center gap-2 shrink-0">
-          
-          {/* Quick AI Standup Trigger */}
-          <button
-            onClick={onOpenAiStandup}
-            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            title="Generate AI Standup report (WhatsApp, Slack, Executive)"
-            aria-label="AI Standup"
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* The two reports, side by side and clearly different jobs */}
+          <div
+            role="group"
+            aria-label="Reports"
+            className="flex items-stretch divide-x divide-[var(--border-control)] border border-[var(--border-control)] rounded-[var(--radius-btn)] overflow-hidden"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">AI Standup</span>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenAiStandup}
+              className={pairBtn}
+              title="Draft standup: write a message for your team from your logs"
+              aria-label="Standup"
+            >
+              <MessageSquareText className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Standup</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenEod}
+              className={pairBtn}
+              title="End of day: turn today's tasks into timesheet logs and push them to the Sheet"
+              aria-label="End of day"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">End of day</span>
+            </button>
+          </div>
 
-          {/* Sync, for screens too narrow for the status pill above */}
+          {/* Sync, for screens too narrow for the status pill */}
           {hasGoogleSheetLinked && onSyncGoogleSheet && (
             <button
               type="button"
@@ -153,72 +202,57 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} aria-hidden="true" />
               {unsyncedCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[10px] font-bold flex items-center justify-center" aria-hidden="true">
+                <span
+                  className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-xs font-bold flex items-center justify-center"
+                  aria-hidden="true"
+                >
                   {unsyncedCount}
                 </span>
               )}
             </button>
           )}
 
-          {/* Quick Search palette (Cmd+K) */}
           <button
             onClick={onOpenSearch}
             className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors flex items-center gap-1 text-xs cursor-pointer border border-transparent hover:border-[var(--border-control)]"
             title="Search logs (Ctrl/Cmd + K)"
             aria-label="Search logs"
           >
-            <Search className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline text-[10px] font-mono" aria-hidden="true">{SEARCH_KEY}</span>
+            <Search className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="hidden xl:inline text-xs font-mono" aria-hidden="true">
+              {SEARCH_KEY}
+            </span>
           </button>
 
-          {/* Animated Sun / Moon Toggle Button (or Matrix CRT OLED badge) */}
-          {isMatrix ? (
-            <div
-              className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-surface)] text-[var(--text-main)] font-mono text-[10px] font-bold tracking-wider matrix-glow select-none cursor-default"
-              title="Matrix theme is permanently locked to OLED Phosphor Dark mode"
-            >
-              [CRT: OLED]
-            </div>
-          ) : (
+          <ThemeMenu activeTheme={activeTheme} onChange={onThemeChange} />
+
+          {/* Light or dark. Matrix is always dark, so it has no switch. */}
+          {!isMatrix && (
             <button
               type="button"
               onClick={() => onColorModeChange(colorMode === 'dark' ? 'light' : 'dark')}
-              className="relative p-2 rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] transition-all cursor-pointer flex items-center justify-center overflow-hidden"
+              className="p-2 rounded-[var(--radius-btn)] border border-[var(--border-control)] text-[var(--text-main)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer flex items-center justify-center"
               title={`Switch to ${colorMode === 'dark' ? 'Light' : 'Dark'} Mode (Theme remains preserved)`}
               aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
             >
-              <div
-                className={`transition-all duration-300 transform ${
-                  colorMode === 'dark'
-                    ? 'rotate-0 scale-100 opacity-100'
-                    : 'rotate-90 scale-0 opacity-0'
-                }`}
-              >
-                <Moon className="w-4 h-4 text-[var(--accent-text)]" />
-              </div>
-              <div
-                className={`absolute transition-all duration-300 transform ${
-                  colorMode === 'light'
-                    ? 'rotate-0 scale-100 opacity-100'
-                    : '-rotate-90 scale-0 opacity-0'
-                }`}
-              >
-                <Sun className="w-4 h-4 text-warning" />
-              </div>
+              {colorMode === 'dark' ? (
+                <Moon className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <Sun className="w-4 h-4" aria-hidden="true" />
+              )}
             </button>
           )}
 
-          {/* Settings Icon Quick Shortcut (Mobile & Tablet) */}
+          {/* Settings, for screens without the tab row */}
           <button
             onClick={() => setActiveTab('settings')}
             className="md:hidden p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer border border-transparent hover:border-[var(--border-control)]"
             title="Open Settings"
             aria-label="Open settings"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
-
       </div>
     </header>
   );

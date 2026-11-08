@@ -17,7 +17,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, variant = 'ico
   const meta = STATUS_META[status];
   const tone = TONE[meta.tone];
   if (variant === 'bracket') {
-    return <span className={`${tone} font-bold text-[10px]`}>[{meta.short}]</span>;
+    return <span className={`${tone} font-bold text-xs`}>[{meta.short}]</span>;
   }
   if (variant === 'text') {
     return <span>{meta.label}</span>;

@@ -212,7 +212,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <p className="text-2xl font-bold font-mono text-[var(--text-main)] mt-1 tabular-nums">
             {totalHours}h
           </p>
-          <span className="text-[11px] text-[var(--text-muted)]">{totalMinutes} mins tracked</span>
+          <span className="text-xs text-[var(--text-muted)]">{totalMinutes} mins tracked</span>
         </div>
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
@@ -220,7 +220,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <p className="text-2xl font-bold font-mono text-success mt-1 tabular-nums">
             {completedCount}
           </p>
-          <span className="text-[11px] text-[var(--text-muted)]">Tasks finished</span>
+          <span className="text-xs text-[var(--text-muted)]">Tasks finished</span>
         </div>
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
@@ -228,7 +228,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <p className="text-2xl font-bold font-mono text-info mt-1 tabular-nums">
             {inProgressCount}
           </p>
-          <span className="text-[11px] text-[var(--text-muted)]">Active in flight</span>
+          <span className="text-xs text-[var(--text-muted)]">Active in flight</span>
         </div>
 
         <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
@@ -236,7 +236,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <p className="text-2xl font-bold font-mono text-danger mt-1 tabular-nums">
             {blockedCount}
           </p>
-          <span className="text-[11px] text-[var(--text-muted)]">Awaiting unblock</span>
+          <span className="text-xs text-[var(--text-muted)]">Awaiting unblock</span>
         </div>
       </div>
 
@@ -285,7 +285,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 <div key={item.date} className="flex-1 flex flex-col items-center h-full justify-end group relative">
                   
                   {/* Tooltip on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 px-2 py-1 rounded bg-[var(--text-main)] text-[var(--bg-app)] text-[10px] font-mono pointer-events-none whitespace-nowrap z-20 shadow-sm">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 px-2 py-1 rounded bg-[var(--text-main)] text-[var(--bg-app)] text-xs font-mono pointer-events-none whitespace-nowrap z-20 shadow-sm">
                     {item.label}: {metricType === 'hours' ? `${val.toFixed(1)}h` : `${val} tasks`}
                   </div>
 
@@ -300,7 +300,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   />
                   
                   {/* Date subtext */}
-                  <span className="text-[10px] text-[var(--text-muted)] mt-1.5 font-mono truncate max-w-full">
+                  <span className="text-xs text-[var(--text-muted)] mt-1.5 font-mono truncate max-w-full">
                     {item.label.split(',')[0]}
                   </span>
                 </div>
@@ -360,7 +360,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <span className="text-lg font-bold font-mono text-[var(--text-main)]">
                     {totalHours}h
                   </span>
-                  <span className="text-[10px] text-[var(--text-muted)] uppercase">Tracked</span>
+                  <span className="text-xs text-[var(--text-muted)] uppercase">Tracked</span>
                 </div>
               </div>
 

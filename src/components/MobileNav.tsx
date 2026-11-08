@@ -25,9 +25,9 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, onTabChange, pe
             }`}
           >
             <Icon className="w-4 h-4 mb-0.5" aria-hidden="true" />
-            <span className="text-[11px]">{short}</span>
+            <span className="text-xs">{short}</span>
             {id === 'backlog' && pendingTasksCount && pendingTasksCount > 0 ? (
-              <span className="absolute top-1 right-2.5 w-4 h-4 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[9px] flex items-center justify-center font-mono font-bold">
+              <span className="absolute top-1 right-2.5 w-4 h-4 rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-xs flex items-center justify-center font-mono font-bold">
                 {pendingTasksCount}
               </span>
             ) : null}

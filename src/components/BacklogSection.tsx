@@ -23,7 +23,7 @@ import {
   Terminal,
   Flame,
   Search,
-  Sparkles,
+  ClipboardCheck,
   Undo2,
   ListTodo,
   Layers,
@@ -271,9 +271,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
         <div>
           <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center">
             <Zap className="w-5 h-5 text-warning mr-2 shrink-0" />
-            <span>Task Focus Workspace & 5-Stage Lifecycle</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-[var(--accent)]/10 text-[var(--accent-text)] font-bold">
-              {inProgress.length} ACTIVE FOCUS
+            <span>Tasks</span>
+            <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-[var(--accent)]/10 text-[var(--accent-text)] font-bold">
+              {inProgress.length} running
             </span>
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -316,14 +316,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
             <button
               type="button"
               onClick={() => onOpenEodSynthesizer(selectedTaskIds.size > 0 ? Array.from(selectedTaskIds) : undefined)}
-              className="px-4 py-2 rounded-[var(--radius-btn)] bg-warning-solid hover:bg-warning-solid-hover text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-              title="Synthesize touched tasks into executive project logs with Gemini"
+              className="px-4 py-2 rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--text-main)] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="End of day: turn today's tasks into timesheet logs and push them to the Sheet"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
               <span>
                 {selectedTaskIds.size > 0
-                  ? `Synthesize Selected (${selectedTaskIds.size})`
-                  : 'Synthesize EOD Logs'}
+                  ? `Timesheet from selected (${selectedTaskIds.size})`
+                  : 'End of day'}
               </span>
             </button>
           )}
@@ -348,9 +348,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 {isMatrix ? (
                   <Terminal className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)]" />
+                  <Layers className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                 )}
-                <span>1. Select Project Context:</span>
+                <span>Project:</span>
               </span>
 
               {selectedProject && (
@@ -461,7 +461,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                   
                   {projectTasksCount > 0 && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono tabular-nums ${
+                      className={`text-xs px-1.5 py-0.2 rounded-full font-mono tabular-nums ${
                         isSelected
                           ? 'bg-[var(--text-main)] text-[var(--bg-app)]'
                           : 'bg-[var(--bg-app)] text-[var(--text-muted)]'
@@ -490,7 +490,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 placeholder={`Add a task for "${selectedProject?.name || 'Project'}"... (Press Enter)`}
                 className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3.5 py-2 text-xs sm:text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--border-focus)] transition-colors pr-24"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline pointer-events-none">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[var(--text-subtle)] hidden sm:inline pointer-events-none">
                 [↵ Enter]
               </span>
             </div>
@@ -635,7 +635,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       <h2 className="text-base font-serif font-bold text-[var(--text-main)]">
                         {group.project.name}
                       </h2>
-                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-mono text-[var(--text-muted)]">
                         · {group.tasks.length} {group.tasks.length === 1 ? 'task' : 'tasks'}
                       </span>
                     </div>
@@ -668,7 +668,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                   className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                   title="Select task for EOD synthesis"
                                 />
-                                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                                <span className={`text-xs font-mono px-1.5 py-0.2 rounded font-bold ${
                                   isWorking ? 'bg-warning/15 text-warning' :
                                   isBlocked ? 'bg-danger/15 text-danger' :
                                   stage === 'paused' ? 'bg-info/15 text-info' :
@@ -682,7 +682,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 </span>
                                 {task.isSynthesized && (
                                   <span
-                                    className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                    className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                     title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                                   >
                                     <Check className="w-2.5 h-2.5" />
@@ -691,7 +691,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 )}
                               </div>
                               {task.blockReason && (
-                                <p className="text-[11px] text-danger font-mono">
+                                <p className="text-xs text-danger font-mono">
                                   Blocker: {task.blockReason}
                                 </p>
                               )}
@@ -849,11 +849,11 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 />
                                 <span className="font-semibold text-[var(--text-main)]">{task.title}</span>
                                 {proj && (
-                                  <span className="text-[10px] text-[var(--text-muted)]">· {proj.name}</span>
+                                  <span className="text-xs text-[var(--text-muted)]">· {proj.name}</span>
                                 )}
                                 {task.isSynthesized && (
                                   <span
-                                    className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                    className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                     title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                                   >
                                     <Check className="w-2.5 h-2.5 text-success" />
@@ -973,10 +973,10 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 title="Select task for EOD synthesis"
                               />
                               <span className="font-semibold text-[var(--text-main)] truncate">{task.title}</span>
-                              {proj && <span className="text-[10px] text-[var(--text-muted)]">· {proj.name}</span>}
+                              {proj && <span className="text-xs text-[var(--text-muted)]">· {proj.name}</span>}
                               {task.isSynthesized && (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                  className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                   title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                                 >
                                   <Check className="w-2.5 h-2.5 text-success" />
@@ -984,7 +984,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-danger font-mono">
+                            <p className="text-xs text-danger font-mono">
                               Blocker: {task.blockReason || 'Dependency halted'}
                             </p>
                           </div>
@@ -1049,7 +1049,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           <span className="truncate text-[var(--text-muted)]">{task.title}</span>
                           {task.isSynthesized && (
                             <span
-                              className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                              className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                               title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                             >
                               <Check className="w-2.5 h-2.5 text-success" />
@@ -1111,10 +1111,10 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               />
                               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] shrink-0" />
                               <span className="font-medium text-[var(--text-main)] truncate">{task.title}</span>
-                              {proj && <span className="text-[10px] text-[var(--text-muted)] shrink-0">· {proj.name}</span>}
+                              {proj && <span className="text-xs text-[var(--text-muted)] shrink-0">· {proj.name}</span>}
                               {task.isSynthesized && (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                  className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                   title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                                 >
                                   <Check className="w-2.5 h-2.5 text-success" />
@@ -1213,7 +1213,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
                           {task.isSynthesized && (
                             <span
-                              className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                              className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                               title={task.synthesizedAt ? `Logged to Sheet at ${new Date(task.synthesizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Logged to Sheet'}
                             >
                               <Check className="w-2.5 h-2.5 text-success" />
@@ -1224,7 +1224,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         {onReopenTask && (
                           <button
                             onClick={() => onReopenTask(task.id)}
-                            className="text-[11px] text-[var(--accent-text)] hover:underline cursor-pointer"
+                            className="text-xs text-[var(--accent-text)] hover:underline cursor-pointer"
                           >
                             Reopen
                           </button>
@@ -1244,7 +1244,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
         <div className="glass-panel overflow-x-auto shadow-xs border border-[var(--border-app)]">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] font-mono uppercase text-[10px] h-8 tracking-wider">
+              <tr className="border-b border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] font-mono uppercase text-xs h-8 tracking-wider">
                 <th className="p-2 w-28">Stage</th>
                 <th className="p-2 w-36">Project</th>
                 <th className="p-2">Task Description</th>
@@ -1252,7 +1252,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 <th className="p-2 w-52 text-right font-mono">Actions / Hotkeys</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-app)] font-mono text-[11px]">
+            <tbody className="divide-y divide-[var(--border-app)] font-mono text-xs">
               {groupingMode === 'project' ? (
                 /* Compact: Sectioned by Project */
                 tasksByProject.map((group) => {
@@ -1267,17 +1267,17 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStageCollapse(`proj_${group.project.id}`); } }}
                         className="h-7 bg-[var(--bg-subtle)]/80 hover:bg-[var(--bg-subtle-hover)] cursor-pointer select-none border-t-2 border-[var(--border-app)]"
                       >
-                        <td colSpan={5} className="px-2 py-1 font-bold text-[11px] text-[var(--text-main)]">
+                        <td colSpan={5} className="px-2 py-1 font-bold text-xs text-[var(--text-main)]">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)]" /> : <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />}
                               <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: group.project.color }} />
                               <span className="uppercase tracking-wider font-mono">{group.project.name}</span>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[var(--bg-app)] text-[var(--text-muted)]">
+                              <span className="text-xs px-1.5 py-0.2 rounded bg-[var(--bg-app)] text-[var(--text-muted)]">
                                 {group.tasks.length} {group.tasks.length === 1 ? 'task' : 'tasks'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] pr-2">
+                            <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] pr-2">
                               <span>TOTAL TIME TODAY:</span>
                               <span className="text-warning font-bold">{formatDigitalTimer(group.totalSeconds)}</span>
                             </div>
@@ -1289,7 +1289,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       {!isCollapsed && (
                         group.tasks.length === 0 ? (
                           <tr className="h-7 border-b border-[var(--border-app)]">
-                            <td colSpan={5} className="p-2 text-center text-[var(--text-subtle)] text-[10px] font-mono">
+                            <td colSpan={5} className="p-2 text-center text-[var(--text-subtle)] text-xs font-mono">
                               No tasks for this project
                             </td>
                           </tr>
@@ -1350,7 +1350,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       </span>
                                       {task.isSynthesized && (
                                         <span
-                                          className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                          className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                           title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                         >
                                           <Check className="w-2.5 h-2.5 text-success" />
@@ -1358,7 +1358,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         </span>
                                       )}
                                       {task.blockReason && (
-                                        <span className="text-[10px] text-danger font-mono">
+                                        <span className="text-xs text-danger font-mono">
                                           (Blocker: {task.blockReason})
                                         </span>
                                       )}
@@ -1387,21 +1387,21 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Back to Queue [Q]"
                                           >
                                             [Q] QUEUE
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'paused')}
-                                            className="px-1.5 py-0.5 rounded bg-info/20 text-info text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-info/20 text-info text-xs cursor-pointer"
                                             title="Pause [P]"
                                           >
                                             [P] PAUSE
                                           </button>
                                           <button
                                             onClick={() => handleStartBlocking(task)}
-                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-xs cursor-pointer"
                                             title="Block [B]"
                                           >
                                             [B] BLOCK
@@ -1411,14 +1411,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-xs font-bold cursor-pointer"
                                             title="Resume [R]"
                                           >
                                             [R] RESUME
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Queue [Q]"
                                           >
                                             [Q] QUEUE
@@ -1428,14 +1428,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-info-solid hover:bg-info-solid-hover text-white text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-info-solid hover:bg-info-solid-hover text-white text-xs font-bold cursor-pointer"
                                             title="Resume [R]"
                                           >
                                             [R] RESUME
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Queue [Q]"
                                           >
                                             [Q] QUEUE
@@ -1445,14 +1445,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold cursor-pointer"
                                             title="Start Work [S]"
                                           >
                                             [S] START
                                           </button>
                                           <button
                                             onClick={() => handleStartBlocking(task)}
-                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-xs cursor-pointer"
                                             title="Block [B]"
                                           >
                                             [B] BLOCK
@@ -1463,7 +1463,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       {stage !== 'done' && (
                                         <button
                                           onClick={() => onUpdateTaskStage(task.id, 'done')}
-                                          className="px-1.5 py-0.5 rounded bg-success/20 hover:bg-success/30 text-success text-[10px] font-bold cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-success/20 hover:bg-success/30 text-success text-xs font-bold cursor-pointer"
                                           title="Done & Log [D]"
                                         >
                                           [D] DONE
@@ -1473,7 +1473,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       {stage === 'done' && onReopenTask && (
                                         <button
                                           onClick={() => onReopenTask(task.id)}
-                                          className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--accent-text)] text-[10px] cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--accent-text)] text-xs cursor-pointer"
                                           title="Reopen"
                                         >
                                           [REOPEN]
@@ -1482,7 +1482,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
 
                                       <button
                                         onClick={() => onDeleteTask(task.id)}
-                                        className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-[10px] cursor-pointer"
+                                        className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-xs cursor-pointer"
                                         title="Delete [DEL]"
                                       >
                                         ✕
@@ -1496,7 +1496,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                   <tr className="bg-danger/10 border-b border-danger/30">
                                     <td colSpan={5} className="p-2">
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-mono text-danger font-bold whitespace-nowrap">BLOCK REASON:</span>
+                                        <span className="text-xs font-mono text-danger font-bold whitespace-nowrap">BLOCK REASON:</span>
                                         <input
                                           type="text"
                                           value={blockerReasonInput}
@@ -1508,13 +1508,13 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         />
                                         <button
                                           onClick={() => handleConfirmBlocking(task.id)}
-                                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-danger-solid text-white cursor-pointer"
+                                          className="px-2 py-0.5 text-xs font-bold rounded bg-danger-solid text-white cursor-pointer"
                                         >
                                           CONFIRM
                                         </button>
                                         <button
                                           onClick={() => setBlockingTaskId(null)}
-                                          className="px-2 py-0.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                                          className="px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                                         >
                                           CANCEL
                                         </button>
@@ -1557,17 +1557,17 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           'bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)]'
                         }`}
                       >
-                        <td colSpan={5} className="px-2 py-1 font-bold text-[11px]">
+                        <td colSpan={5} className="px-2 py-1 font-bold text-xs">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)]" /> : <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />}
                               <SectionIcon className="w-3.5 h-3.5" />
                               <span className="tracking-wider">{section.label}</span>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-black/20 text-[var(--text-main)]">
+                              <span className="text-xs px-1.5 py-0.2 rounded-full font-mono bg-black/20 text-[var(--text-main)]">
                                 {section.count}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono text-[var(--text-muted)] pr-2">
+                            <span className="text-xs font-mono text-[var(--text-muted)] pr-2">
                               {isCollapsed ? '[COLLAPSED - CLICK TO EXPAND]' : '[COLLAPSIBLE]'}
                             </span>
                           </div>
@@ -1578,7 +1578,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       {!isCollapsed && (
                         section.tasks.length === 0 ? (
                           <tr className="h-7 border-b border-[var(--border-app)]">
-                            <td colSpan={5} className="p-2 text-center text-[var(--text-subtle)] text-[10px] font-mono">
+                            <td colSpan={5} className="p-2 text-center text-[var(--text-subtle)] text-xs font-mono">
                               No tasks in this stage
                             </td>
                           </tr>
@@ -1640,7 +1640,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       </span>
                                       {task.isSynthesized && (
                                         <span
-                                          className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                          className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                           title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                         >
                                           <Check className="w-2.5 h-2.5 text-success" />
@@ -1648,7 +1648,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         </span>
                                       )}
                                       {task.blockReason && (
-                                        <span className="text-[10px] text-danger font-mono">
+                                        <span className="text-xs text-danger font-mono">
                                           (Blocker: {task.blockReason})
                                         </span>
                                       )}
@@ -1677,21 +1677,21 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Back to Queue [Q]"
                                           >
                                             [Q] QUEUE
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'paused')}
-                                            className="px-1.5 py-0.5 rounded bg-info/20 text-info text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-info/20 text-info text-xs cursor-pointer"
                                             title="Pause [P]"
                                           >
                                             [P] PAUSE
                                           </button>
                                           <button
                                             onClick={() => handleStartBlocking(task)}
-                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-xs cursor-pointer"
                                             title="Block [B]"
                                           >
                                             [B] BLOCK
@@ -1701,14 +1701,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-warning-solid hover:bg-warning-solid-hover text-on-solid text-xs font-bold cursor-pointer"
                                             title="Resume [R]"
                                           >
                                             [R] RESUME
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Queue [Q]"
                                           >
                                             [Q] QUEUE
@@ -1718,14 +1718,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-info-solid hover:bg-info-solid-hover text-white text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-info-solid hover:bg-info-solid-hover text-white text-xs font-bold cursor-pointer"
                                             title="Resume [R]"
                                           >
                                             [R] RESUME
                                           </button>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-main)] text-xs cursor-pointer"
                                             title="Queue [Q]"
                                           >
                                             [Q] QUEUE
@@ -1735,14 +1735,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         <>
                                           <button
                                             onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                                            className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold cursor-pointer"
                                             title="Start Work [S]"
                                           >
                                             [S] START
                                           </button>
                                           <button
                                             onClick={() => handleStartBlocking(task)}
-                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-[10px] cursor-pointer"
+                                            className="px-1.5 py-0.5 rounded bg-danger/20 text-danger text-xs cursor-pointer"
                                             title="Block [B]"
                                           >
                                             [B] BLOCK
@@ -1753,7 +1753,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       {stage !== 'done' && (
                                         <button
                                           onClick={() => onUpdateTaskStage(task.id, 'done')}
-                                          className="px-1.5 py-0.5 rounded bg-success/20 hover:bg-success/30 text-success text-[10px] font-bold cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-success/20 hover:bg-success/30 text-success text-xs font-bold cursor-pointer"
                                           title="Done & Log [D]"
                                         >
                                           [D] DONE
@@ -1763,7 +1763,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                       {stage === 'done' && onReopenTask && (
                                         <button
                                           onClick={() => onReopenTask(task.id)}
-                                          className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--accent-text)] text-[10px] cursor-pointer"
+                                          className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--accent-text)] text-xs cursor-pointer"
                                           title="Reopen"
                                         >
                                           [REOPEN]
@@ -1772,7 +1772,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
 
                                       <button
                                         onClick={() => onDeleteTask(task.id)}
-                                        className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-[10px] cursor-pointer"
+                                        className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-xs cursor-pointer"
                                         title="Delete [DEL]"
                                       >
                                         ✕
@@ -1786,7 +1786,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                   <tr className="bg-danger/10 border-b border-danger/30">
                                     <td colSpan={5} className="p-2">
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-mono text-danger font-bold whitespace-nowrap">BLOCK REASON:</span>
+                                        <span className="text-xs font-mono text-danger font-bold whitespace-nowrap">BLOCK REASON:</span>
                                         <input
                                           type="text"
                                           value={blockerReasonInput}
@@ -1798,13 +1798,13 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         />
                                         <button
                                           onClick={() => handleConfirmBlocking(task.id)}
-                                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-danger-solid text-white cursor-pointer"
+                                          className="px-2 py-0.5 text-xs font-bold rounded bg-danger-solid text-white cursor-pointer"
                                         >
                                           CONFIRM
                                         </button>
                                         <button
                                           onClick={() => setBlockingTaskId(null)}
-                                          className="px-2 py-0.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                                          className="px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                                         >
                                           CANCEL
                                         </button>
@@ -1836,7 +1836,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 <div key={group.project.id} className="border border-[var(--accent)]/70 bg-[var(--bg-app)] p-4 space-y-3 shadow-[0_0_15px_rgba(0,255,102,0.1)]">
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[var(--accent)]/40 text-[var(--text-main)]">
                     <span className="font-bold">+--[ DOMAIN: {group.project.name.toUpperCase()} ]--+</span>
-                    <div className="flex items-center gap-3 text-[11px]">
+                    <div className="flex items-center gap-3 text-xs">
                       <span className="text-[var(--text-muted)]">THREADS: {group.tasks.length}</span>
                       <span className="text-warning font-bold">CPU_TIME: {formatDigitalTimer(group.totalSeconds)}</span>
                     </div>
@@ -1864,7 +1864,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 : 'border-[var(--border-app)] bg-[var(--bg-app)] text-[var(--text-muted)]'
                             }`}
                           >
-                            <div className="flex items-center justify-between text-[10px]">
+                            <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
@@ -1878,7 +1878,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 </span>
                                 {task.isSynthesized && (
                                   <span
-                                    className="text-[9px] text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono"
+                                    className="text-xs text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono"
                                     title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                   >
                                     [LOGGED_TO_SHEET]
@@ -1894,10 +1894,10 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
 
                             <p className="font-bold text-xs text-[var(--text-main)]">&gt; {task.title}</p>
                             {task.blockReason && (
-                              <p className="text-danger text-[10px]">&gt;&gt; I/O WAIT: {task.blockReason}</p>
+                              <p className="text-danger text-xs">&gt;&gt; I/O WAIT: {task.blockReason}</p>
                             )}
 
-                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-app)] text-[10px]">
+                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-app)] text-xs">
                               {stage !== 'in_progress' && (
                                 <button
                                   onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
@@ -1964,7 +1964,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             task.isSynthesized ? 'opacity-80 border-success/40' : ''
                           }`}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                             <div className="flex items-center gap-2">
                               <input
                                 type="checkbox"
@@ -1978,7 +1978,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               </span>
                               {task.isSynthesized && (
                                 <span
-                                  className="text-[10px] text-success border border-success/50 bg-success/10 px-1.5 py-0.2 font-mono font-bold"
+                                  className="text-xs text-success border border-success/50 bg-success/10 px-1.5 py-0.2 font-mono font-bold"
                                   title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                 >
                                   [LOGGED_TO_SHEET]
@@ -1992,7 +1992,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
 
                           <p className="font-bold text-sm text-[var(--text-main)]">&gt; {task.title}</p>
 
-                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-app)] text-[10px]">
+                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border-app)] text-xs">
                             <button
                               onClick={() => onUpdateTaskStage(task.id, 'planned')}
                               className="hover:text-warning cursor-pointer"
@@ -2030,7 +2030,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                     {blocked.map((task) => (
                       <div
                         key={task.id}
-                        className={`p-2 border border-danger/30 bg-danger/10 text-danger flex items-center justify-between gap-2 text-[11px] ${
+                        className={`p-2 border border-danger/30 bg-danger/10 text-danger flex items-center justify-between gap-2 text-xs ${
                           task.isSynthesized ? 'opacity-80 border-success/40' : ''
                         }`}
                       >
@@ -2047,14 +2047,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <p className="font-bold truncate">&gt; {task.title}</p>
                               {task.isSynthesized && (
                                 <span
-                                  className="text-[9px] text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono font-bold"
+                                  className="text-xs text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono font-bold"
                                   title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                 >
                                   [LOGGED_TO_SHEET]
                                 </span>
                               )}
                             </div>
-                            <p className="text-[10px] text-danger/80">&gt;&gt; REASON: {task.blockReason || 'Waiting on I/O lock'}</p>
+                            <p className="text-xs text-danger/80">&gt;&gt; REASON: {task.blockReason || 'Waiting on I/O lock'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -2088,7 +2088,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                   {planned.map((task, idx) => (
                     <div
                       key={task.id}
-                      className={`flex items-center justify-between gap-2 p-2 border border-[var(--border-app)] hover:border-[var(--accent)]/40 bg-[var(--bg-app)] text-[11px] ${
+                      className={`flex items-center justify-between gap-2 p-2 border border-[var(--border-app)] hover:border-[var(--accent)]/40 bg-[var(--bg-app)] text-xs ${
                         task.isSynthesized ? 'opacity-80 border-success/40' : ''
                       }`}
                     >
@@ -2105,7 +2105,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         </span>
                         {task.isSynthesized && (
                           <span
-                            className="text-[9px] text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono font-bold shrink-0"
+                            className="text-xs text-success border border-success/50 bg-success/10 px-1 py-0.2 font-mono font-bold shrink-0"
                             title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                           >
                             [LOGGED_TO_SHEET]
@@ -2138,7 +2138,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
               </div>
 
               {/* Status Footer */}
-              <div className="p-2 border border-[var(--border-app)] bg-[var(--bg-app)] text-[var(--text-muted)] flex justify-between text-[11px]">
+              <div className="p-2 border border-[var(--border-app)] bg-[var(--bg-app)] text-[var(--text-muted)] flex justify-between text-xs">
                 <span>[STATUS: NORMAL] -- {inProgress.length} RUNNING -- {planned.length} QUEUED</span>
                 <span>EOD SYNTHESIS: READY</span>
               </div>
@@ -2153,7 +2153,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           {tasksByProject.map((group) => (
             <div
               key={group.project.id}
-              className="glass-panel p-4 sm:p-5 shadow-xs transition-all space-y-4 border border-[var(--border-app)] backdrop-blur-xl relative overflow-hidden"
+              className="glass-panel p-4 sm:p-5 shadow-xs transition-all space-y-4 border border-[var(--border-app)] relative overflow-hidden"
             >
               {/* Subtle Project Background Glow */}
               <div
@@ -2171,7 +2171,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                   <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] truncate">
                     {group.project.name}
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-muted)] shrink-0">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-muted)] shrink-0">
                     {group.tasks.length} {group.tasks.length === 1 ? 'task' : 'tasks'}
                   </span>
                 </div>
@@ -2224,7 +2224,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 title="Select task for EOD synthesis"
                               />
                               <span
-                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
+                                className={`text-xs font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
                                   isRunning
                                     ? 'bg-warning/20 text-warning'
                                     : isBlocked
@@ -2247,7 +2247,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               </span>
                               {task.isSynthesized && (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                  className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                   title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                 >
                                   <Check className="w-2.5 h-2.5 text-success" />
@@ -2257,7 +2257,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             </div>
 
                             {task.blockReason && (
-                              <p className="text-[10px] text-danger font-mono">
+                              <p className="text-xs text-danger font-mono">
                                 Blocker: {task.blockReason}
                               </p>
                             )}
@@ -2266,7 +2266,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           {/* Running or Recorded Timer */}
                           {task.elapsedSeconds && task.elapsedSeconds > 0 ? (
                             <span
-                              className={`font-mono text-[11px] px-2 py-0.5 rounded font-bold shrink-0 ${
+                              className={`font-mono text-xs px-2 py-0.5 rounded font-bold shrink-0 ${
                                 isRunning
                                   ? 'bg-warning/15 text-warning animate-pulse'
                                   : 'text-[var(--text-muted)] bg-[var(--bg-subtle)]'
@@ -2280,7 +2280,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         {/* Inline Blocker Form */}
                         {isBlocking && (
                           <div className="p-2 rounded bg-danger/10 border border-danger/30 space-y-1.5">
-                            <label className="text-[10px] font-bold text-danger font-mono">
+                            <label className="text-xs font-bold text-danger font-mono">
                               What is blocking this task?
                             </label>
                             <input
@@ -2296,14 +2296,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setBlockingTaskId(null)}
-                                className="px-2 py-0.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                                className="px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                               >
                                 Cancel
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleConfirmBlocking(task.id)}
-                                className="px-2.5 py-0.5 text-[10px] font-bold rounded bg-danger-solid hover:bg-danger-solid-hover text-white cursor-pointer"
+                                className="px-2.5 py-0.5 text-xs font-bold rounded bg-danger-solid hover:bg-danger-solid-hover text-white cursor-pointer"
                               >
                                 Confirm Blocked
                               </button>
@@ -2312,7 +2312,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         )}
 
                         {/* Action Buttons */}
-                        <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-[var(--border-app)]/40 text-[11px]">
+                        <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-[var(--border-app)]/40 text-xs">
                           <div className="flex items-center gap-1">
                             {isRunning ? (
                               <>
@@ -2441,14 +2441,14 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
             
             {/* Active Focus Card */}
             {(mobileTab === 'focus' || window.innerWidth >= 1024) && (
-              <div className="glass-panel p-4 sm:p-5 shadow-xs transition-all space-y-4 border border-[var(--border-app)] backdrop-blur-xl">
+              <div className="glass-panel p-4 sm:p-5 shadow-xs transition-all space-y-4 border border-[var(--border-app)]">
                 
                 {/* Header */}
                 <div className="flex items-center justify-between gap-2 border-b border-[var(--border-app)] pb-3">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-warning shrink-0" />
                     <h3 className="text-sm font-bold text-[var(--text-main)]">
-                      Currently Working (Active Focus)
+                      Running now
                     </h3>
                   </div>
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-warning/15 border border-warning/30 text-warning font-mono font-bold">
@@ -2476,7 +2476,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       return (
                         <div
                           key={task.id}
-                          className={`p-4 rounded-[var(--radius-card)] border bg-gradient-to-br from-[var(--bg-surface-elevated)] to-[var(--bg-subtle)] shadow-md transition-all space-y-3 ${
+                          className={`p-4 rounded-[var(--radius-card)] border bg-[var(--bg-surface-elevated)] transition-all space-y-3 ${
                             task.isSynthesized
                               ? 'opacity-85 border-success/40 '
                               : 'border-warning/30 '
@@ -2493,7 +2493,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               />
                               {project && (
                                 <span
-                                  className="text-[11px] px-2.5 py-0.5 rounded-full font-bold font-mono shadow-xs inline-flex items-center gap-1"
+                                  className="text-xs px-2.5 py-0.5 rounded-full font-bold font-mono shadow-xs inline-flex items-center gap-1"
                                   style={{ backgroundColor: project.color, color: readableOn(project.color) }}
                                 >
                                   <span>{project.name}</span>
@@ -2501,7 +2501,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               )}
                               {task.isSynthesized && (
                                 <span
-                                  className="text-[10px] text-success font-mono flex items-center gap-1 bg-success/10 border border-success/25 px-2 py-0.5 rounded-full font-bold"
+                                  className="text-xs text-success font-mono flex items-center gap-1 bg-success/10 border border-success/25 px-2 py-0.5 rounded-full font-bold"
                                   title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                 >
                                   <Check className="w-3 h-3 text-success" />
@@ -2524,7 +2524,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           {/* Blocker input */}
                           {isBlockingThis && (
                             <div className="p-2.5 rounded-[var(--radius-btn)] bg-danger/10 border border-danger/30 space-y-2 animate-in fade-in duration-150">
-                              <label className="text-[11px] font-bold text-danger flex items-center gap-1">
+                              <label className="text-xs font-bold text-danger flex items-center gap-1">
                                 <Ban className="w-3.5 h-3.5" />
                                 <span>What is blocking this task?</span>
                               </label>
@@ -2652,7 +2652,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             <span className="font-semibold truncate">{task.title}</span>
                             {task.isSynthesized && (
                               <span
-                                className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                 title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                               >
                                 <Check className="w-2.5 h-2.5 text-success" />
@@ -2663,13 +2663,13 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                              className="px-2.5 py-1 rounded bg-info-solid text-white font-bold text-[11px] cursor-pointer"
+                              className="px-2.5 py-1 rounded bg-info-solid text-white font-bold text-xs cursor-pointer"
                             >
                               Resume
                             </button>
                             <button
                               onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                              className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-main)] text-[11px] cursor-pointer"
+                              className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs cursor-pointer"
                             >
                               Queue
                             </button>
@@ -2708,7 +2708,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <span className="font-bold truncate">{task.title}</span>
                               {task.isSynthesized && (
                                 <span
-                                  className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                  className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                   title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                 >
                                   <Check className="w-2.5 h-2.5 text-success" />
@@ -2718,12 +2718,12 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             </div>
                             <button
                               onClick={() => onUpdateTaskStage(task.id, 'in_progress')}
-                              className="px-3 py-1 rounded bg-warning-solid text-white font-bold text-[11px] cursor-pointer shrink-0"
+                              className="px-3 py-1 rounded bg-warning-solid text-white font-bold text-xs cursor-pointer shrink-0"
                             >
                               Unblock & Resume
                             </button>
                           </div>
-                          <p className="text-[11px] text-danger">Blocker: {task.blockReason || 'Dependency halted'}</p>
+                          <p className="text-xs text-danger">Blocker: {task.blockReason || 'Dependency halted'}</p>
                         </div>
                       ))}
                     </div>
@@ -2774,7 +2774,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
                             {task.isSynthesized && (
                               <span
-                                className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                 title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                               >
                                 <Check className="w-2.5 h-2.5 text-success" />
@@ -2785,7 +2785,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           {onReopenTask && (
                             <button
                               onClick={() => onReopenTask(task.id)}
-                              className="text-[11px] text-[var(--accent-text)] hover:underline cursor-pointer shrink-0"
+                              className="text-xs text-[var(--accent-text)] hover:underline cursor-pointer shrink-0"
                             >
                               Reopen
                             </button>
@@ -2808,7 +2808,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                     <ListTodo className="w-4 h-4 text-[var(--accent-text)]" />
                     <span>The Planned Queue</span>
                   </h3>
-                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     Backlog awaiting active focus
                   </p>
                 </div>
@@ -2870,7 +2870,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               title="Select task for EOD synthesis"
                             />
                             {project && (
-                              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-main)]">
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-main)]">
                                 <span
                                   className="w-2 h-2 rounded-full inline-block shrink-0"
                                   style={{ backgroundColor: project.color }}
@@ -2881,13 +2881,13 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                           </div>
                           <div className="flex items-center gap-1.5">
                             {task.isRolledOver && (
-                              <span className="text-[10px] text-warning font-bold font-mono bg-warning/10 px-1.5 py-0.2 rounded">
+                              <span className="text-xs text-warning font-bold font-mono bg-warning/10 px-1.5 py-0.2 rounded">
                                 Rolled over
                               </span>
                             )}
                             {task.isSynthesized && (
                               <span
-                                className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
+                                className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.2 rounded-full bg-success/15 text-success border border-success/30 font-semibold shrink-0"
                                 title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                               >
                                 <Check className="w-2.5 h-2.5 text-success" />
@@ -2943,9 +2943,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
 
       {/* Granular Task Multi-Selection Floating Action Bar */}
       {selectedTaskIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-app)] shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-app)] shadow-2xl animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-warning-solid animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)]" />
             <span className="text-xs font-mono font-bold text-[var(--text-main)]">
               {selectedTaskIds.size} {selectedTaskIds.size === 1 ? 'task' : 'tasks'} selected
             </span>
@@ -2954,10 +2954,10 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           <button
             type="button"
             onClick={handleSynthesizeSelected}
-            className="px-4 py-1.5 rounded-full bg-warning-solid hover:bg-warning-solid-hover text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-1.5 rounded-full bg-[var(--text-main)] hover:opacity-90 text-[var(--bg-app)] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Synthesize Selected ({selectedTaskIds.size})</span>
+            <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Timesheet from selected ({selectedTaskIds.size})</span>
           </button>
           <button
             type="button"

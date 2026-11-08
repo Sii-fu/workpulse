@@ -23,16 +23,22 @@
 
 @layer base {
   :root {
-    /* Noto Sans Bengali is a fallback only: it is downloaded when Bangla text actually appears. */
-    --font-display: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
-    --font-body: 'DM Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', monospace;
+    /* Each theme sets its own families (see the theme blocks). Noto Sans Bengali is a fallback
+       only: it is downloaded when Bangla text actually appears. */
+    --font-display: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+    --font-body: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
+    --font-sans: var(--font-body);
   }
 
   /* Tailwind v4 dropped the placeholder-* utilities, so this is the one place placeholders get their colour. */
   ::placeholder {
     color: var(--text-subtle);
     opacity: 1;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
   }
 
   body {
@@ -91,83 +97,70 @@
 }
 
 /* =========================================================================
-   1. MODERN SAAS (Raycast / Linear Floating Glass Aesthetic)
+   Four themes. Each owns its type, surfaces, accent and corner radius.
+   Surfaces are flat and opaque: depth comes from a 1px border and a change of
+   tone, never from blur, glow or translucency. The accent marks "live now" and
+   the primary action, nothing else.
    ========================================================================= */
 
-/* Dark Mode (Default) */
+/* =========================================================================
+   1. MODERN: "Workbench". Calm, cool-neutral panels, one teal signal.
+   ========================================================================= */
 [data-theme="modern"][data-mode="dark"],
 [data-theme="modern"]:not([data-mode="light"]) {
-  --bg-app: #080c14;
-  --bg-surface: rgba(15, 23, 42, 0.75);
-  --bg-surface-elevated: rgba(30, 41, 59, 0.7);
-  --bg-subtle: rgba(255, 255, 255, 0.04);
-  --bg-subtle-hover: rgba(255, 255, 255, 0.08);
-  --border-app: rgba(255, 255, 255, 0.08);
-  --border-focus: #6366f1;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-subtle: #8b96a7;
-  --border-control: #646974;
-  --accent: #6164ec;
-  --accent-hover: #4f52de;
-  --accent-text: #8889f4;
-  --on-accent: #ffffff;
-  --accent-glow: rgba(99, 102, 241, 0.35);
-  --radius-card: 1rem;
-  --radius-btn: 0.625rem;
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
-  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
+  --bg-app: #0c1016;
+  --bg-surface: #121821;
+  --bg-surface-elevated: #18202b;
+  --bg-subtle: #19212c;
+  --bg-subtle-hover: #212b38;
+  --border-app: #263040;
+  --border-focus: #2dd4bf;
+  --text-main: #eef2f6;
+  --text-muted: #9ba8b7;
+  --text-subtle: #92a0b0;
+  --border-control: #68727f;
+  --accent: #14b8a6;
+  --accent-hover: #2dd4bf;
+  --accent-text: #2dd4bf;
+  --on-accent: #04201d;
+  --radius-card: 0.5rem;
+  --radius-btn: 0.375rem;
+  --shadow-card: none;
+  --font-display: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: dark;
 }
 
-[data-theme="modern"][data-mode="dark"] body,
-[data-theme="modern"]:not([data-mode="light"]) body {
-  background-color: var(--bg-app);
-  color: var(--text-main);
-}
-
-/* Light Mode */
 [data-theme="modern"][data-mode="light"] {
-  --bg-app: #f8fafc;
-  --bg-surface: rgba(255, 255, 255, 0.88);
+  --bg-app: #f5f6f8;
+  --bg-surface: #ffffff;
   --bg-surface-elevated: #ffffff;
-  --bg-subtle: rgba(0, 0, 0, 0.03);
-  --bg-subtle-hover: rgba(0, 0, 0, 0.06);
-  --border-app: rgba(226, 232, 240, 0.9);
-  --border-focus: #6366f1;
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-subtle: #59677d;
-  --border-control: #8b8f99;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-text: #4f46e5;
+  --bg-subtle: #f0f2f5;
+  --bg-subtle-hover: #e5e8ed;
+  --border-app: #dde1e7;
+  --border-focus: #0f766e;
+  --text-main: #101828;
+  --text-muted: #475467;
+  --text-subtle: #566275;
+  --border-control: #868f9d;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-text: #0f766e;
   --on-accent: #ffffff;
-  --accent-glow: rgba(79, 70, 229, 0.2);
-  --radius-card: 1rem;
-  --radius-btn: 0.625rem;
-  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
+  --radius-card: 0.5rem;
+  --radius-btn: 0.375rem;
+  --shadow-card: none;
+  --font-display: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: light;
 }
 
-[data-theme="modern"][data-mode="light"] body {
-  background-color: var(--bg-app);
-  color: var(--text-main);
-}
-
-[data-theme="modern"] .glass-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-app);
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-card);
-}
-
 /* =========================================================================
-   2. MINIMALIST (The Zen Notebook — Notion / Craft Editorial Paper Style)
+   2. MINIMALIST: "Daybook". Page and ink. A serif for headings, a
+   legibility-first sans for text, graphite instead of a brand colour.
    ========================================================================= */
-
-/* Light Mode (Default for Zen Notebook) */
 [data-theme="minimalist"][data-mode="light"],
 [data-theme="minimalist"]:not([data-mode="dark"]) {
   --bg-app: #fbfbfa;
@@ -177,23 +170,23 @@
   --bg-subtle-hover: #eae9e5;
   --border-app: #e3e2de;
   --border-focus: #37352f;
-  --text-main: #37352f;
+  --text-main: #2b2a26;
   --text-muted: #5d5c58;
   --text-subtle: #646360;
   --border-control: #8d8c88;
-  --accent: #2076cc;
-  --accent-hover: #1b64ad;
-  --accent-text: #1b65ad;
+  --accent: #37352f;
+  --accent-hover: #1f1e1a;
+  --accent-text: #37352f;
   --on-accent: #ffffff;
-  --accent-glow: transparent;
-  --radius-card: 0.375rem;
-  --radius-btn: 0.375rem;
+  --radius-card: 0.25rem;
+  --radius-btn: 0.25rem;
   --shadow-card: none;
-  --font-family-theme: 'DM Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
+  --font-display: 'Literata', 'Noto Sans Bengali', Georgia, serif;
+  --font-body: 'Atkinson Hyperlegible', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: light;
 }
 
-/* Dark Mode (Charcoal Stone) */
 [data-theme="minimalist"][data-mode="dark"] {
   --bg-app: #191919;
   --bg-surface: #222222;
@@ -201,41 +194,35 @@
   --bg-subtle: #2f2f2f;
   --bg-subtle-hover: #383838;
   --border-app: #333333;
-  --border-focus: #ffffff;
+  --border-focus: #f0f0ee;
   --text-main: #f0f0ee;
   --text-muted: #b1b1b0;
   --text-subtle: #a9a9a7;
   --border-control: #797978;
-  --accent: #3371d6;
-  --accent-hover: #2b62bd;
-  --accent-text: #74a6f9;
-  --on-accent: #ffffff;
-  --accent-glow: transparent;
-  --radius-card: 0.375rem;
-  --radius-btn: 0.375rem;
+  --accent: #f0f0ee;
+  --accent-hover: #ffffff;
+  --accent-text: #f0f0ee;
+  --on-accent: #191919;
+  --radius-card: 0.25rem;
+  --radius-btn: 0.25rem;
   --shadow-card: none;
-  --font-family-theme: 'DM Sans', 'Noto Sans Bengali', -apple-system, sans-serif;
+  --font-display: 'Literata', 'Noto Sans Bengali', Georgia, serif;
+  --font-body: 'Atkinson Hyperlegible', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: dark;
 }
 
-[data-theme="minimalist"] body {
-  background-color: var(--bg-app);
-  color: var(--text-main);
-  background-image: none;
-}
-
-[data-theme="minimalist"] .glass-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-app);
-  border-radius: var(--radius-card);
-  box-shadow: none;
+/* With no accent colour, links are told apart by an underline. */
+[data-theme="minimalist"] a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 /* =========================================================================
-   3. COMPACT (The Linear High-Density Data Console)
+   3. COMPACT: "Console". Dense grid, Plex Sans and Plex Mono, square corners,
+   one cool blue for selection and focus. Base text is 13px.
    ========================================================================= */
-
-/* Dark Mode (Default for Compact) */
 [data-theme="compact"][data-mode="dark"],
 [data-theme="compact"]:not([data-mode="light"]) {
   --bg-app: #0f141c;
@@ -244,7 +231,7 @@
   --bg-subtle: #1f2a3c;
   --bg-subtle-hover: #26344a;
   --border-app: #283548;
-  --border-focus: #3b82f6;
+  --border-focus: #799ff3;
   --text-main: #f1f5f9;
   --text-muted: #9eacbf;
   --text-subtle: #97a3b4;
@@ -253,15 +240,15 @@
   --accent-hover: #1d4ed8;
   --accent-text: #799ff3;
   --on-accent: #ffffff;
-  --accent-glow: rgba(37, 99, 235, 0.25);
   --radius-card: 0.25rem;
   --radius-btn: 0.25rem;
-  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', monospace;
+  --shadow-card: none;
+  --font-display: 'IBM Plex Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: dark;
 }
 
-/* Light Mode */
 [data-theme="compact"][data-mode="light"] {
   --bg-app: #f1f5f9;
   --bg-surface: #ffffff;
@@ -269,7 +256,7 @@
   --bg-subtle: #e2e8f0;
   --bg-subtle-hover: #cbd5e1;
   --border-app: #cbd5e1;
-  --border-focus: #2563eb;
+  --border-focus: #1c4bcf;
   --text-main: #0f172a;
   --text-muted: #435063;
   --text-subtle: #4b5665;
@@ -278,27 +265,22 @@
   --accent-hover: #1e40af;
   --accent-text: #1c4bcf;
   --on-accent: #ffffff;
-  --accent-glow: rgba(29, 78, 216, 0.15);
   --radius-card: 0.25rem;
   --radius-btn: 0.25rem;
-  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --font-family-theme: 'Plus Jakarta Sans', 'Noto Sans Bengali', monospace;
+  --shadow-card: none;
+  --font-display: 'IBM Plex Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: light;
 }
 
 [data-theme="compact"] body {
-  background-color: var(--bg-app);
-  color: var(--text-main);
-}
-
-[data-theme="compact"] .glass-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-app);
-  border-radius: var(--radius-card);
+  font-size: 13px;
 }
 
 /* =========================================================================
-   4. MATRIX CLI (True UNIX Terminal User Interface - TUI)
+   4. MATRIX: "TTY". Black, one phosphor green, JetBrains Mono everywhere.
+   Scanlines are a setting (Settings > Appearance), off by default.
    ========================================================================= */
 [data-theme="matrix"] {
   --bg-app: #030704;
@@ -306,7 +288,7 @@
   --bg-surface-elevated: #0a170c;
   --bg-subtle: #0f2212;
   --bg-subtle-hover: #16331b;
-  --border-app: #183e1e;
+  --border-app: #1d4a25;
   --border-focus: #00ff66;
   --text-main: #00ff66;
   --text-muted: #5cc979;
@@ -316,58 +298,54 @@
   --accent-hover: #33ff88;
   --accent-text: #00ff66;
   --on-accent: #030704;
-  --accent-glow: rgba(0, 255, 102, 0.4);
   --radius-card: 0px;
   --radius-btn: 0px;
-  --shadow-card: 0 0 10px rgba(0, 255, 102, 0.1), inset 0 0 15px rgba(0, 255, 102, 0.02);
-  --font-family-theme: 'JetBrains Mono', 'Noto Sans Bengali', monospace;
+  --shadow-card: none;
+  --font-display: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
+  --font-body: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace;
   color-scheme: dark !important;
 }
 
 [data-theme="matrix"] body {
   background-color: var(--bg-app) !important;
   color: var(--text-main) !important;
-  font-family: var(--font-mono) !important;
-  background-image: 
-    linear-gradient(rgba(0, 255, 102, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 102, 0.03) 1px, transparent 1px) !important;
-  background-size: 20px 20px !important;
-}
-
-[data-theme="matrix"]::before {
-  content: " ";
-  display: block;
-  position: fixed;
-  top: 0; left: 0; bottom: 0; right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 255, 0, 0.03));
-  z-index: 9999;
-  background-size: 100% 3px, 6px 100%;
-  pointer-events: none;
-  opacity: 0.65;
 }
 
 [data-theme="matrix"] * {
   border-radius: 0px !important;
-  font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace !important;
-}
-
-[data-theme="matrix"] .glass-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-app);
-  box-shadow: 0 0 12px rgba(0, 255, 102, 0.08);
+  font-family: var(--font-mono) !important;
 }
 
 [data-theme="matrix"] input,
 [data-theme="matrix"] textarea,
 [data-theme="matrix"] select {
-  font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace !important;
   color: var(--text-main) !important;
-  border-color: var(--border-app) !important;
   caret-color: var(--accent) !important;
 }
 
-[data-theme="matrix"] .matrix-glow {
-  text-shadow: 0 0 8px rgba(0, 255, 102, 0.6);
+/* The CRT overlay: horizontal scanlines and a faint RGB mask. Opt-in. */
+html[data-theme="matrix"][data-crt="on"]::before {
+  content: " ";
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.18) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  z-index: 9999;
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+html[data-theme="matrix"][data-crt="on"] .matrix-glow {
+  text-shadow: 0 0 6px rgba(0, 255, 102, 0.5);
+}
+
+/* =========================================================================
+   Panels. One definition for every theme: a flat surface with a hairline border.
+   ========================================================================= */
+.glass-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-card);
 }
 
 /* =========================================================================
@@ -401,6 +379,19 @@
   --info-solid-hover: #1e40af;
 }
 
+/* Matrix keeps to its palette: phosphor green for good news, amber for warnings, and the one red a
+   terminal is allowed for errors. No blues, no pastel. */
+[data-theme="matrix"] {
+  --success: #00ff66;
+  --warning: #ffb000;
+  --danger: #ff7a7a;
+  --info: #5cc979;
+  --success-solid: #037a32;
+  --success-solid-hover: #026326;
+  --info-solid: #037a32;
+  --info-solid-hover: #026326;
+}
+
 /* Print Styles */
 @media print {
   body {
@@ -422,4 +413,37 @@
 }
 .log-flash {
   animation: log-flash 1.6s ease-out;
+}
+
+/* The running clock's colons beat once a second: the one looping motion in the app. */
+@keyframes clock-beat {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.7; }
+}
+.clock-colon {
+  animation: clock-beat 1s steps(1, end) infinite;
+}
+
+/* Motion that answers an action: a new log settles into the list; dialogs and toasts rise a few
+   pixels. All of it is 120-180 ms and is switched off by prefers-reduced-motion above. */
+@keyframes log-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.log-enter {
+  animation: log-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise-in {
+  animation: rise-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 120ms ease-out;
 }

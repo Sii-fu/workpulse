@@ -7,7 +7,9 @@ import { modelLabel } from '../utils/geminiModels';
 import { minutesFromSeconds } from '../utils/duration';
 import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
 import {
-  Sparkles,
+  ClipboardCheck,
+  RefreshCw,
+  Info,
   CheckCircle2,
   Clock,
   Ban,
@@ -296,17 +298,17 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)] shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent-text)] border border-[var(--accent)]/30">
-              {isMatrix ? <Terminal className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+              <ClipboardCheck className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <h2 id="eod-title" className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <span>End-of-Day (EOD) AI Log Synthesizer</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-warning/15 text-warning border border-warning/30 uppercase">
+                <span>End-of-day timesheet</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-warning/15 text-warning border border-warning/30 uppercase">
                   {activeModelName}
                 </span>
               </h2>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Splits logs by Project × Status (Completed deliverables, Blockers & Active Focus)
+                One log per project and status from today's tasks. Check them, then push to the Sheet.
               </p>
             </div>
           </div>
@@ -316,10 +318,10 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               onClick={handleManualResynthesize}
               disabled={isLoading}
               className="px-2.5 py-1 text-xs font-medium rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-[var(--text-main)] bg-[var(--bg-subtle)] text-[var(--text-main)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-              title="Re-run synthesis"
+              title="Build the logs again from today's tasks"
             >
-              {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-warning" />}
-              <span className="hidden sm:inline">Re-synthesize</span>
+              {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">Rebuild</span>
             </button>
             <IconButton label="Close" onClick={onClose}>
               <X className="w-5 h-5" />
@@ -375,10 +377,10 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               {aiNote && (
                 <div className="p-3 rounded-[var(--radius-btn)] bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
+                    <Info className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" aria-hidden="true" />
                     <span>{aiNote}</span>
                   </span>
-                  <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                  <span className="text-xs font-mono text-[var(--text-muted)]">
                     {selectedLogIds.size} of {synthesizedItems.length} status-split logs selected
                   </span>
                 </div>
@@ -397,7 +399,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                     ? 'bg-[var(--bg-surface)] border-[var(--border-app)] text-[var(--text-main)] font-sans focus:border-[var(--border-focus)] shadow-xs'
                     : isCompact
                     ? 'bg-[var(--bg-subtle)] border-[var(--border-app)] text-[var(--text-main)] font-mono text-xs focus:border-[var(--accent)]'
-                    : 'bg-[var(--bg-surface-elevated)] border-white/10 text-[var(--text-main)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 backdrop-blur-md shadow-inner';
+                    : 'bg-[var(--bg-surface-elevated)] border-white/10 text-[var(--text-main)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 shadow-inner';
 
                   return (
                     <div
@@ -407,10 +409,10 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                           ? isMatrix
                             ? 'border-[var(--accent)] bg-[var(--bg-surface)]'
                             : item.status === 'blocked'
-                            ? 'border-danger/70 bg-danger/5 ring-1 ring-danger/20 shadow-md'
+                            ? 'border-danger/70 bg-danger/5 ring-1 ring-danger/20'
                             : item.status === 'in_progress'
-                            ? 'border-warning/70 bg-warning/5 ring-1 ring-warning/20 shadow-md'
-                            : 'border-[var(--accent)]/80 bg-[var(--bg-surface)] ring-1 ring-[var(--accent)]/30 shadow-md'
+                            ? 'border-warning/70 bg-warning/5 ring-1 ring-warning/20'
+                            : 'border-[var(--accent)]/80 bg-[var(--bg-surface)] ring-1 ring-[var(--accent)]/30'
                           : 'border-[var(--border-app)] bg-[var(--bg-subtle)]/40 opacity-60'
                       }`}
                     >
@@ -439,7 +441,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
 
                           {/* Distinct Status Pill */}
                           <span
-                            className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+                            className={`text-xs px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
                               item.status === 'completed'
                                 ? 'bg-success/20 text-success border border-success/30'
                                 : item.status === 'blocked'
@@ -450,7 +452,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                             {item.status.replace('_', ' ')}
                           </span>
 
-                          <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                          <span className="text-xs font-mono text-[var(--text-muted)]">
                             ({activeTasks.length} of {item.underlyingTasks.length} tasks included)
                           </span>
                         </div>
@@ -488,16 +490,16 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                               }
                               className="w-12 text-xs font-mono font-bold bg-transparent text-[var(--text-main)]"
                             />
-                            <span className="text-[11px] text-[var(--text-muted)]">mins</span>
+                            <span className="text-xs text-[var(--text-muted)]">mins</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Editable Synthesized Bullets */}
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-[var(--text-muted)] flex items-center justify-between">
+                        <label className="text-xs font-bold text-[var(--text-muted)] flex items-center justify-between">
                           <span>Synthesized Timesheet Description (Markdown Bullets):</span>
-                          <span className="text-[10px] font-mono font-normal">Editable</span>
+                          <span className="text-xs font-mono font-normal">Editable</span>
                         </label>
                         <textarea
                           rows={Math.max(3, item.summaryBullets.split('\n').length)}
@@ -524,7 +526,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
 
                         {isExpanded && (
                           <div className="mt-2 p-2.5 rounded-[var(--radius-btn)] bg-[var(--bg-subtle)]/70 border border-[var(--border-app)] space-y-2 animate-in fade-in duration-150">
-                            <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                            <p className="text-xs text-[var(--text-muted)] font-mono">
                               Uncheck tasks below to exclude them from this timesheet entry and reduce logged duration:
                             </p>
                             <div className="space-y-1">
@@ -545,7 +547,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                                       <CheckSquare className="w-3.5 h-3.5 text-success shrink-0" />
                                     )}
                                     <span
-                                      className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase shrink-0 ${
+                                      className={`text-xs px-1.5 py-0.2 rounded font-mono font-bold uppercase shrink-0 ${
                                         t.stage === 'done'
                                           ? 'bg-success/20 text-success'
                                           : t.stage === 'in_progress'
@@ -560,7 +562,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                                     <span className="truncate">{t.title}</span>
                                   </div>
 
-                                  <span className="font-mono text-[11px] text-[var(--text-muted)] shrink-0">
+                                  <span className="font-mono text-xs text-[var(--text-muted)] shrink-0">
                                     {formatDurationSeconds(t.elapsedSeconds)}
                                   </span>
                                 </div>
@@ -607,7 +609,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               type="button"
               onClick={handleConfirm}
               disabled={isSubmitting || isLoading || !!errorMsg || selectedLogIds.size === 0}
-              className="px-5 py-2 text-xs font-bold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] shadow-md shadow-[var(--accent-glow)] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 text-xs font-bold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -617,7 +619,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               ) : (
                 <>
                   <Send className="w-3.5 h-3.5" />
-                  <span>🚀 Confirm & Push to Google Sheet ({selectedLogIds.size})</span>
+                  <span>Push {selectedLogIds.size} to the Sheet</span>
                 </>
               )}
             </button>

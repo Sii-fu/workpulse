@@ -1,5 +1,6 @@
 import React from 'react';
 import { activeProjectsOf } from '../../utils/projects';
+import { parseLocalDate } from '../../utils/dates';
 import { useQuickLog } from '../../hooks/useQuickLog';
 import { useLogFilters } from '../../hooks/useLogFilters';
 import { useFocusLog, logRowId } from '../../hooks/useFocusLog';
@@ -33,10 +34,19 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
   onOpenEodSynthesizer,
   focusLogId,
   onFocusLogHandled,
+  justAddedLogId,
 }) => {
   const quick = useQuickLog(projects, onAddLog);
   const list = useLogFilters(logs);
   useFocusLog(focusLogId, list.reset, onFocusLogHandled);
+
+  // A daybook is read by day: one heading per date, newest first, entries as ruled lines under it.
+  const days = list.visible.reduce<{ date: string; logs: typeof list.visible }[]>((acc, log) => {
+    const last = acc[acc.length - 1];
+    if (last && last.date === log.date) last.logs.push(log);
+    else acc.push({ date: log.date, logs: [log] });
+    return acc;
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -53,7 +63,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
           <span className="font-medium tracking-tight">
             Today's Daily Log — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </span>
-          <span className="font-mono text-[11px]">Ctrl + Enter to log</span>
+          <span className="font-mono text-xs">Ctrl + Enter to log</span>
         </div>
 
         {/* Borderless Title-Like Textarea */}
@@ -135,7 +145,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
 
       {/* 2. Narrative Timeline (Quiet, Editorial Prose) */}
       <div className="space-y-5">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Work Log Chronicle</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-main)]">Log</h2>
 
         <LogFilterBar
           {...list}
@@ -150,7 +160,6 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
           onSelectAll={onSelectAllVisible}
           onClear={onClearSelection}
           onGenerateStandup={onOpenAiStandupWithSelected}
-          onOpenEod={onOpenEodSynthesizer}
         />
 
         {list.visible.length === 0 ? (
@@ -158,82 +167,96 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
             {logs.length === 0 ? 'Nothing logged yet. Write what you worked on above.' : 'No logs match these filters.'}
           </p>
         ) : (
-          <div className="divide-y divide-[var(--border-app)]">
-            {list.visible.map((log) => (
-              <div
-                key={log.id}
-                id={logRowId(log.id)}
-                tabIndex={-1}
-                className="py-4 space-y-1.5 group scroll-mt-24"
-              >
-                {/* Unboxed Metadata Line with Middots */}
-                <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-                  <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
-                    <span className="font-semibold text-[var(--text-main)]">{log.projectName}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono tabular-nums text-[11px]">{log.date}</span>
-                    <span aria-hidden="true">·</span>
-                    <StatusBadge status={log.status} variant="text" />
-                    {log.durationMinutes && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span className="font-mono tabular-nums">{log.durationMinutes}m</span>
-                      </>
-                    )}
-                  </div>
+          <div className="space-y-8">
+            {days.map((day) => (
+              <section key={day.date} aria-label={day.date}>
+                <h3
+                  className="text-base font-semibold text-[var(--text-main)] pb-2 border-b border-[var(--border-control)]"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  {parseLocalDate(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </h3>
+                <ol className="divide-y divide-[var(--border-app)]">
+                  {day.logs.map((log) => (
+                    <li
+                      key={log.id}
+                      id={logRowId(log.id)}
+                      tabIndex={-1}
+                      className={`py-3.5 group scroll-mt-24 grid grid-cols-[3.25rem_1fr] sm:grid-cols-[5rem_1fr] gap-x-3 sm:gap-x-5 ${log.id === justAddedLogId ? 'log-enter' : ''}`}
+                    >
+                      {/* Margin: the time, like the left edge of a ledger */}
+                      <div className="font-mono tabular-nums text-xs text-[var(--text-muted)] pt-1 flex items-start gap-1.5">
+                        <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
+                        <span className="hidden sm:inline pt-1">{log.time}</span>
+                      </div>
 
-                  <LogActions
-                    log={log}
-                    onCopyText={onCopyText}
-                    onEdit={onEditLog}
-                    onDuplicate={onDuplicateLog}
-                    onDelete={onDeleteLog}
-                    revealOnHover
-                  />
-                </div>
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+                            <span className="font-semibold text-[var(--text-main)]">{log.projectName}</span>
+                            <span className="sm:hidden font-mono tabular-nums">{log.time}</span>
+                            <span aria-hidden="true">·</span>
+                            <StatusBadge status={log.status} variant="text" />
+                            {log.durationMinutes && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="font-mono tabular-nums">{log.durationMinutes}m</span>
+                              </>
+                            )}
+                          </div>
+                          <LogActions
+                            log={log}
+                            onCopyText={onCopyText}
+                            onEdit={onEditLog}
+                            onDuplicate={onDuplicateLog}
+                            onDelete={onDeleteLog}
+                            revealOnHover
+                          />
+                        </div>
 
-                {/* Prose Body */}
-                <div className="space-y-1">
-                  {log.isSynthesized && (
-                    <span className="text-[10px] font-mono text-warning font-semibold block">Synthesized EOD log</span>
-                  )}
-                  <p className="text-sm text-[var(--text-main)] leading-relaxed font-normal whitespace-pre-line">
-                    {log.description}
-                  </p>
-                  {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} />}
-                </div>
+                        <div className="space-y-1">
+                          {log.isSynthesized && (
+                            <span className="text-xs font-mono text-warning font-semibold block">Synthesized EOD log</span>
+                          )}
+                          <p className="text-[0.95rem] text-[var(--text-main)] leading-relaxed whitespace-pre-line max-w-[68ch]">
+                            {log.description}
+                          </p>
+                          {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} />}
+                        </div>
 
-                {/* Quiet Footer Links */}
-                {(log.linkUrl || log.tags.length > 0 || log.imageBase64) && (
-                  <div className="flex items-center gap-2.5 text-[11px] text-[var(--text-muted)] pt-0.5">
-                    {log.tags.map((t) => (
-                      <span key={t}>{t}</span>
-                    ))}
-                    {log.linkUrl && (
-                      <a
-                        href={log.linkUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[var(--accent-text)] hover:underline inline-flex items-center gap-1 py-1 -my-1"
-                      >
-                        <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                        <span>Link</span>
-                      </a>
-                    )}
-                    {log.imageBase64 && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenImage(log.imageBase64!)}
-                        className="hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <ImageIcon className="w-3 h-3" aria-hidden="true" />
-                        <span>View Attachment</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                        {(log.linkUrl || log.tags.length > 0 || log.imageBase64) && (
+                          <div className="flex flex-wrap items-center gap-x-2.5 text-xs text-[var(--text-muted)] pt-0.5">
+                            {log.tags.map((t) => (
+                              <span key={t}>{t}</span>
+                            ))}
+                            {log.linkUrl && (
+                              <a
+                                href={log.linkUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[var(--accent-text)] inline-flex items-center gap-1 py-1 -my-1"
+                              >
+                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                <span>Link</span>
+                              </a>
+                            )}
+                            {log.imageBase64 && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenImage(log.imageBase64!)}
+                                className="hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <ImageIcon className="w-3 h-3" aria-hidden="true" />
+                                <span>View Attachment</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
             ))}
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { activeProjectsOf } from '../../utils/projects';
 import { isPendingTask } from '../../utils/taskLogging';
 import { useQuickLog } from '../../hooks/useQuickLog';
@@ -9,7 +9,7 @@ import { LogListProps, QuickLogProps, TaskQueueProps } from '../feed/types';
 import { LogFilterBar } from '../feed/LogFilterBar';
 import { SelectionBar } from '../feed/SelectionBar';
 import { SelectBox } from '../feed/SelectBox';
-import { LogActions } from '../feed/LogActions';
+import { LogActions, copyTextOf } from '../feed/LogActions';
 import { StatusBadge } from '../feed/StatusBadge';
 import { MicroTasks } from '../feed/MicroTasks';
 import { IconButton } from '../ui/IconButton';
@@ -39,6 +39,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   onOpenEodSynthesizer,
   focusLogId,
   onFocusLogHandled,
+  justAddedLogId,
 }) => {
   const quick = useQuickLog(projects, onAddLog, { withDuration: true });
   const list = useLogFilters(logs);
@@ -46,6 +47,38 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   const [showBacklog, setShowBacklog] = useState(false);
   // The table needs about 760 px; below that each log becomes a card so its actions stay on screen.
   const isWide = useMediaQuery('(min-width: 768px)');
+
+  // Keyboard driving, like a spreadsheet: j and k move a row cursor, e edits it, x selects it,
+  // c copies it, d duplicates it, / jumps to search. Delete has no key on purpose.
+  const [cursorId, setCursorId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isWide) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('[role="dialog"]'))) return;
+      const ids = list.visible.map((l) => l.id);
+      const at = cursorId ? ids.indexOf(cursorId) : -1;
+      const current = at >= 0 ? list.visible[at] : null;
+      const move = (to: number) => {
+        const id = ids[Math.max(0, Math.min(ids.length - 1, to))];
+        if (!id) return;
+        setCursorId(id);
+        document.getElementById(logRowId(id))?.scrollIntoView({ block: 'nearest' });
+      };
+      switch (e.key) {
+        case 'j': e.preventDefault(); move(at + 1); break;
+        case 'k': e.preventDefault(); move(at < 0 ? 0 : at - 1); break;
+        case 'e': if (current) { e.preventDefault(); onEditLog(current); } break;
+        case 'x': if (current) { e.preventDefault(); onToggleSelectLog(current.id); } break;
+        case 'c': if (current) { e.preventDefault(); onCopyText(copyTextOf(current)); } break;
+        case 'd': if (current) { e.preventDefault(); onDuplicateLog(current); } break;
+        case '/': e.preventDefault(); document.querySelector<HTMLInputElement>('[role="search"] input')?.focus(); break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isWide, list.visible, cursorId, onEditLog, onToggleSelectLog, onCopyText, onDuplicateLog]);
 
   const pendingTasks = backlog.filter(isPendingTask);
   const control = 'h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] cursor-pointer';
@@ -114,7 +147,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
             onChange={(e) => quick.setDuration(e.target.value)}
             className="w-10 text-center text-xs bg-transparent"
           />
-          <span className="text-[10px] text-[var(--text-muted)]">m</span>
+          <span className="text-xs text-[var(--text-muted)]">m</span>
         </div>
 
         <button
@@ -154,7 +187,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       {/* Optional Top Tasks Drawer if toggled */}
       {showBacklog && (
         <div className="glass-panel p-3 border border-[var(--border-app)] space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
+          <div className="flex items-center justify-between text-xs text-[var(--text-muted)] uppercase tracking-wider font-bold">
             <span>Pending tasks ({pendingTasks.length})</span>
             <IconButton label="Close tasks drawer" onClick={() => setShowBacklog(false)}>
               <X className="w-3.5 h-3.5" />
@@ -176,7 +209,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   <button
                     type="button"
                     onClick={() => onConvertTaskToLog(t)}
-                    className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold cursor-pointer shrink-0 flex items-center gap-1"
+                    className="px-1.5 py-0.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1"
                     title="Log to Work Log and Sheet"
                     aria-label={`Log task: ${t.title}`}
                   >
@@ -198,7 +231,6 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         onSelectAll={onSelectAllVisible}
         onClear={onClearSelection}
         onGenerateStandup={onOpenAiStandupWithSelected}
-        onOpenEod={onOpenEodSynthesizer}
         dense
       />
 
@@ -213,8 +245,8 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           {list.visible.map((log) => {
             const project = projects.find((p) => p.id === log.projectId);
             return (
-              <li key={log.id} id={logRowId(log.id)} tabIndex={-1} className="glass-panel p-3 space-y-1.5 scroll-mt-24">
-                <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+              <li key={log.id} id={logRowId(log.id)} tabIndex={-1} className={`glass-panel p-3 space-y-1.5 scroll-mt-24 ${log.id === justAddedLogId ? 'log-enter' : ''}`}>
+                <div className="flex items-center justify-between gap-2 font-mono text-xs">
                   <span className="flex items-center gap-2 min-w-0">
                     <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: project?.color || '#6366f1' }} aria-hidden="true" />
@@ -223,13 +255,13 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   <StatusBadge status={log.status} variant="bracket" />
                 </div>
                 <p className="text-xs text-[var(--text-main)] whitespace-pre-line">{log.description}</p>
-                <p className="font-mono text-[10px] text-[var(--text-muted)]">
+                <p className="font-mono text-xs text-[var(--text-muted)]">
                   {log.date} {log.time} · {log.durationMinutes ? `${log.durationMinutes}m` : '-'}
                   {log.tags.length > 0 && ` · ${log.tags.join(' ')}`}
                 </p>
                 {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}
                 <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
-                  <span className="flex items-center gap-3 text-[10px]">
+                  <span className="flex items-center gap-3 text-xs">
                     {log.imageBase64 && (
                       <button type="button" onClick={() => onOpenImage(log.imageBase64 as string)} className="text-[var(--accent-text)] hover:underline cursor-pointer">
                         [IMG]
@@ -254,7 +286,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       <div className="glass-panel overflow-x-auto border border-[var(--border-app)] shadow-xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] uppercase tracking-wider text-[10px] h-9">
+            <tr className="border-b border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] uppercase tracking-wider text-xs h-9">
               <th className="pl-2.5 w-8"><span className="sr-only">Select</span></th>
               <th className="px-2.5 w-24">Date</th>
               <th className="px-2.5 w-32">Project</th>
@@ -280,12 +312,18 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                   key={log.id}
                   id={logRowId(log.id)}
                   tabIndex={-1}
-                  className="min-h-9 hover:bg-[var(--bg-subtle-hover)] transition-colors group align-top scroll-mt-24"
+                  aria-current={log.id === cursorId ? 'true' : undefined}
+                  className={`min-h-9 hover:bg-[var(--bg-subtle-hover)] transition-colors group align-top scroll-mt-24 ${log.id === justAddedLogId ? 'log-enter' : ''} ${
+                    log.id === cursorId ? 'bg-[var(--bg-subtle-hover)]' : ''
+                  }`}
                 >
                   <td className="pl-2.5 pt-1.5">
                     <SelectBox checked={selectedLogIds.includes(log.id)} onChange={() => onToggleSelectLog(log.id)} />
                   </td>
-                  <td className="px-2.5 py-2 text-[var(--text-muted)] whitespace-nowrap">{log.date}</td>
+                  <td className="px-2.5 py-2 text-[var(--text-muted)] whitespace-nowrap">
+                    {log.id === cursorId && <span aria-hidden="true" className="text-[var(--accent-text)] mr-1">›</span>}
+                    {log.date}
+                  </td>
                   <td className="px-2.5 py-2 font-semibold text-[var(--text-main)] whitespace-nowrap truncate max-w-[130px]">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span
@@ -302,7 +340,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                     <span className="block truncate" title={log.description}>
                       {log.description}
                     </span>
-                    <span className="flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--text-muted)] empty:hidden">
+                    <span className="flex flex-wrap items-center gap-x-2 text-xs text-[var(--text-muted)] empty:hidden">
                       {log.tags.map((t) => (
                         <span key={t}>{t}</span>
                       ))}
@@ -356,6 +394,17 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           </tbody>
         </table>
       </div>
+      )}
+
+      {isWide && (
+        <p className="no-print flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-[var(--text-muted)]" aria-label="Keyboard shortcuts">
+          {[['j k', 'move'], ['e', 'edit'], ['x', 'select'], ['c', 'copy'], ['d', 'duplicate'], ['/', 'search']].map(([key, what]) => (
+            <span key={key} className="inline-flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 rounded border border-[var(--border-control)] bg-[var(--bg-subtle)] text-[var(--text-main)]">{key}</kbd>
+              {what}
+            </span>
+          ))}
+        </p>
       )}
     </div>
   );

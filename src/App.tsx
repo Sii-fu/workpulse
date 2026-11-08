@@ -48,6 +48,7 @@ import { LightboxModal } from './components/LightboxModal';
 import { ReminderBanner } from './components/ReminderBanner';
 import { ToastContainer } from './components/ToastContainer';
 import { LogEditorDialog } from './components/feed/LogEditorDialog';
+import { RunningStrip } from './components/RunningStrip';
 import { LogListProps, QuickLogProps } from './components/feed/types';
 import { isPendingTask } from './utils/taskLogging';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
@@ -69,6 +70,7 @@ export default function App() {
     googleScriptUrl: '',
     geminiApiKey: '',
     defaultTone: 'casual',
+    crtEffect: false,
   });
 
   // Active top navigation tab (now includes 'settings' as dedicated view)
@@ -101,6 +103,12 @@ export default function App() {
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
   // Log picked in the search palette; the timeline scrolls to it and clears this.
   const [focusLogId, setFocusLogId] = useState<string | null>(null);
+  // The log just written, so its row can settle into the list once.
+  const [justAddedLogId, setJustAddedLogId] = useState<string | null>(null);
+  const markJustAdded = (id: string) => {
+    setJustAddedLogId(id);
+    setTimeout(() => setJustAddedLogId((cur) => (cur === id ? null : cur)), 1500);
+  };
 
   // Sync state
   const [isSyncingSheet, setIsSyncingSheet] = useState(false);
@@ -202,7 +210,7 @@ export default function App() {
       ...loaded.settings,
       syncTrackingSince,
       theme: activeTheme,
-      colorMode: activeTheme === 'matrix' ? 'dark' : activeMode,
+      colorMode: activeMode,
     });
 
     const todayStr = localDateStr();
@@ -223,7 +231,12 @@ export default function App() {
       'data-mode',
       settings.theme === 'matrix' ? 'dark' : settings.colorMode
     );
-  }, [dataLoaded, settings.theme, settings.colorMode]);
+    if (settings.theme === 'matrix' && settings.crtEffect) {
+      document.documentElement.setAttribute('data-crt', 'on');
+    } else {
+      document.documentElement.removeAttribute('data-crt');
+    }
+  }, [dataLoaded, settings.theme, settings.colorMode, settings.crtEffect]);
 
   // 3. Global Keyboard Shortcuts
   useEffect(() => {
@@ -314,20 +327,21 @@ export default function App() {
   }, []);
 
   // 4. Persistence Handlers
-  const handleThemeChange = (newTheme: ThemeId) => {
-    const newMode = newTheme === 'matrix' ? 'dark' : settings.colorMode;
-    const updated = { ...settings, theme: newTheme, colorMode: newMode };
-    setSettings(updated);
-    saveSettings(updated);
-    addToast(`Layout switched to ${newTheme.toUpperCase()}`, 'info');
-  };
-
   const handleColorModeChange = (newMode: ColorMode) => {
     if (settings.theme === 'matrix') return;
     const updated = { ...settings, colorMode: newMode };
     setSettings(updated);
     saveSettings(updated);
     addToast(`Mode: ${newMode.toUpperCase()}`, 'info');
+  };
+
+  // The theme switch in the top bar applies at once and is remembered. The mode is left alone, so
+  // a person who leaves Matrix (always dark) gets their own light or dark choice back.
+  const handleThemeChange = (theme: ThemeId) => {
+    if (theme === settings.theme) return;
+    const updated = { ...settings, theme };
+    setSettings(updated);
+    saveSettings(updated);
   };
 
   const handleSaveSettings = (incoming: AppSettings) => {
@@ -350,13 +364,14 @@ export default function App() {
 
     const updated = [newLog, ...logs];
     setLogs(updated);
+    markJustAdded(newLog.id);
     if (saveLogs(updated).ok) addToast('Work log recorded successfully!');
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
         if (res.success) {
           markLogsSynced([newLog.id]);
-          addToast('Synced with Google Sheet ✓', 'success');
+          addToast('Synced with Google Sheet', 'success');
         } else {
           reportSyncFailure(res.message);
         }
@@ -406,9 +421,13 @@ export default function App() {
       date: localDateStr(),
       time: localTimeStr(),
       createdAt: new Date().toISOString(),
+      // a copy is a new log: it must not inherit "already synced" or "edited" from the original
+      syncedAt: undefined,
+      editedAt: undefined,
     };
     const updated = [duplicated, ...logs];
     setLogs(updated);
+    markJustAdded(duplicated.id);
     if (saveLogs(updated).ok) addToast('Log duplicated for today', 'success');
   };
 
@@ -434,7 +453,7 @@ export default function App() {
     saveBacklog(updated);
     addToast(
       stage === 'in_progress'
-        ? 'Task added directly to Active Focus! ⚡'
+        ? 'Task added and started'
         : 'Task added to Planned Queue'
     );
   };
@@ -845,6 +864,7 @@ export default function App() {
     onOpenEodSynthesizer: handleOpenEodSynthesizer,
     focusLogId,
     onFocusLogHandled: () => setFocusLogId(null),
+    justAddedLogId,
   };
   const quickLogProps: QuickLogProps = {
     availableTags: tags,
@@ -868,16 +888,25 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         activeTheme={settings.theme}
+        onThemeChange={handleThemeChange}
         colorMode={settings.colorMode}
         onColorModeChange={handleColorModeChange}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAiStandup={() => setIsAiStandupOpen(true)}
+        onOpenEod={handleOpenEodSynthesizer}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onSyncGoogleSheet={handleSyncGoogleSheet}
         unsyncedCount={
           settings.googleScriptUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0
         }
         isSyncing={isSyncingSheet}
+      />
+
+      <RunningStrip
+        backlog={backlog}
+        projects={projects}
+        onPause={(id) => handleUpdateTaskStage(id, 'paused')}
+        onOpenTasks={() => setActiveTab('backlog')}
       />
 
       {/* Main Viewport Container */}
@@ -1075,7 +1104,7 @@ export default function App() {
         geminiApiKey={settings.geminiApiKey}
         defaultRecipientName={settings.defaultRecipientName}
         defaultTone={settings.defaultTone}
-        onCopySuccess={() => addToast('Standup report copied to clipboard! 🎉')}
+        onCopySuccess={() => addToast('Standup copied to clipboard')}
       />
 
       {/* Global Cmd+K Search Palette */}

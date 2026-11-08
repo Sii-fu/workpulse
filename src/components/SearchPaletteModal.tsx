@@ -159,7 +159,7 @@ export const SearchPaletteModal: React.FC<SearchPaletteModalProps> = ({
                     {log.description}
                   </p>
 
-                  <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[var(--text-muted)]">
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-[var(--text-muted)]">
                     {log.tags.map((t) => (
                       <span key={t}>{t}</span>
                     ))}
@@ -192,7 +192,7 @@ export const SearchPaletteModal: React.FC<SearchPaletteModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 border-t border-[var(--border-app)] bg-[var(--bg-subtle)] text-[11px] text-[var(--text-muted)] flex items-center justify-between">
+        <div className="p-2.5 border-t border-[var(--border-app)] bg-[var(--bg-subtle)] text-xs text-[var(--text-muted)] flex items-center justify-between">
           <span aria-live="polite">
             {results.length} result{results.length === 1 ? '' : 's'}
           </span>

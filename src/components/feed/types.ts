@@ -19,6 +19,8 @@ export interface LogListProps {
   /** Log picked in the search palette: scroll to it and flash it. */
   focusLogId?: string | null;
   onFocusLogHandled?: () => void;
+  /** The log written a moment ago: its row animates in once. */
+  justAddedLogId?: string | null;
 }
 
 /** The one-line quick-log input of the Minimalist, Compact and Matrix timelines. */

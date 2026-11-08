@@ -62,7 +62,7 @@ export const LogActions: React.FC<LogActionsProps> = ({
             onClick={a.run}
             aria-label={a.label}
             title={a.title}
-            className={`cursor-pointer text-[10px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
+            className={`cursor-pointer text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
               variant === 'text'
                 ? `px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] ${a.danger ? 'hover:text-danger' : 'hover:text-[var(--accent-text)]'}`
                 : `${a.danger ? 'hover:text-danger' : 'hover:text-[var(--text-main)]'}`

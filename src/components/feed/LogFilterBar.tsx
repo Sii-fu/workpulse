@@ -39,7 +39,7 @@ export const LogFilterBar: React.FC<LogFilterBarProps> = ({
   dense = false,
 }) => {
   const field = `bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] ${
-    dense ? 'h-7 px-1.5 text-[11px]' : 'px-2.5 py-1 text-xs'
+    dense ? 'h-7 px-1.5 text-xs' : 'px-2.5 py-1 text-xs'
   } cursor-pointer`;
   const opt = 'bg-[var(--bg-surface)]';
 
@@ -55,7 +55,7 @@ export const LogFilterBar: React.FC<LogFilterBarProps> = ({
             aria-label="Search logs"
             placeholder="Search logs by keyword, project or tag"
             className={`w-full pl-8 pr-3 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)] ${
-              dense ? 'h-7 text-[11px]' : 'py-1.5 text-xs sm:text-sm'
+              dense ? 'h-7 text-xs' : 'py-1.5 text-xs sm:text-sm'
             }`}
           />
         </div>
@@ -70,7 +70,7 @@ export const LogFilterBar: React.FC<LogFilterBarProps> = ({
               type="button"
               aria-pressed={filters.range === r.id}
               onClick={() => setFilter('range', r.id)}
-              className={`px-2.5 ${dense ? 'py-0.5 text-[11px]' : 'py-1'} flex-1 sm:flex-none rounded-[var(--radius-btn)] transition-colors cursor-pointer ${
+              className={`px-2.5 ${dense ? 'py-0.5 text-xs' : 'py-1'} flex-1 sm:flex-none rounded-[var(--radius-btn)] transition-colors cursor-pointer ${
                 filters.range === r.id
                   ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] font-semibold shadow-xs'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'

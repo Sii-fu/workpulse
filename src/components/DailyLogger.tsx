@@ -379,7 +379,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           )}
 
           {activeTheme === 'matrix' && (
-            <div className="font-mono text-[11px] text-[var(--accent-text)] mb-1 flex items-center gap-1 opacity-80">
+            <div className="font-mono text-xs text-[var(--accent-text)] mb-1 flex items-center gap-1 opacity-80">
               <span>$ workpulse log --input &gt;</span>
             </div>
           )}
@@ -402,10 +402,10 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           />
 
           {/* Live Character & Word Count */}
-          <div className="flex items-center justify-between mt-1 text-[11px] text-[var(--text-muted)]">
+          <div className="flex items-center justify-between mt-1 text-xs text-[var(--text-muted)]">
             <span className="flex items-center gap-1">
               <span>Press</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-app)] font-mono text-[10px]">
+              <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-app)] font-mono text-xs">
                 Ctrl + Enter
               </kbd>
               <span>to commit</span>
@@ -682,7 +682,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>{editingLog ? 'Save changes' : 'Commit Work Log'}</span>

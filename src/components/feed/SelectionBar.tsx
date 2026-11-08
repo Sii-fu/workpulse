@@ -23,7 +23,7 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
   dense = false,
 }) => {
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
-  const btn = `${dense ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1 text-xs'} rounded-[var(--radius-btn)] font-semibold cursor-pointer`;
+  const btn = `${dense ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded-[var(--radius-btn)] font-semibold cursor-pointer`;
 
   return (
     <div className="no-print flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[var(--text-muted)]">
@@ -58,10 +58,10 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
           <button
             type="button"
             onClick={onOpenEod}
-            title="Batch-synthesize the day's tasks into one timesheet log per project"
+            title="End of day: turn today's tasks into timesheet logs and push them to the Sheet"
             className={`${btn} bg-warning-solid hover:bg-warning-solid-hover text-on-solid`}
           >
-            Synthesize EOD logs
+            End of day
           </button>
         )}
       </div>

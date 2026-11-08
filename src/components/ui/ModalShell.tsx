@@ -98,7 +98,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex justify-center bg-black/60 ${
+      className={`fade-in fixed inset-0 z-50 flex justify-center bg-black/60 ${
         align === 'top' ? 'items-start' : 'items-center'
       } ${backdropClassName}`}
       onMouseDown={(e) => {
@@ -116,7 +116,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
         aria-labelledby={labelledBy}
         tabIndex={-1}
         onKeyDown={handlePanelKeyDown}
-        className={className}
+        className={`rise-in ${className}`}
       >
         {children}
       </div>

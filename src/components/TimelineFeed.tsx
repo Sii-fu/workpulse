@@ -28,6 +28,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
   onOpenEodSynthesizer,
   focusLogId,
   onFocusLogHandled,
+  justAddedLogId,
 }) => {
   const list = useLogFilters(logs);
   useFocusLog(focusLogId, list.reset, onFocusLogHandled);
@@ -44,7 +45,6 @@ export const TimelineFeed: React.FC<LogListProps> = ({
         onSelectAll={onSelectAllVisible}
         onClear={onClearSelection}
         onGenerateStandup={onOpenAiStandupWithSelected}
-        onOpenEod={onOpenEodSynthesizer}
       />
 
       {list.visible.length === 0 ? (
@@ -69,8 +69,8 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                 key={log.id}
                 id={logRowId(log.id)}
                 tabIndex={-1}
-                className={`glass-panel p-4 sm:p-5 transition-all relative group scroll-mt-24 ${
-                  isSelected ? 'border-[var(--accent)] ring-1 ring-[var(--accent-glow)]' : 'hover:border-[var(--border-focus)]/50'
+                className={`glass-panel p-4 sm:p-5 transition-all relative group scroll-mt-24 ${log.id === justAddedLogId ? 'log-enter' : ''} ${
+                  isSelected ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]/40' : 'hover:border-[var(--border-focus)]/50'
                 }`}
               >
                 {/* Top Row */}
@@ -89,7 +89,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
 
                     <span className="text-[var(--text-muted)]" aria-hidden="true">·</span>
 
-                    <span className="text-[var(--text-muted)] font-mono tabular-nums text-[11px]">
+                    <span className="text-[var(--text-muted)] font-mono tabular-nums text-xs">
                       {log.date} at {log.time}
                     </span>
                   </div>
@@ -98,7 +98,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                     <StatusBadge status={log.status} />
 
                     {log.durationMinutes && (
-                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)] flex items-center gap-1">
+                      <span className="text-xs font-mono tabular-nums text-[var(--text-muted)] flex items-center gap-1">
                         <Clock className="w-3 h-3" aria-hidden="true" />
                         <span>{log.durationMinutes}m</span>
                       </span>
@@ -106,7 +106,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
 
                     {log.energyRating && log.energyRating > 0 && (
                       <span
-                        className="text-[11px] font-mono text-warning flex items-center gap-0.5"
+                        className="text-xs font-mono text-warning flex items-center gap-0.5"
                         title={`Focus rating: ${log.energyRating} / 5`}
                       >
                         <Flame className="w-3 h-3 fill-current" aria-hidden="true" />
@@ -120,7 +120,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                 {/* Description Body */}
                 <div className="py-3 space-y-2">
                   {log.isSynthesized && (
-                    <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-warning/15 border border-warning/30 text-warning font-mono text-[10px] font-bold">
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-warning/15 border border-warning/30 text-warning font-mono text-xs font-bold">
                       Synthesized EOD log
                     </div>
                   )}
@@ -136,7 +136,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                     {log.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-[var(--border-app)]"
+                        className="text-xs font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-[var(--border-app)]"
                       >
                         {tag}
                       </span>
@@ -147,7 +147,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                         href={log.linkUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[var(--accent-text)] hover:underline inline-flex items-center gap-1 text-[11px] font-semibold py-1 -my-1"
+                        className="text-[var(--accent-text)] hover:underline inline-flex items-center gap-1 text-xs font-semibold py-1 -my-1"
                       >
                         <ExternalLink className="w-3 h-3" aria-hidden="true" />
                         <span className="truncate max-w-[180px]">{log.linkUrl.replace(/^https?:\/\//, '')}</span>
@@ -158,7 +158,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenImage(log.imageBase64!)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--accent-text)] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--accent-text)] transition-colors cursor-pointer"
                       >
                         <ImageIcon className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>Screenshot</span>

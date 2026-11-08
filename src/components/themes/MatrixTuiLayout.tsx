@@ -44,6 +44,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   onOpenEodSynthesizer,
   focusLogId,
   onFocusLogHandled,
+  justAddedLogId,
 }) => {
   const list = useLogFilters(logs);
   useFocusLog(focusLogId, list.reset, onFocusLogHandled);
@@ -198,7 +199,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       
       {/* 1. Terminal Window Console */}
       <div className="p-4 border border-[var(--border-app)] bg-[var(--bg-surface)] shadow-[0_0_15px_rgba(0,255,102,0.06)] space-y-3">
-        <div className="flex items-center justify-between border-b border-[var(--border-app)] pb-2 text-[11px] text-[var(--text-muted)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-app)] pb-2 text-xs text-[var(--text-muted)]">
           <span className="matrix-glow font-bold text-[var(--text-main)]">
             +---[ WORKPULSE CLI TERMINAL v3.8 ]---+
           </span>
@@ -206,7 +207,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
         </div>
 
         {/* Scrollable Command Line History */}
-        <div className="max-h-48 overflow-y-auto space-y-1 text-[11px] leading-relaxed">
+        <div className="max-h-48 overflow-y-auto space-y-1 text-xs leading-relaxed">
           {commandHistory.map((line, idx) => (
             <div key={idx} className={line.startsWith('$') ? 'text-[var(--text-main)] font-bold' : 'text-[var(--text-muted)]'}>
               {line}
@@ -234,7 +235,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
           </div>
           <button
             type="submit"
-            className="px-2 py-0.5 bg-[var(--accent)] text-[var(--on-accent)] font-bold text-[10px] uppercase cursor-pointer hover:bg-[var(--accent-hover)]"
+            className="px-2 py-0.5 bg-[var(--accent)] text-[var(--on-accent)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--accent-hover)]"
           >
             EXEC
           </button>
@@ -245,7 +246,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               setCliInput('');
             }}
             title="Open the full log form: link, screenshot, tags, date"
-            className="px-2 py-0.5 border border-[var(--border-control)] text-[var(--text-main)] font-bold text-[10px] uppercase cursor-pointer hover:bg-[var(--bg-subtle)]"
+            className="px-2 py-0.5 border border-[var(--border-control)] text-[var(--text-main)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--bg-subtle)]"
           >
             DETAILS
           </button>
@@ -254,7 +255,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
 
       {/* 2. Structured UNIX Log Chronicle */}
       <div className="border border-[var(--border-app)] bg-[var(--bg-surface)] p-3 space-y-2">
-        <div className="flex items-center justify-between border-b border-[var(--border-app)] pb-1.5 text-[11px] text-[var(--text-muted)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-app)] pb-1.5 text-xs text-[var(--text-muted)]">
           <span>+---[ STORED WORK LOGS ]---+</span>
           <span>
             SHOWING: {list.visible.length} / {logs.length} RECORDS
@@ -269,11 +270,10 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
           onSelectAll={onSelectAllVisible}
           onClear={onClearSelection}
           onGenerateStandup={onOpenAiStandupWithSelected}
-          onOpenEod={onOpenEodSynthesizer}
           dense
         />
 
-        <div className="divide-y divide-[var(--border-app)] text-[11px]">
+        <div className="divide-y divide-[var(--border-app)] text-xs">
           {list.visible.length === 0 && (
             <p className="py-6 text-center text-[var(--text-muted)]">
               {logs.length === 0 ? '>> no records. type a message above.' : '>> no records match these filters.'}
@@ -284,7 +284,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               key={log.id}
               id={logRowId(log.id)}
               tabIndex={-1}
-              className="py-2.5 space-y-1 hover:bg-[var(--bg-subtle)]/30 px-1 group scroll-mt-24"
+              className={`py-2.5 space-y-1 hover:bg-[var(--bg-subtle)]/30 px-1 group scroll-mt-24 ${log.id === justAddedLogId ? 'log-enter' : ''}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold flex items-center gap-1.5 min-w-0">
@@ -297,7 +297,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               </div>
               <p className="text-[var(--text-main)] whitespace-pre-line">&gt; {log.description}</p>
               {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-[var(--text-muted)] pt-0.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)] pt-0.5">
                 <span className="flex flex-wrap items-center gap-x-2">
                   <span>
                     TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ') || '-'}
@@ -339,7 +339,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       </div>
 
       {/* 3. Tmux / Vim-Style Bottom Status Bar */}
-      <div className="p-1.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-app)] flex flex-wrap items-center justify-between text-[10px] font-bold tracking-wider uppercase">
+      <div className="p-1.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-app)] flex flex-wrap items-center justify-between text-xs font-bold tracking-wider uppercase">
         <div className="flex items-center gap-2">
           <span className="bg-[var(--accent)] text-[var(--on-accent)] px-1.5 py-0.2">[NORMAL]</span>
           <span>100% LOCAL CACHED</span>

@@ -76,6 +76,8 @@ export interface AppSettings {
   lastDismissedReminderDate?: string;
   // Logs created before this moment are assumed to be handled already and are never auto-sent.
   syncTrackingSince?: string;
+  // Matrix theme only: draw the CRT scanline overlay. Absent means off.
+  crtEffect?: boolean;
 }
 
 export interface ToastMessage {

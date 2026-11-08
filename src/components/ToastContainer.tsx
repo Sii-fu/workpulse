@@ -22,7 +22,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
         <div
           key={toast.id}
           role={toast.type === 'error' ? 'alert' : 'status'}
-          className="pointer-events-auto flex items-center justify-between gap-3 p-3.5 rounded-lg shadow-lg border border-[var(--border-control)] bg-[var(--bg-app)] text-[var(--text-main)] text-sm transition-all transform translate-y-0"
+          className="rise-in pointer-events-auto flex items-center justify-between gap-3 p-3.5 rounded-lg shadow-lg border border-[var(--border-control)] bg-[var(--bg-app)] text-[var(--text-main)] text-sm transition-all transform translate-y-0"
         >
           <div className="flex items-center gap-2.5">
             {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-success shrink-0" />}

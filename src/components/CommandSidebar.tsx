@@ -6,7 +6,7 @@ import { BacklogTask, Project, ThemeId, WorkLog } from '../types';
 import {
   ListTodo,
   Layers,
-  Sparkles,
+  MessageSquareText,
   Plus,
   CheckCircle2,
   Circle,
@@ -82,7 +82,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
             <ListTodo className="w-3 h-3" />
             <span>Tasks</span>
             {pendingTasks.length > 0 && (
-              <span className="text-[10px] px-1 py-0.2 rounded-full bg-[var(--accent)] text-[var(--on-accent)] font-mono leading-none">
+              <span className="text-xs px-1 py-0.2 rounded-full bg-[var(--accent)] text-[var(--on-accent)] font-mono leading-none">
                 {pendingTasks.length}
               </span>
             )}
@@ -108,13 +108,13 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
-            <Sparkles className="w-3 h-3 text-[var(--accent-text)]" />
+            <MessageSquareText className="w-3 h-3 text-[var(--accent-text)]" aria-hidden="true" />
             <span>Standup</span>
           </button>
         </div>
 
         {activeTheme === 'matrix' && (
-          <span className="font-mono text-[10px] text-[var(--accent-text)] tracking-wider">
+          <span className="font-mono text-xs text-[var(--accent-text)] tracking-wider">
             [CMD_DOCK]
           </span>
         )}
@@ -213,7 +213,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                               >
                                 {task.title}
                               </p>
-                              <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] flex-wrap">
+                              <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] flex-wrap">
                                 {project && (
                                   <span className="flex items-center gap-1">
                                     <span
@@ -225,7 +225,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                                 )}
                                 {task.isSynthesized && (
                                   <span
-                                    className="text-success font-mono font-bold bg-success/10 border border-success/25 px-1.5 py-0.2 rounded-full text-[9px] flex items-center gap-1"
+                                    className="text-success font-mono font-bold bg-success/10 border border-success/25 px-1.5 py-0.2 rounded-full text-xs flex items-center gap-1"
                                     title={task.synthesizedAt ? `Logged to Sheet on ${new Date(task.synthesizedAt).toLocaleTimeString()}` : 'Logged to Sheet'}
                                   >
                                     <Check className="w-2.5 h-2.5" />
@@ -266,7 +266,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => onConvertTaskToLog(task)}
-                                  className="px-2 py-0.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-[10px] font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                  className="px-2 py-0.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
                                   title="Instantly convert task into official Work Log (syncs to Google Sheet)"
                                 >
                                   <Zap className="w-2.5 h-2.5 fill-current" />
@@ -299,7 +299,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
 
                         {/* Interactive Checkbox Flow: Prompt on Completion */}
                         {isJustCompleted && (
-                          <div className="mt-2 p-1.5 rounded-[var(--radius-btn)] bg-success/10 border border-success/25 flex items-center justify-between gap-1 text-[11px] text-success animate-in fade-in slide-in-from-top-1 duration-150">
+                          <div className="mt-2 p-1.5 rounded-[var(--radius-btn)] bg-success/10 border border-success/25 flex items-center justify-between gap-1 text-xs text-success animate-in fade-in slide-in-from-top-1 duration-150">
                             <span className="truncate flex items-center gap-1">
                               <CloudUpload className="w-3 h-3 shrink-0" />
                               <span>Completed! Push to log?</span>
@@ -312,7 +312,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                                   onConvertTaskToLog(task);
                                   setRecentlyCompletedTaskId(null);
                                 }}
-                                className="px-2 py-0.5 rounded bg-success-solid hover:bg-success-solid-hover text-white font-bold text-[10px] cursor-pointer flex items-center gap-0.5"
+                                className="px-2 py-0.5 rounded bg-success-solid hover:bg-success-solid-hover text-white font-bold text-xs cursor-pointer flex items-center gap-0.5"
                               >
                                 <Zap className="w-2.5 h-2.5 fill-current" />
                                 <span>Push</span>
@@ -360,7 +360,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
                         <span>{p.name}</span>
                       </span>
-                      <span className="font-mono text-[var(--text-muted)] text-[11px] tabular-nums">
+                      <span className="font-mono text-[var(--text-muted)] text-xs tabular-nums">
                         {count} logs ({pct}%)
                       </span>
                     </div>
@@ -392,17 +392,17 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                   {todayLogs.length} Entries
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                 Gemini can automatically synthesize your tasks into polished WhatsApp messages, Slack standups, or Executive Memos.
               </p>
             </div>
 
             <button
               onClick={onOpenAiStandup}
-              className="w-full py-2 px-3 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-semibold shadow-md shadow-[var(--accent-glow)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Launch AI Standup Hub</span>
+              <MessageSquareText className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Draft standup</span>
             </button>
           </div>
         )}

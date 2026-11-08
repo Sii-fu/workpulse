@@ -6,7 +6,7 @@ import { WorkLog } from '../../types';
 export const MicroTasks: React.FC<{ tasks: NonNullable<WorkLog['underlyingTasks']>; dense?: boolean }> = ({ tasks, dense }) => {
   if (tasks.length === 0) return null;
   return (
-    <details className={`${dense ? 'text-[10px]' : 'text-xs'} text-[var(--text-muted)] pt-1`}>
+    <details className={`${dense ? 'text-xs' : 'text-xs'} text-[var(--text-muted)] pt-1`}>
       <summary className="cursor-pointer hover:underline text-[var(--accent-text)] font-semibold py-1">
         View Underlying Micro-Tasks ({tasks.length})
       </summary>
@@ -14,7 +14,7 @@ export const MicroTasks: React.FC<{ tasks: NonNullable<WorkLog['underlyingTasks'
         {tasks.map((t) => (
           <li key={t.id} className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 min-w-0">
-              <span className="font-mono uppercase text-[9px] shrink-0">{t.stage}</span>
+              <span className="font-mono uppercase text-xs shrink-0">{t.stage}</span>
               <span className="truncate text-[var(--text-main)]">{t.title}</span>
             </span>
             <span className="font-mono tabular-nums shrink-0">

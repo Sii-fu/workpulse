@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   googleScriptUrl: '',
   geminiApiKey: '',
   defaultTone: 'casual',
+  crtEffect: false,
 };
 
 // Generates dynamic dates relative to today

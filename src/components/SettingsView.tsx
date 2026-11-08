@@ -19,7 +19,7 @@ import { testSheetConnection } from '../utils/sheetsSync';
 import {
   Palette,
   Cloud,
-  Sparkles,
+  MessageSquareText,
   Layers,
   Database,
   Sun,
@@ -78,6 +78,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Appearance state
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme);
   const [selectedColorMode, setSelectedColorMode] = useState<ColorMode>(settings.colorMode || 'dark');
+  const [selectedCrt, setSelectedCrt] = useState<boolean>(settings.crtEffect === true);
 
   // Google Sheets state
   const [googleScriptUrl, setGoogleScriptUrl] = useState<string>(settings.googleScriptUrl || '');
@@ -101,7 +102,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const updated: AppSettings = {
       ...settings,
       theme: selectedTheme,
-      colorMode: selectedTheme === 'matrix' ? 'dark' : selectedColorMode,
+      // Matrix is always dark on screen, but the person's own light or dark choice is kept for when they leave it.
+      colorMode: selectedColorMode,
+      crtEffect: selectedCrt,
       googleScriptUrl: googleScriptUrl.trim(),
       geminiApiKey: geminiApiKey.trim(),
       defaultTone,
@@ -263,16 +266,16 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border-app)]">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-main)]">
-            Settings & Architecture Console
+            Settings
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Configure UI themes, cloud Google Sheets synchronization, Gemini AI parameters, and project entities.
+            Theme, Google Sheet, standup writing, projects and your data.
           </p>
         </div>
 
         <button
           onClick={handleSaveAll}
-          className="px-5 py-2.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all cursor-pointer flex items-center gap-2"
+          className="px-5 py-2.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-2"
         >
           <Check className="w-4 h-4" />
           <span>Save All Settings</span>
@@ -287,7 +290,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           {[
             { id: 'appearance' as SettingsSection, label: 'Appearance & Themes', icon: <Palette className="w-4 h-4" /> },
             { id: 'sheets' as SettingsSection, label: 'Google Sheets Sync', icon: <Cloud className="w-4 h-4" /> },
-            { id: 'ai' as SettingsSection, label: 'AI & Communications', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'ai' as SettingsSection, label: 'Standup & AI', icon: <MessageSquareText className="w-4 h-4" /> },
             { id: 'projects' as SettingsSection, label: 'Projects & Tags', icon: <Layers className="w-4 h-4" /> },
             { id: 'data' as SettingsSection, label: 'Data & Backup', icon: <Database className="w-4 h-4" /> },
           ].map((item) => (
@@ -318,10 +321,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <div className="space-y-6">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Appearance & Design Systems
+                  Appearance
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Choose your structural interface layout and customize independent color modes.
+                  Pick a theme and a light or dark mode. Press Save All Settings to keep them.
                 </p>
               </div>
 
@@ -330,39 +333,36 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 {[
                   {
                     id: 'modern' as ThemeId,
-                    name: 'Modern SaaS (Default)',
-                    badge: 'Raycast / Linear',
-                    desc: 'Floating glass cards with inset depth highlights, subtle gradients, and electric indigo glows.',
-                    palette: 'Slate 950 / Ice White',
+                    name: 'Modern',
+                    desc: 'Flat panels and one teal signal colour. The log form and your tasks sit side by side.',
+                    font: 'Instrument Sans',
+                    swatch: '#14b8a6',
                   },
                   {
                     id: 'minimalist' as ThemeId,
-                    name: 'Minimalist (Zen Notebook)',
-                    badge: 'Notion / Craft',
-                    desc: 'Border-free inline writing, quiet editorial typography, generous whitespace, distraction-free.',
-                    palette: 'Warm Paper / Charcoal',
+                    name: 'Minimalist',
+                    desc: 'Paper and ink. A serif for headings, no brand colour, entries as lines in a ledger.',
+                    font: 'Literata',
+                    swatch: '#37352f',
                   },
                   {
                     id: 'compact' as ThemeId,
-                    name: 'Compact (Power Console)',
-                    badge: 'Linear High-Density',
-                    desc: 'Single-line command inputs, full-width data spreadsheet, locked h-9 rows, keyboard hotkeys.',
-                    palette: 'Grid lines / Obsidian',
+                    name: 'Compact',
+                    desc: 'A dense table you can drive from the keyboard: j and k to move, e to edit.',
+                    font: 'IBM Plex Sans',
+                    swatch: '#2563eb',
                   },
                   {
                     id: 'matrix' as ThemeId,
-                    name: 'Matrix CLI (UNIX TUI)',
-                    badge: 'Retro Cyberpunk',
-                    desc: 'Real CLI command line prompt, CRT scanlines, OLED phosphor green glow, 100% monospace.',
-                    palette: 'Pitch Black OLED',
+                    name: 'Matrix',
+                    desc: 'A terminal. Green on black, one monospace face, commands instead of forms.',
+                    font: 'JetBrains Mono',
+                    swatch: '#00ff66',
                   },
                 ].map((th, thIndex, themeList) => {
                   const isSelected = selectedTheme === th.id;
                   const pickTheme = (id: ThemeId) => {
                     setSelectedTheme(id);
-                    if (id === 'matrix') {
-                      setSelectedColorMode('dark');
-                    }
                   };
 
                   return (
@@ -394,16 +394,23 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                         <span className="font-bold text-xs sm:text-sm text-[var(--text-main)]">
                           {th.name}
                         </span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border-app)] text-[var(--text-muted)]">
-                          {th.badge}
+                        <span
+                          className="text-2xl leading-none text-[var(--text-main)]"
+                          style={{ fontFamily: `'${th.font}', sans-serif` }}
+                          aria-hidden="true"
+                        >
+                          Aa
                         </span>
                       </div>
                       <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                         {th.desc}
                       </p>
-                      <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono border-t border-[var(--border-app)] pt-2">
-                        <span>Palette: {th.palette}</span>
-                        {isSelected && <span className="font-bold text-[var(--accent-text)]">● ACTIVE</span>}
+                      <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono border-t border-[var(--border-app)] pt-2">
+                        <span className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full border border-[var(--border-control)]" style={{ backgroundColor: th.swatch }} aria-hidden="true" />
+                          {th.font}
+                        </span>
+                        {isSelected && <span className="font-semibold text-[var(--accent-text)]">Selected</span>}
                       </div>
                     </div>
                   );
@@ -414,13 +421,13 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
-                      Color Mode (Light / Dark)
+                    <h4 className="text-sm font-semibold text-[var(--text-main)]">
+                      Light or dark
                     </h4>
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">
                       {selectedTheme === 'matrix'
-                        ? 'Matrix CLI is permanently locked to OLED Phosphor Dark mode.'
-                        : 'Toggle between daytime clarity and nighttime focus independently of your theme.'}
+                        ? 'Matrix is always dark. Your light or dark choice comes back when you switch theme.'
+                        : 'Works with any theme except Matrix.'}
                     </p>
                   </div>
 
@@ -453,11 +460,28 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     </div>
                   ) : (
                     <span className="text-xs font-mono text-success font-semibold px-2.5 py-1 rounded bg-[var(--bg-app)] border border-success">
-                      OLED LOCKED
+                      Always dark
                     </span>
                   )}
                 </div>
               </div>
+
+              {selectedTheme === 'matrix' && (
+                <label className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCrt}
+                    onChange={(e) => setSelectedCrt(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-[var(--accent)] cursor-pointer"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-[var(--text-main)]">Scanlines</span>
+                    <span className="block text-xs text-[var(--text-muted)] mt-0.5">
+                      Draws CRT scanlines over the screen. Off by default because they make small text harder to read.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           )}
 
@@ -468,10 +492,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <div className="space-y-6">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Google Sheets Cloud Synchronization
+                  Google Sheet
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Seamlessly sync all your daily work logs directly to your personal Google Sheet in real time.
+                  Send your logs to the shared Google Sheet your lead reads. Only new and edited logs are sent.
                 </p>
               </div>
 
@@ -565,10 +589,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <div className="space-y-6">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Gemini AI & Communications Engine
+                  Standup and AI
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Configure Gemini parameters for generating automated WhatsApp, Slack, and Executive reports.
+                  Your Gemini key, the default tone and who the standup is addressed to. Without a key, standups use a template.
                 </p>
               </div>
 
@@ -593,7 +617,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)]">
+                <p className="text-xs text-[var(--text-muted)]">
                   Stored securely in your browser's encrypted local storage. If blank, WorkPulse uses the server's attached key.
                 </p>
               </div>
@@ -639,10 +663,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <div className="space-y-6">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Project & Tag Management
+                  Projects and tags
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Manage active initiatives, custom color markers, and category tags.
+                  Add, archive and colour projects. Manage the tags you can attach to a log.
                 </p>
               </div>
 
@@ -677,7 +701,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               {/* Projects Table */}
               <div className="border border-[var(--border-app)] rounded-[var(--radius-card)] overflow-hidden">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[var(--bg-subtle)]/70 text-[var(--text-muted)] uppercase font-semibold text-[10px] border-b border-[var(--border-app)]">
+                  <thead className="bg-[var(--bg-subtle)]/70 text-[var(--text-muted)] uppercase font-semibold text-xs border-b border-[var(--border-app)]">
                     <tr>
                       <th className="p-3">Color</th>
                       <th className="p-3">Project Name</th>
@@ -694,7 +718,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                             <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: p.color }} />
                           </td>
                           <td className="p-3 font-semibold text-[var(--text-main)]">
-                            {p.name} {p.isArchived && <span className="text-[10px] text-warning font-mono">(Archived)</span>}
+                            {p.name} {p.isArchived && <span className="text-xs text-warning font-mono">(Archived)</span>}
                           </td>
                           <td className="p-3 text-[var(--text-muted)] font-mono tabular-nums">
                             {count} logs recorded
@@ -776,10 +800,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <div className="space-y-6">
               <div>
                 <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Data Portability & Cache Management
+                  Your data
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Export backups, download CSV timesheets, or reset initial seed states.
+                  Back up, export a CSV timesheet, or clear everything. Data lives only in this browser.
                 </p>
               </div>
 
