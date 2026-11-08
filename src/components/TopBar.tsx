@@ -2,7 +2,6 @@ import React from 'react';
 import { ThemeId, ColorMode, AppNavTab } from '../types';
 import {
   Search,
-  Settings,
   FileSpreadsheet,
   Terminal,
   Sun,
@@ -84,7 +83,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header
-      className={`no-print sticky top-0 z-40 w-full border-b border-[var(--border-app)] px-3 sm:px-6 ${
+      className={`no-print w-full border-b border-[var(--border-app)] px-3 sm:px-6 ${
         isCompact ? 'py-1.5' : 'py-2.5'
       } ${isMinimalist ? 'bg-[var(--bg-app)]' : 'bg-[var(--bg-surface)]'}`}
     >
@@ -242,16 +241,6 @@ export const TopBar: React.FC<TopBarProps> = ({
               )}
             </button>
           )}
-
-          {/* Settings, for screens without the tab row */}
-          <button
-            onClick={() => setActiveTab('settings')}
-            className="md:hidden p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer border border-transparent hover:border-[var(--border-control)]"
-            title="Open Settings"
-            aria-label="Open settings"
-          >
-            <Settings className="w-4 h-4" aria-hidden="true" />
-          </button>
         </div>
       </div>
     </header>

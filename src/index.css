@@ -77,6 +77,27 @@
   input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']) {
     min-height: 24px;
   }
+
+  /* Touch screens: a finger needs about 44 px. Buttons, selects and text fields grow to that
+     size; checkboxes get as big as a native box comfortably can (their label is the real target). */
+  @media (pointer: coarse) {
+    button,
+    [role='button'],
+    select,
+    summary {
+      min-width: 44px;
+      min-height: 44px;
+    }
+    textarea,
+    input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']) {
+      min-height: 44px;
+    }
+    input[type='checkbox'],
+    input[type='radio'] {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
 }
 
 /* Motion is decoration here, so it goes away for people who ask for less of it.

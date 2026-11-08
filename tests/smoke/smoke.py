@@ -739,6 +739,99 @@ def analytics_labelled(s):
     s.no_errors()
 
 
+# -- first run, failures and phones (P5) --------------------------------------------------------
+@check("sample_data_flow")
+def sample_data_flow(s):
+    """A new colleague sees labelled sample data and can clear it in one click, keeping their own work."""
+    p = s.page
+    banner = p.get_by_role("region", name="Sample data")
+    expect(banner).to_be_visible(timeout=3000)
+    assert p.locator(ROWS).count() == 6, "expected the six sample logs"
+    assert p.get_by_text("Sample data", exact=True).count() >= 6, "each sample log should carry a Sample data label"
+    # one real log, then clear
+    p.locator(SEL["log_textarea"]).first.fill("My own entry")
+    btn(p, SEL["commit_log"]).first.click()
+    p.wait_for_timeout(400)
+    btn(p, "Clear sample data").first.click()
+    p.wait_for_timeout(400)
+    expect(banner).to_have_count(0)
+    mine = [l for l in s.ls("workpulse_logs")]
+    assert [l["description"] for l in mine] == ["My own entry"], f"only the real log should remain: {mine}"
+    assert p.locator(ROWS).count() == 1
+    assert s.ls("workpulse_projects"), "there must be a project left to log against"
+    assert s.ls("workpulse_backlog") == [], "sample tasks should be gone"
+    # undo brings the sample items back
+    btn(p, "^Undo$" if False else re.compile(r"^Undo$")).first.click()
+    p.wait_for_timeout(400)
+    assert p.locator(ROWS).count() == 7, "undo should restore the sample logs next to the real one"
+    expect(banner).to_be_visible()
+    s.no_errors()
+
+
+@check("offline_notice")
+def offline_notice(s):
+    p = s.page
+    notice = p.get_by_role("status").filter(has_text="You are offline")
+    expect(notice).to_have_count(0)
+    s.ctx.set_offline(True)
+    expect(notice).to_be_visible(timeout=3000)
+    s.ctx.set_offline(False)
+    expect(notice).to_have_count(0, timeout=3000)
+    s.no_errors()
+
+
+@check("eod_error_retry")
+def eod_error_retry(s):
+    """When the synthesis request fails the message is plain and Try again works."""
+    p = s.page
+    handler = lambda route: route.abort()
+    p.route("**/api/synthesize-eod", handler)
+    p.locator(SEL["eod_trigger"]).first.click()
+    err = p.get_by_text(re.compile(r"could not reach its server"))
+    expect(err).to_be_visible(timeout=5000)
+    assert p.get_by_text("Failed to fetch").count() == 0, "raw browser error leaked into the UI"
+    p.unroute("**/api/synthesize-eod", handler)
+    btn(p, "Try again").first.click()
+    expect(p.get_by_role("button", name=re.compile(r"^Push \d+ to the Sheet"))).to_be_visible(timeout=8000)
+    # the aborted request is logged by the browser and by the app on purpose
+    s.errors = [e for e in s.errors if "ERR_FAILED" not in e and "Synthesis error" not in e]
+    s.no_errors()
+
+
+@check("mobile_first_run")
+def mobile_first_run(s):
+    """Phone: the log form starts short, tags and links are one tap away, the running task stays on screen."""
+    settings = dict(SEED_SETTINGS, theme="modern", colorMode="dark")
+    ctx = s.browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+    ctx.add_init_script("try{ if(!localStorage.getItem('workpulse_settings')) localStorage.setItem('workpulse_settings', %s) }catch(e){}" % json.dumps(json.dumps(settings)))
+    page = ctx.new_page()
+    try:
+        page.goto(s.url)
+        page.wait_for_load_state("networkidle")
+        tags = page.get_by_role("button", name="#bugfix").first
+        assert not tags.is_visible(), "tag pills should be tucked away on a phone"
+        toggle = page.get_by_role("button", name=re.compile(r"^Tags, link, screenshot"))
+        expect(toggle).to_be_visible()
+        toggle.click()
+        expect(tags).to_be_visible()
+        # the strip stays under the top bar after scrolling a long way
+        page.mouse.wheel(0, 1500)
+        page.wait_for_timeout(300)
+        box = page.get_by_role("region", name="Running task").bounding_box()
+        assert box and box["y"] < 90, f"running strip scrolled away (y={box and box['y']})"
+        over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+        assert over <= 1, f"page scrolls sideways by {over}px"
+        # every control in the top bar fits on the screen at touch size (nothing clipped off the right edge)
+        right_edges = page.evaluate("() => [...document.querySelectorAll('header button')].map(b => { const r = b.getBoundingClientRect(); return [b.getAttribute('aria-label') || b.textContent.trim(), Math.round(r.right), Math.round(r.height)]; })")
+        for label, right, height in right_edges:
+            if height == 0:
+                continue  # the desktop tab row is hidden on a phone
+            assert right <= 390, f"top bar control '{label}' is cut off (right edge {right}px)"
+            assert height >= 43, f"top bar control '{label}' is only {height}px tall on touch"
+    finally:
+        ctx.close()
+
+
 @check("modal_escape_all_themes")
 def modal_escape_all_themes(s):
     """The search palette must open and close with the keyboard in every theme."""

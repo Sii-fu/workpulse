@@ -7,6 +7,8 @@ import { SelectionBar } from './feed/SelectionBar';
 import { SelectBox } from './feed/SelectBox';
 import { LogActions } from './feed/LogActions';
 import { StatusBadge } from './feed/StatusBadge';
+import { SampleBadge } from './ui/SampleBadge';
+import { isSampleLog } from '../data/sampleData';
 import { MicroTasks } from './feed/MicroTasks';
 import { Clock, ExternalLink, Image as ImageIcon, Flame } from 'lucide-react';
 
@@ -85,6 +87,7 @@ export const TimelineFeed: React.FC<LogListProps> = ({
                         aria-hidden="true"
                       />
                       <span>{log.projectName}</span>
+                      <SampleBadge show={isSampleLog(log)} />
                     </div>
 
                     <span className="text-[var(--text-muted)]" aria-hidden="true">·</span>

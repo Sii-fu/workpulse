@@ -4,6 +4,8 @@ import { readableOn } from '../../utils/color';
 import { getTaskStage } from './helpers';
 import { TaskClock, GroupClock } from './Clock';
 import { LogDetailsButton } from './LogDetailsButton';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleTask } from '../../data/sampleData';
 import type { TasksModel } from './useTasksModel';
 import {
   Play,
@@ -320,7 +322,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               Done
                             </button>
                           )}
-                          <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
+                          <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
                           <button
                             type="button"
                             onClick={() => onDeleteTask(task.id)}
@@ -512,7 +515,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                             </button>
 
                             {/* Delete */}
-                            <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
+                            <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
                             <button
                               type="button"
                               onClick={() => onDeleteTask(task.id)}
@@ -829,7 +833,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
-                          <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
+                          <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
                           <button
                             type="button"
                             onClick={() => onDeleteTask(task.id)}

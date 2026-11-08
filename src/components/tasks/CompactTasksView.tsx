@@ -3,6 +3,8 @@ import { Project } from '../../types';
 import { getTaskStage } from './helpers';
 import { TaskClock, GroupClock } from './Clock';
 import { LogDetailsButton } from './LogDetailsButton';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleTask } from '../../data/sampleData';
 import type { TasksModel } from './useTasksModel';
 import {
   CheckCircle2,
@@ -285,7 +287,8 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       </button>
                                     )}
 
-                                    <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="text" />
+                                    <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="text" />
                                     <button
                                       onClick={() => onDeleteTask(task.id)}
                                       className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-xs cursor-pointer"
@@ -576,7 +579,8 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       </button>
                                     )}
 
-                                    <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="text" />
+                                    <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="text" />
                                     <button
                                       onClick={() => onDeleteTask(task.id)}
                                       className="px-1 py-0.5 text-[var(--text-muted)] hover:text-danger text-xs cursor-pointer"

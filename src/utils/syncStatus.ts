@@ -1,4 +1,5 @@
 import { WorkLog } from '../types';
+import { isSampleLog } from '../data/sampleData';
 
 // A log still needs sending to the Google Sheet when it has no syncedAt and was created strictly
 // after sync tracking began (logs made in the same instant, e.g. demo data, are not counted). Older logs may or may not already be in the sheet, so they are never
@@ -10,6 +11,7 @@ export function isUnsynced(log: WorkLog, trackingSince?: string): boolean {
   return !trackingSince || log.createdAt > trackingSince;
 }
 
+// Demo logs are never sent to the shared Sheet, whatever their dates say.
 export function unsyncedLogs(logs: WorkLog[], trackingSince?: string): WorkLog[] {
-  return logs.filter((l) => isUnsynced(l, trackingSince));
+  return logs.filter((l) => !isSampleLog(l) && isUnsynced(l, trackingSince));
 }

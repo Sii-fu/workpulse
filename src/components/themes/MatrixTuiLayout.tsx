@@ -12,6 +12,8 @@ import { SelectionBar } from '../feed/SelectionBar';
 import { SelectBox } from '../feed/SelectBox';
 import { LogActions } from '../feed/LogActions';
 import { StatusBadge } from '../feed/StatusBadge';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleLog } from '../../data/sampleData';
 import { MicroTasks } from '../feed/MicroTasks';
 
 type MatrixTuiLayoutProps = LogListProps &
@@ -293,7 +295,10 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
                     [{log.date} {log.time}] [{log.projectName.toUpperCase()}]
                   </span>
                 </span>
-                <StatusBadge status={log.status} variant="bracket" />
+                <span className="flex items-center gap-2 shrink-0">
+                  <SampleBadge show={isSampleLog(log)} />
+                  <StatusBadge status={log.status} variant="bracket" />
+                </span>
               </div>
               <p className="text-[var(--text-main)] whitespace-pre-line">&gt; {log.description}</p>
               {log.underlyingTasks && <MicroTasks tasks={log.underlyingTasks} dense />}

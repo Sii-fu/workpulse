@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ModalShell } from './ui/ModalShell';
+import { plainAiMessage } from '../utils/aiErrors';
 import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
@@ -81,6 +82,9 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // A failure to reach the service can be retried; "nothing new to log" cannot.
+  const [errorRetryable, setErrorRetryable] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [synthesizedItems, setSynthesizedItems] = useState<SynthesizedLogItem[]>([]);
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
@@ -101,6 +105,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   const runSynthesis = async (tasksToUse: BacklogTask[]) => {
     setIsLoading(true);
     setErrorMsg(null);
+    setErrorRetryable(false);
     setAiWarning(null);
     // Never keep results from an earlier run: they could be pushed a second time (B4).
     setSynthesizedItems([]);
@@ -170,7 +175,8 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       }
     } catch (err: any) {
       console.error('Synthesis error:', err);
-      setErrorMsg(err.message || 'Error communicating with AI synthesis service');
+      setErrorMsg(plainAiMessage(err?.message));
+      setErrorRetryable(true);
     } finally {
       setIsLoading(false);
     }
@@ -266,15 +272,16 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       .filter((item) => item.taskIds.length > 0);
 
     if (toPush.length === 0) {
-      alert('Please select at least one synthesized log entry with active tasks.');
+      setPushError('Select at least one log that still has a task in it.');
       return;
     }
+    setPushError(null);
     setIsSubmitting(true);
     try {
       await onConfirmAndPush(toPush);
       onClose();
     } catch (e: any) {
-      alert(e?.message || 'Failed to push logs');
+      setPushError(`Could not push the logs: ${e?.message || 'unknown error'}. Nothing was lost; press the button to try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -345,6 +352,14 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             <div className="p-6 text-center space-y-3 border border-danger/30 bg-danger/10 rounded-[var(--radius-card)]">
               <AlertTriangle className="w-8 h-8 text-danger mx-auto" />
               <p className="text-sm font-semibold text-danger">{errorMsg}</p>
+              {errorRetryable && (
+                <button
+                  onClick={handleManualResynthesize}
+                  className="px-4 py-1.5 mr-2 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--text-main)] text-[var(--bg-app)] hover:opacity-90 cursor-pointer"
+                >
+                  Try again
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="px-4 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)] cursor-pointer"
@@ -358,6 +373,11 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             </div>
           ) : (
             <>
+              {pushError && (
+                <div role="alert" className="p-3 rounded-[var(--radius-btn)] border border-danger/40 bg-danger/10 text-xs text-danger">
+                  {pushError}
+                </div>
+              )}
               {aiWarning && (
                 <div className="p-3.5 rounded-[var(--radius-card)] bg-warning/10 border border-warning/30 text-xs text-warning flex items-center justify-between gap-3 shadow-xs">
                   <div className="flex items-center gap-2">

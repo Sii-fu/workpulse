@@ -124,7 +124,7 @@ def main():
             for theme, mode in combos:
                 if label == "mobile" and mode == "light" and theme != "modern":
                     continue  # mobile layout is shared; sample modern light and the other three
-                s = smoke.Session(pw, a.url, theme=theme, mode=mode, width=width, height=900 if width > 600 else 844)
+                s = smoke.Session(pw, a.url, theme=theme, mode=mode, width=width, height=900 if width > 600 else 844, touch=width < 600)
                 for tab in tabs:
                     s.tab(tab)
                     s.page.wait_for_timeout(250)

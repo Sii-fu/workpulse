@@ -49,6 +49,10 @@ import { ReminderBanner } from './components/ReminderBanner';
 import { ToastContainer } from './components/ToastContainer';
 import { LogEditorDialog } from './components/feed/LogEditorDialog';
 import { RunningStrip } from './components/RunningStrip';
+import { SampleDataBanner } from './components/SampleDataBanner';
+import { OfflineNotice } from './components/OfflineNotice';
+import { sampleCounts, withoutSampleData } from './data/sampleData';
+import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
 import { publishTimers } from './utils/timerStore';
 import { LogListProps, QuickLogProps } from './components/feed/types';
@@ -178,8 +182,13 @@ export default function App() {
   };
 
   // Shows why a sync failed instead of failing silently (U2).
-  const reportSyncFailure = (message: string) =>
-    addToast(`Google Sheet sync failed: ${message} Saved locally; click Sync to retry.`, 'error');
+  // `retry` makes the toast carry a Retry button, so a failed sync is one click from trying again.
+  const reportSyncFailure = (message: string, retry?: () => void) =>
+    addToast(
+      `Google Sheet sync failed. ${plainSheetMessage(message)} Your logs are saved here.`,
+      'error',
+      retry ? { label: 'Retry', onClick: retry } : undefined,
+    );
 
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -387,7 +396,7 @@ export default function App() {
           markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet', 'success');
         } else {
-          reportSyncFailure(res.message);
+          reportSyncFailure(res.message, () => handleSyncGoogleSheet());
         }
       });
     }
@@ -616,7 +625,7 @@ export default function App() {
           markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet', 'success');
         } else {
-          reportSyncFailure(res.message);
+          reportSyncFailure(res.message, () => handleSyncGoogleSheet());
         }
       });
     }
@@ -676,7 +685,7 @@ export default function App() {
         markLogsSynced(newLogs.map((l) => l.id));
         addToast('Synced with Google Sheet', 'success');
       } else {
-        reportSyncFailure(res.message);
+        reportSyncFailure(res.message, () => handleSyncGoogleSheet());
       }
     }
   };
@@ -758,6 +767,49 @@ export default function App() {
     }
   };
 
+  // Removes only the demo items; everything the person added stays. Undo puts the demo items back.
+  const handleClearSampleData = () => {
+    const out = withoutSampleData(logs, backlog, projects, () => ({
+      id: `proj-${Date.now()}`,
+      name: 'General',
+      color: '#6366f1',
+      isArchived: false,
+    }));
+    const removed = {
+      logs: logs.filter((l) => !out.logs.includes(l)),
+      backlog: backlog.filter((t) => !out.backlog.includes(t)),
+      projects: projects.filter((p) => !out.projects.includes(p)),
+      added: out.projects.filter((p) => !projects.includes(p)),
+    };
+    setLogs(out.logs);
+    setBacklog(out.backlog);
+    setProjects(out.projects);
+    saveLogs(out.logs);
+    saveBacklog(out.backlog);
+    saveProjects(out.projects);
+    addToast('Sample data cleared. Your own logs and tasks are untouched.', 'success', {
+      label: 'Undo',
+      onClick: () => {
+        // put the demo items back next to whatever has been added since
+        setLogs((cur) => {
+          const next = [...cur, ...removed.logs];
+          saveLogs(next);
+          return next;
+        });
+        setBacklog((cur) => {
+          const next = [...cur, ...removed.backlog];
+          saveBacklog(next);
+          return next;
+        });
+        setProjects((cur) => {
+          const next = [...cur.filter((p) => !removed.added.some((a) => a.id === p.id)), ...removed.projects];
+          saveProjects(next);
+          return next;
+        });
+      },
+    });
+  };
+
   const handleStartFresh = () => {
     if (
       window.confirm(
@@ -824,7 +876,7 @@ export default function App() {
       markLogsSynced(pending.map((l) => l.id));
       addToast(result.message, 'success');
     } else {
-      reportSyncFailure(result.message);
+      reportSyncFailure(result.message, () => handleSyncGoogleSheet());
     }
   };
 
@@ -909,7 +961,8 @@ export default function App() {
       data-mode={settings.theme === 'matrix' ? 'dark' : settings.colorMode}
       className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] transition-all antialiased selection:bg-[var(--accent)] selection:text-[var(--on-accent)] pb-20 md:pb-6"
     >
-      {/* Top Bar Navigation */}
+      {/* The top bar and the running task stay together at the top while you scroll */}
+      <div className="sticky top-0 z-40">
       <TopBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -934,10 +987,22 @@ export default function App() {
         onPause={(id) => handleUpdateTaskStage(id, 'paused')}
         onOpenTasks={() => setActiveTab('backlog')}
       />
+      </div>
 
       {/* Main Viewport Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         
+        <OfflineNotice />
+
+        {(activeTab === 'feed' || activeTab === 'backlog') && sampleCounts(logs, backlog).total > 0 && (
+          <SampleDataBanner
+            logCount={sampleCounts(logs, backlog).logs}
+            taskCount={sampleCounts(logs, backlog).tasks}
+            onClear={handleClearSampleData}
+            onOpenSetup={() => setActiveTab('settings')}
+          />
+        )}
+
         {/* 5:00 PM End of Day Reminder Banner */}
         <ReminderBanner
           hasLogsToday={hasLogsToday}

@@ -3,6 +3,8 @@ import { Project } from '../../types';
 import { getTaskStage } from './helpers';
 import { TaskClock, GroupClock } from './Clock';
 import { LogDetailsButton } from './LogDetailsButton';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleTask } from '../../data/sampleData';
 import type { TasksModel } from './useTasksModel';
 import {
   CheckCircle2,
@@ -448,7 +450,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           >
                             Done
                           </button>
-                          <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
+                          <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
                           <button
                             type="button"
                             onClick={() => onDeleteTask(task.id)}
@@ -583,7 +586,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                             >
                               Done
                             </button>
-                            <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
+                            <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="icon" />
                             <button
                               type="button"
                               onClick={() => onDeleteTask(task.id)}

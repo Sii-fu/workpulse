@@ -11,6 +11,8 @@ import { SelectionBar } from '../feed/SelectionBar';
 import { SelectBox } from '../feed/SelectBox';
 import { LogActions, copyTextOf } from '../feed/LogActions';
 import { StatusBadge } from '../feed/StatusBadge';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleLog } from '../../data/sampleData';
 import { MicroTasks } from '../feed/MicroTasks';
 import { IconButton } from '../ui/IconButton';
 import { CornerDownLeft, ListTodo, Check, Zap, SquarePen, X } from 'lucide-react';
@@ -252,7 +254,10 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: project?.color || '#6366f1' }} aria-hidden="true" />
                     <span className="font-semibold text-[var(--text-main)] truncate">{log.projectName}</span>
                   </span>
-                  <StatusBadge status={log.status} variant="bracket" />
+                  <span className="flex items-center gap-2 shrink-0">
+                    <SampleBadge show={isSampleLog(log)} />
+                    <StatusBadge status={log.status} variant="bracket" />
+                  </span>
                 </div>
                 <p className="text-xs text-[var(--text-main)] whitespace-pre-line">{log.description}</p>
                 <p className="font-mono text-xs text-[var(--text-muted)]">
@@ -341,6 +346,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                       {log.description}
                     </span>
                     <span className="flex flex-wrap items-center gap-x-2 text-xs text-[var(--text-muted)] empty:hidden">
+                      <SampleBadge show={isSampleLog(log)} />
                       {log.tags.map((t) => (
                         <span key={t}>{t}</span>
                       ))}

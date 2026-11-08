@@ -10,6 +10,8 @@ import { SelectionBar } from '../feed/SelectionBar';
 import { SelectBox } from '../feed/SelectBox';
 import { LogActions } from '../feed/LogActions';
 import { StatusBadge } from '../feed/StatusBadge';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleLog } from '../../data/sampleData';
 import { MicroTasks } from '../feed/MicroTasks';
 import { ExternalLink, Plus, Image as ImageIcon, SquarePen } from 'lucide-react';
 
@@ -194,6 +196,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
                         <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                             <span className="font-semibold text-[var(--text-main)]">{log.projectName}</span>
+                            <SampleBadge show={isSampleLog(log)} />
                             <span className="sm:hidden font-mono tabular-nums">{log.time}</span>
                             <span aria-hidden="true">·</span>
                             <StatusBadge status={log.status} variant="text" />

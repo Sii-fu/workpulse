@@ -3,6 +3,8 @@ import { Project } from '../../types';
 import { getTaskStage } from './helpers';
 import { TaskClock, GroupClock } from './Clock';
 import { LogDetailsButton } from './LogDetailsButton';
+import { SampleBadge } from '../ui/SampleBadge';
+import { isSampleTask } from '../../data/sampleData';
 import type { TasksModel } from './useTasksModel';
 
 // Matrix: tasks as a process table.
@@ -121,7 +123,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                 [TERMINATE]
                               </button>
                             )}
-                            <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="bracket" />
+                            <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="bracket" />
                             <button
                               onClick={() => onDeleteTask(task.id)}
                               className="text-danger cursor-pointer"
@@ -325,7 +328,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                       >
                         [MARK_DONE]
                       </button>
-                      <LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="bracket" />
+                      <SampleBadge show={isSampleTask(task)} />
+<LogDetailsButton task={task} onLogWithDetails={onLogWithDetails} variant="bracket" />
                       <button
                         onClick={() => onDeleteTask(task.id)}
                         className="text-danger cursor-pointer"

@@ -81,6 +81,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
   // Accordion & Modals
   const [showAdditional, setShowAdditional] = useState<boolean>(false);
+  // On a phone the form starts short: project, text and Commit. Tags, link and screenshot sit behind a toggle.
+  const [showMore, setShowMore] = useState<boolean>(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
   const [newProjectColor, setNewProjectColor] = useState<string>('#6366f1');
@@ -462,8 +464,20 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
             </button>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowMore(!showMore)}
+            aria-expanded={showMore}
+            className="md:hidden flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer py-1"
+          >
+            {showMore ? <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" /> : <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />}
+            <span>
+              {showMore ? 'Fewer options' : `Tags, link, screenshot${selectedTags.length ? ` (${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'})` : ''}`}
+            </span>
+          </button>
+
           {/* Tags List */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <div className={`flex-wrap items-center gap-1.5 pt-1 ${showMore ? 'flex' : 'hidden md:flex'}`}>
             <span className="text-xs font-semibold text-[var(--text-muted)] mr-1">Tags:</span>
             {availableTags.map((tag) => {
               const isSelected = selectedTags.includes(tag);
@@ -523,7 +537,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
         </div>
 
         {/* Links & Screenshot Upload */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div className={`grid-cols-1 sm:grid-cols-2 gap-3 pt-1 ${showMore ? 'grid' : 'hidden md:grid'}`}>
           <div className="flex items-center gap-2 bg-[var(--bg-subtle)]/70 border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-1.5">
             <LinkIcon className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
             <input

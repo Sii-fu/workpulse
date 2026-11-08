@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ModalShell } from './ui/ModalShell';
+import { plainAiMessage } from '../utils/aiErrors';
 import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { WorkLog, ReportFormat, ReportTone } from '../types';
@@ -270,7 +271,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
             )}
             {aiError && (
               <div className="text-xs px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-warning/40 bg-warning/10 text-warning">
-                AI failed: {aiError} Showing template text instead. Check it before sending.
+                {plainAiMessage(aiError)} This is the built-in template instead. Read it before you send it.
               </div>
             )}
 
