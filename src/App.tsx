@@ -13,11 +13,12 @@ import {
 } from './types';
 import {
   loadStoredData,
-  saveLogs,
-  saveBacklog,
-  saveProjects,
-  saveTags,
-  saveSettings,
+  saveLogs as storeLogs,
+  saveBacklog as storeBacklog,
+  saveProjects as storeProjects,
+  saveTags as storeTags,
+  saveSettings as storeSettings,
+  SaveResult,
 } from './utils/storage';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
@@ -112,6 +113,25 @@ export default function App() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
   };
+
+  // Save wrappers: a failed save (storage full or blocked) shows one error toast per 30 s
+  // instead of failing silently. Callers can still read the returned result.
+  const lastSaveErrorAt = useRef(0);
+  const persist = (result: SaveResult, what: string): SaveResult => {
+    if (!result.ok && Date.now() - lastSaveErrorAt.current > 30000) {
+      lastSaveErrorAt.current = Date.now();
+      addToast(
+        `Could not save ${what}: browser storage is full or blocked. Export a backup now (Settings).`,
+        'error',
+      );
+    }
+    return result;
+  };
+  const saveLogs = (v: WorkLog[]) => persist(storeLogs(v), 'work logs');
+  const saveBacklog = (v: BacklogTask[]) => persist(storeBacklog(v), 'tasks');
+  const saveProjects = (v: Project[]) => persist(storeProjects(v), 'projects');
+  const saveTags = (v: string[]) => persist(storeTags(v), 'tags');
+  const saveSettings = (v: AppSettings) => persist(storeSettings(v), 'settings');
 
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -226,8 +246,7 @@ export default function App() {
 
     const updated = [newLog, ...logs];
     setLogs(updated);
-    saveLogs(updated);
-    addToast('Work log recorded successfully!');
+    if (saveLogs(updated).ok) addToast('Work log recorded successfully!');
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
@@ -256,8 +275,7 @@ export default function App() {
     };
     const updated = [duplicated, ...logs];
     setLogs(updated);
-    saveLogs(updated);
-    addToast('Log duplicated for today', 'success');
+    if (saveLogs(updated).ok) addToast('Log duplicated for today', 'success');
   };
 
   // Backlog & Focus Workspace handlers
