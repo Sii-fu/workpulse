@@ -113,7 +113,9 @@ Bold means below 4.5:1 for text (below 3:1 for borders, where WCAG asks 3:1 for 
 
 ### 2.5 Switching, persistence, mid-session
 
-- Switching is from Settings only. It applies on the next effect and persists immediately (`workpulse_settings`, `App.tsx:313-327`). I saw no breakage when switching, but the Tasks page, Analytics and the modals do not re-theme coherently (D2, D3, section 2.1).
+- Switching is from Settings only, and **it is two steps**: a theme card only stages the choice, and nothing changes until "Save All Settings" is clicked (`SettingsView.tsx:363-370`). The light and dark toggle in the top bar, by contrast, applies at once. Once saved, the theme persists (`workpulse_settings`, `App.tsx:313-327`). *(Correction, found while writing the smoke test: an earlier version of this section said the switch applied immediately.)*
+- The theme cards are plain `div`s with an `onClick`: no role, no tab stop, no keyboard activation. A keyboard user cannot change theme at all.
+- I saw no breakage when switching, but the Tasks page, Analytics and the modals do not re-theme coherently (D2, D3, section 2.1).
 - Matrix forces dark and ignores colour-mode changes. Switching away keeps `dark`, so leaving Matrix never restores a previous light choice.
 - There is no theme control in the top bar, so comparing themes needs a trip to Settings each time.
 
