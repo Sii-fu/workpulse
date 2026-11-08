@@ -498,7 +498,8 @@ export default function App() {
   };
 
   const handleConvertTaskToLog = (task: BacklogTask) => {
-    const project = projects.find((p) => p.id === task.projectId) || projects[0];
+    // A deleted project is named "General" below; never borrow another project's name (B13).
+    const project = projects.find((p) => p.id === task.projectId);
     const nowIso = new Date().toISOString();
     const newSeconds = unloggedSeconds(task);
 

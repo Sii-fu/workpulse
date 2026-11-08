@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { defaultProject } from '../utils/projects';
 import { localDateStr, localTimeStr } from '../utils/dates';
 import { downscaleImage } from '../utils/image';
 import { Project, TaskStatus, WorkLog, ThemeId } from '../types';
@@ -59,7 +60,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   const [date, setDate] = useState<string>(today);
   const dateTouched = useRef(false); // true once the user picked a date by hand
   const [time, setTime] = useState<string>(nowTime);
-  const [projectId, setProjectId] = useState<string>(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState<string>(defaultProject(projects)?.id || '');
   const [description, setDescription] = useState<string>('');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -97,8 +98,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       if (draft.energyRating) setEnergyRating(draft.energyRating);
       // Only restore a draft's date if it is still today: an old draft must not file today's work under an old date (B8).
       if (draft.date && draft.date === localDateStr()) setDate(draft.date);
-    } else if (projects[0]?.id) {
-      setProjectId(projects[0].id);
+    } else if (defaultProject(projects)?.id) {
+      setProjectId(defaultProject(projects)!.id);
     }
   }, []);
 
@@ -120,7 +121,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
   useEffect(() => {
     if (!projectId && projects.length > 0) {
-      setProjectId(projects[0].id);
+      setProjectId(defaultProject(projects)!.id);
     }
   }, [projects, projectId]);
 
@@ -136,7 +137,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
     }
   }, [prefillData]);
 
-  const activeProject = projects.find((p) => p.id === projectId) || projects[0];
+  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {

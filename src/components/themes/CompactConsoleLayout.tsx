@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { defaultProject, activeProjectsOf } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
 import {
@@ -43,12 +44,12 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   onConvertTaskToLog,
 }) => {
   const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState(defaultProject(projects)?.id || '');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [duration, setDuration] = useState('30');
   const [showBacklog, setShowBacklog] = useState(false);
 
-  const activeProject = projects.find((p) => p.id === projectId) || projects[0];
+  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +62,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       projectName: activeProject?.name || 'General',
       description: description.trim(),
       status,
-      tags: ['#deep-work'],
+      tags: [],
       durationMinutes: parseInt(duration) || undefined,
       energyRating: 4,
     });
@@ -85,7 +86,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           onChange={(e) => setProjectId(e.target.value)}
           className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs font-semibold text-[var(--text-main)] focus:outline-hidden cursor-pointer"
         >
-          {projects.map((p) => (
+          {activeProjectsOf(projects).map((p) => (
             <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
               {p.name}
             </option>

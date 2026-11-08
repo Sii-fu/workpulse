@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { defaultProject } from '../utils/projects';
 import { localDateStr } from '../utils/dates';
 import { BacklogTask, Project, ThemeId, WorkLog } from '../types';
 import {
@@ -49,7 +50,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'tasks' | 'projects' | 'standup'>('tasks');
   const [newTitle, setNewTitle] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
+  const [selectedProjectId, setSelectedProjectId] = useState(defaultProject(projects)?.id || '');
   const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
 
   const todayStr = localDateStr();
@@ -60,7 +61,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    onAddTask(newTitle.trim(), selectedProjectId || projects[0]?.id || 'default');
+    onAddTask(newTitle.trim(), selectedProjectId || defaultProject(projects)?.id || 'default');
     setNewTitle('');
   };
 
