@@ -24,6 +24,7 @@ import {
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
+import { advanceClock } from './utils/timer';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -201,9 +202,35 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 4. Live Automatic Task Timer Engine (Ticks every second for In-Progress tasks)
+  // 4. Live Automatic Task Timer Engine.
+  // Each tick adds the REAL seconds since the last tick (hidden tabs are throttled by the browser),
+  // and the backlog is saved every 30 s and when the tab is hidden or closed, not every second.
+  const timerDirty = useRef(false);
+  const timerLastSaveAt = useRef(Date.now());
+  const backlogRef = useRef<BacklogTask[]>([]);
+
   useEffect(() => {
+    backlogRef.current = backlog;
+    if (timerDirty.current && Date.now() - timerLastSaveAt.current >= 30000) {
+      saveBacklog(backlog);
+      timerDirty.current = false;
+      timerLastSaveAt.current = Date.now();
+    }
+  }, [backlog]);
+
+  useEffect(() => {
+    let lastTickMs = Date.now();
+    const flush = () => {
+      if (timerDirty.current) {
+        saveBacklog(backlogRef.current);
+        timerDirty.current = false;
+        timerLastSaveAt.current = Date.now();
+      }
+    };
     const timerInterval = setInterval(() => {
+      const { seconds, nextMs } = advanceClock(lastTickMs, Date.now());
+      lastTickMs = nextMs;
+      if (seconds === 0) return;
       setBacklog((prev) => {
         let changed = false;
         const updated = prev.map((t) => {
@@ -211,19 +238,26 @@ export default function App() {
             changed = true;
             return {
               ...t,
-              elapsedSeconds: (t.elapsedSeconds || 0) + 1,
+              elapsedSeconds: (t.elapsedSeconds || 0) + seconds,
             };
           }
           return t;
         });
-        if (changed) {
-          saveBacklog(updated);
-        }
+        if (changed) timerDirty.current = true;
         return changed ? updated : prev;
       });
     }, 1000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
 
-    return () => clearInterval(timerInterval);
+    return () => {
+      clearInterval(timerInterval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
   }, []);
 
   // 4. Persistence Handlers
