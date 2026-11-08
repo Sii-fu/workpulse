@@ -124,6 +124,9 @@ export default function App() {
     setBacklog(loaded.backlog);
     setProjects(loaded.projects);
     setTags(loaded.tags);
+    if (loaded.warnings.length > 0) {
+      addToast(loaded.warnings.join(' '), 'error');
+    }
 
     const activeTheme = loaded.settings?.theme || 'modern';
     const activeMode = loaded.settings?.colorMode || (activeTheme === 'minimalist' ? 'light' : 'dark');
