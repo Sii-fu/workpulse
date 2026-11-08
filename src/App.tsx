@@ -1083,6 +1083,7 @@ export default function App() {
         logs={logs}
         selectedLogIds={selectedLogIds}
         geminiApiKey={settings.geminiApiKey}
+        defaultRecipientName={settings.defaultRecipientName}
         defaultTone={settings.defaultTone}
         onCopySuccess={() => addToast('Standup report copied to clipboard! 🎉')}
       />

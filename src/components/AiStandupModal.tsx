@@ -21,6 +21,7 @@ interface AiStandupModalProps {
   logs: WorkLog[];
   selectedLogIds: string[];
   geminiApiKey: string;
+  defaultRecipientName?: string;
   defaultTone: ReportTone;
   onCopySuccess: () => void;
 }
@@ -31,12 +32,13 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   logs,
   selectedLogIds,
   geminiApiKey,
+  defaultRecipientName,
   defaultTone,
   onCopySuccess,
 }) => {
   const [format, setFormat] = useState<ReportFormat>('whatsapp');
   const [tone, setTone] = useState<ReportTone>(defaultTone || 'casual');
-  const [recipientName, setRecipientName] = useState<string>('');
+  const [recipientName, setRecipientName] = useState<string>(defaultRecipientName || '');
   const [generatedReport, setGeneratedReport] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationSource, setGenerationSource] = useState<'gemini' | 'template' | null>(null);
