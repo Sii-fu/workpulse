@@ -84,7 +84,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         <select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
-          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs font-semibold text-[var(--text-main)] focus:outline-hidden cursor-pointer"
+          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs font-semibold text-[var(--text-main)] cursor-pointer"
         >
           {activeProjectsOf(projects).map((p) => (
             <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
@@ -98,15 +98,16 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          aria-label="Quick log description"
           placeholder="Fast single-line log (e.g. Fixed caching race condition)..."
-          className="flex-1 h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden focus:border-[var(--accent)] font-sans"
+          className="flex-1 h-8 px-3 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--accent)] font-sans"
         />
 
         {/* Status */}
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as TaskStatus)}
-          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs text-[var(--text-main)] focus:outline-hidden cursor-pointer"
+          className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded text-xs text-[var(--text-main)] cursor-pointer"
         >
           <option value="completed" className="bg-[var(--bg-surface)]">DONE</option>
           <option value="in_progress" className="bg-[var(--bg-surface)]">IN_PROG</option>
@@ -117,11 +118,12 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         <div className="flex items-center gap-1 h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded">
           <input
             type="number"
+            aria-label="Duration in minutes"
             min={5}
             step={5}
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            className="w-8 text-center text-xs bg-transparent focus:outline-hidden"
+            className="w-8 text-center text-xs bg-transparent"
           />
           <span className="text-[10px] text-[var(--text-muted)]">m</span>
         </div>
@@ -139,7 +141,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
         <button
           type="button"
           onClick={() => setShowBacklog(!showBacklog)}
-          className={`h-8 px-2.5 rounded border border-[var(--border-app)] text-xs flex items-center gap-1 cursor-pointer transition-colors ${
+          className={`h-8 px-2.5 rounded border border-[var(--border-control)] text-xs flex items-center gap-1 cursor-pointer transition-colors ${
             showBacklog
               ? 'bg-[var(--accent)] text-[var(--on-accent)] font-bold'
               : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'

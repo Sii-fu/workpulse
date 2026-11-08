@@ -296,7 +296,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               onClick={() => setActiveSection(item.id)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all whitespace-nowrap cursor-pointer ${
                 activeSection === item.id
-                  ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+                  ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)]'
               }`}
             >
@@ -326,7 +326,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               </div>
 
               {/* 4 Theme Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {[
                   {
                     id: 'modern' as ThemeId,
@@ -356,16 +356,32 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     desc: 'Real CLI command line prompt, CRT scanlines, OLED phosphor green glow, 100% monospace.',
                     palette: 'Pitch Black OLED',
                   },
-                ].map((th) => {
+                ].map((th, thIndex, themeList) => {
                   const isSelected = selectedTheme === th.id;
+                  const pickTheme = (id: ThemeId) => {
+                    setSelectedTheme(id);
+                    if (id === 'matrix') {
+                      setSelectedColorMode('dark');
+                    }
+                  };
 
                   return (
                     <div
                       key={th.id}
-                      onClick={() => {
-                        setSelectedTheme(th.id);
-                        if (th.id === 'matrix') {
-                          setSelectedColorMode('dark');
+                      role="radio"
+                      aria-checked={isSelected}
+                      tabIndex={isSelected ? 0 : -1}
+                      onClick={() => pickTheme(th.id)}
+                      onKeyDown={(e) => {
+                        const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+                        if (step) {
+                          e.preventDefault();
+                          const next = themeList[(thIndex + step + themeList.length) % themeList.length];
+                          pickTheme(next.id);
+                          (e.currentTarget.parentElement?.children[(thIndex + step + themeList.length) % themeList.length] as HTMLElement | undefined)?.focus();
+                        } else if (e.key === ' ' || e.key === 'Enter') {
+                          e.preventDefault();
+                          pickTheme(th.id);
                         }
                       }}
                       className={`p-4 rounded-[var(--radius-card)] border transition-all cursor-pointer relative ${
@@ -468,8 +484,9 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     type="url"
                     value={googleScriptUrl}
                     onChange={(e) => setGoogleScriptUrl(e.target.value)}
+                    aria-label="Google Apps Script web app URL"
                     placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-2 text-xs font-mono text-[var(--text-main)] focus:outline-hidden focus:border-[var(--border-focus)]"
+                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs font-mono text-[var(--text-main)] focus:border-[var(--border-focus)]"
                   />
                   <button
                     type="button"
@@ -523,7 +540,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   <button
                     type="button"
                     onClick={handleCopyAppsScript}
-                    className="px-3 py-1 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
                   >
                     {copiedCode ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
@@ -564,8 +581,9 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     type={showApiKey ? 'text' : 'password'}
                     value={geminiApiKey}
                     onChange={(e) => setGeminiApiKey(e.target.value)}
+                    aria-label="Gemini API key"
                     placeholder="AIzaSy... (leave blank to use server environment key)"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-2 pr-10 text-xs font-mono text-[var(--text-main)] focus:outline-hidden focus:border-[var(--border-focus)]"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 pr-10 text-xs font-mono text-[var(--text-main)] focus:border-[var(--border-focus)]"
                   />
                   <button
                     type="button"
@@ -588,7 +606,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   <select
                     value={defaultTone}
                     onChange={(e) => setDefaultTone(e.target.value as ReportTone)}
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)] focus:outline-hidden"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
                   >
                     <option value="casual" className="bg-[var(--bg-surface)]">Casual & Direct (Agile Standup)</option>
                     <option value="corporate" className="bg-[var(--bg-surface)]">Formal Corporate (Stakeholders)</option>
@@ -605,8 +623,9 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     type="text"
                     value={defaultRecipientName}
                     onChange={(e) => setDefaultRecipientName(e.target.value)}
+                    aria-label="Your name and role"
                     placeholder="e.g. Alex, Tech Lead, Engineering Team"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)] focus:outline-hidden"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
                   />
                 </div>
               </div>
@@ -633,8 +652,9 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   type="text"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
+                  aria-label="New project name"
                   placeholder="New project name..."
-                  className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)] focus:outline-hidden"
+                  className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -716,8 +736,9 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     type="text"
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
+                    aria-label="New custom tag"
                     placeholder="Add custom tag (e.g. #deep-work)..."
-                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-hidden"
+                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-1.5 text-xs text-[var(--text-main)]"
                   />
                   <button
                     type="submit"
@@ -772,7 +793,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   </p>
                   <button
                     onClick={handleExportJSON}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download JSON Backup</span>
@@ -793,7 +814,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   </p>
                   <button
                     onClick={handleExportCSV}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download CSV Logs</span>
@@ -813,7 +834,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   <button
                     type="button"
                     onClick={handleFixDates}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] transition-all cursor-pointer"
+                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] transition-all cursor-pointer"
                   >
                     Review and fix dates
                   </button>

@@ -128,7 +128,7 @@ export default function App() {
       () => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
       },
-      action ? 6000 : 3500,
+      action || type === 'error' ? 8000 : 3500,
     );
   };
 
@@ -226,10 +226,6 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
-      }
-      if (e.key === 'Escape') {
-        setIsSearchOpen(false);
-        setActiveLightboxImage(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);

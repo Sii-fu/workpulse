@@ -51,7 +51,7 @@ SEL = {
     "eod_trigger": 'button[title*="ynthesize"]',      # Timeline (modern) and Tasks tab
     "eod_heading": "End-of-Day",
     "palette_trigger_key": "Control+k",
-    "palette_input": 'input[placeholder^="Search all past work logs"]',
+    "palette_input": "input[role=combobox]",
     "settings_section_appearance": re.compile(r"Appearance"),
     "settings_save": "Save All Settings",
     "theme_cards": {
@@ -74,17 +74,19 @@ SEL = {
 }
 
 # check name -> phase that is expected to fix it
-EXPECTED_FAIL = {
-    "modal_escape:standup": "P1 (modal shell: Escape, focus trap)",
-    "modal_escape:eod": "P1 (modal shell: Escape, focus trap)",
-}
+EXPECTED_FAIL = {}
 
 THEMES = ["modern", "minimalist", "compact", "matrix"]
 SEED_SETTINGS = {
     "googleScriptUrl": "", "geminiApiKey": "", "defaultTone": "casual",
     "lastDismissedReminderDate": "2999-01-01",  # keep the reminder banner out of the way
 }
-IGNORED_CONSOLE = (re.compile(r"favicon", re.I),)
+IGNORED_CONSOLE = (
+    re.compile(r"favicon", re.I),
+    # no Gemini key in the test environment: /api/gemini/generate answers 400 and the app
+    # falls back to its offline template, which is the behaviour under test
+    re.compile(r"Failed to load resource: the server responded with a status of 400"),
+)
 
 CHECKS = []
 
@@ -133,7 +135,8 @@ class Session:
 
     def tab(self, name):
         labels = SEL["nav"] if self.page.viewport_size["width"] >= 768 else SEL["mobile_nav"]
-        loc = self.page.get_by_role("button", name=labels[name], exact=True)
+        # the Tasks button on mobile carries its pending count in the name ("Tasks 3")
+        loc = self.page.get_by_role("button", name=re.compile(rf"^{re.escape(labels[name])}( \d+)?$"))
         for i in range(loc.count()):
             if loc.nth(i).is_visible():
                 loc.nth(i).click()
@@ -337,6 +340,106 @@ def _modal_escape(kind):
 
 for _kind in ("standup", "eod", "palette"):
     CHECKS.append((f"modal_escape:{_kind}", _modal_escape(_kind)))
+
+
+# -- accessibility of the shared dialog shell and keyboard flows (P1) -------------------------
+IN_DIALOG = "() => !!document.activeElement && !!document.activeElement.closest('[role=dialog]')"
+
+
+def _open_standup(s):
+    s.tab("feed")
+    trigger = s.page.locator(SEL["standup_trigger"])
+    trigger.focus()
+    trigger.click()
+    return trigger
+
+
+def _open_eod(s):
+    if not s.page.locator(SEL["eod_trigger"]).first.is_visible():
+        s.tab("backlog")
+    trigger = s.page.locator(SEL["eod_trigger"]).first
+    trigger.focus()
+    trigger.click()
+    return trigger
+
+
+@check("dialog_a11y")
+def dialog_a11y(s):
+    """Each dialog: named role=dialog, focus moves in, Tab/Shift+Tab stay inside, Escape closes
+    and focus returns to the control that opened it."""
+    for label, opener in (("AI Standup", _open_standup), ("EOD synthesizer", _open_eod)):
+        trigger = opener(s)
+        dlg = s.page.get_by_role("dialog")
+        expect(dlg).to_be_visible(timeout=3000)
+        assert dlg.get_attribute("aria-modal") == "true", f"{label}: aria-modal missing"
+        assert (dlg.get_attribute("aria-labelledby") or dlg.get_attribute("aria-label")), f"{label}: dialog has no name"
+        assert s.page.evaluate(IN_DIALOG), f"{label}: focus did not move into the dialog"
+        for i in range(20):
+            s.page.keyboard.press("Tab")
+            assert s.page.evaluate(IN_DIALOG), f"{label}: Tab #{i + 1} left the dialog"
+        for i in range(20):
+            s.page.keyboard.press("Shift+Tab")
+            assert s.page.evaluate(IN_DIALOG), f"{label}: Shift+Tab #{i + 1} left the dialog"
+        s.page.keyboard.press("Escape")
+        s.page.wait_for_timeout(250)
+        assert s.page.get_by_role("dialog").count() == 0, f"{label}: Escape did not close it"
+        same = s.page.evaluate("(el) => document.activeElement === el", trigger.element_handle())
+        assert same, f"{label}: focus did not return to the button that opened it"
+    s.no_errors()
+
+
+@check("palette_keyboard")
+def palette_keyboard(s):
+    """Ctrl+K, arrow keys move the highlighted result, Enter picks it and closes."""
+    s.tab("feed")
+    s.page.keyboard.press(SEL["palette_trigger_key"])
+    inp = s.page.locator(SEL["palette_input"])
+    expect(inp).to_be_visible(timeout=3000)
+    assert s.page.evaluate("() => document.activeElement && document.activeElement.getAttribute('role')") == "combobox",         "search input is not focused on open"
+    options = s.page.get_by_role("option")
+    assert options.count() >= 2, "need at least two results to test arrow keys"
+    selected = lambda: s.page.evaluate(
+        "() => [...document.querySelectorAll('[role=option]')].findIndex(o => o.getAttribute('aria-selected') === 'true')")
+    assert selected() == 0, "first result should start highlighted"
+    s.page.keyboard.press("ArrowDown")
+    assert selected() == 1, "ArrowDown did not move the highlight"
+    active = s.page.evaluate("() => document.activeElement.getAttribute('aria-activedescendant')")
+    assert active and s.page.locator(f"[id='{active}']").get_attribute("aria-selected") == "true",         "aria-activedescendant does not point at the highlighted option"
+    s.page.keyboard.press("ArrowUp")
+    assert selected() == 0, "ArrowUp did not move the highlight back"
+    s.page.keyboard.press("Enter")
+    s.page.wait_for_timeout(250)
+    assert s.page.get_by_role("dialog").count() == 0, "Enter did not pick a result and close the palette"
+    s.no_errors()
+
+
+@check("toast_live_region")
+def toast_live_region(s):
+    """The notification region exists from the start, so screen readers announce what appears in it."""
+    region = s.page.locator('[role=region][aria-label="Notifications"]')
+    assert region.count() == 1, "no notifications region"
+    assert region.get_attribute("aria-live") == "polite", "notifications region is not aria-live"
+    s.no_errors()
+
+
+@check("theme_cards_keyboard")
+def theme_cards_keyboard(s):
+    """Settings > Appearance: theme cards are a radio group; arrow keys move the choice."""
+    s.tab("settings")
+    s.page.get_by_role("button", name=SEL["settings_section_appearance"]).first.click()
+    group = s.page.get_by_role("radiogroup", name="Theme")
+    expect(group).to_be_visible(timeout=3000)
+    radios = group.get_by_role("radio")
+    assert radios.count() == 4, "expected four theme cards"
+    checked = lambda: s.page.evaluate(
+        "() => [...document.querySelectorAll('[role=radiogroup] [role=radio]')].findIndex(r => r.getAttribute('aria-checked') === 'true')")
+    start = checked()
+    radios.nth(start).focus()
+    s.page.keyboard.press("ArrowRight")
+    assert checked() == (start + 1) % 4, "ArrowRight did not move the theme choice"
+    s.page.keyboard.press("ArrowLeft")
+    assert checked() == start, "ArrowLeft did not move it back"
+    s.no_errors()
 
 
 @check("modal_escape_all_themes")

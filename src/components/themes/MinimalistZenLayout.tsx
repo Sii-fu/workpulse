@@ -86,9 +86,10 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="What you worked on today"
           placeholder="Type what you worked on today... (No distractions, just write)"
           rows={3}
-          className="w-full bg-transparent border-0 focus:ring-0 text-base sm:text-lg text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden p-0 resize-none leading-relaxed tracking-tight"
+          className="w-full bg-transparent border-0 focus:ring-0 text-base sm:text-lg text-[var(--text-main)] placeholder-[var(--text-subtle)] p-0 resize-none leading-relaxed tracking-tight"
           autoFocus
         />
 
@@ -99,7 +100,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="bg-transparent text-[var(--text-main)] font-semibold text-xs border-b border-[var(--border-app)] pb-0.5 focus:outline-hidden cursor-pointer"
+              className="bg-transparent text-[var(--text-main)] font-semibold text-xs border-b border-[var(--border-control)] pb-0.5 cursor-pointer"
             >
               {activeProjectsOf(projects).map((p) => (
                 <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
@@ -112,7 +113,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as TaskStatus)}
-              className="bg-transparent text-[var(--text-muted)] text-xs focus:outline-hidden cursor-pointer"
+              className="bg-transparent text-[var(--text-muted)] text-xs cursor-pointer"
             >
               <option value="completed" className="bg-[var(--bg-surface)]">Done</option>
               <option value="in_progress" className="bg-[var(--bg-surface)]">In Progress</option>
@@ -123,7 +124,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
             <select
               value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
-              className="bg-transparent text-[var(--text-muted)] text-xs focus:outline-hidden cursor-pointer"
+              className="bg-transparent text-[var(--text-muted)] text-xs cursor-pointer"
             >
               <option value="" className="bg-[var(--bg-surface)]">Add Tag...</option>
               {availableTags.map((t) => (

@@ -3,6 +3,7 @@ import { defaultProject } from '../utils/projects';
 import { localDateStr, localTimeStr } from '../utils/dates';
 import { downscaleImage } from '../utils/image';
 import { Project, TaskStatus, WorkLog, ThemeId } from '../types';
+import { ModalShell } from './ui/ModalShell';
 import {
   saveActiveDraft,
   loadActiveDraft,
@@ -285,7 +286,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] text-xs sm:text-sm font-semibold rounded-[var(--radius-btn)] pl-7 pr-3 py-1.5 focus:outline-hidden focus:border-[var(--border-focus)] transition-colors cursor-pointer"
+                  className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] text-xs sm:text-sm font-semibold rounded-[var(--radius-btn)] pl-7 pr-3 py-1.5 focus:border-[var(--border-focus)] transition-colors cursor-pointer"
                 >
                   {projects
                     .filter((p) => !p.isArchived)
@@ -312,18 +313,20 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
           <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-mono">
             <input
               type="date"
+              aria-label="Date"
               value={date}
               onChange={(e) => {
                 dateTouched.current = true;
                 setDate(e.target.value);
               }}
-              className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2 py-1 text-xs focus:outline-hidden cursor-pointer"
+              className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2 py-1 text-xs cursor-pointer"
             />
             <input
               type="time"
+              aria-label="Time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2 py-1 text-xs focus:outline-hidden cursor-pointer"
+              className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2 py-1 text-xs cursor-pointer"
             />
           </div>
         </div>
@@ -383,13 +386,14 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onKeyDown={handleKeyDown}
+            aria-label="Work log description"
             placeholder={
               activeTheme === 'matrix'
                 ? 'ENTER LOG DATA (CTRL+ENTER TO COMMIT)...'
                 : 'What did you accomplish or work on? Use markdown, paste PR links, or write bullets... (Ctrl + Enter to log)'
             }
             rows={3}
-            className={`w-full bg-[var(--bg-subtle)]/70 focus:bg-[var(--bg-surface)] border border-[var(--border-app)] focus:border-[var(--border-focus)] rounded-[var(--radius-card)] p-3 text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden transition-all resize-y leading-relaxed ${
+            className={`w-full bg-[var(--bg-subtle)]/70 focus:bg-[var(--bg-surface)] border border-[var(--border-control)] focus:border-[var(--border-focus)] rounded-[var(--radius-card)] p-3 text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] transition-all resize-y leading-relaxed ${
               activeTheme === 'modern' ? 'shadow-inner' : ''
             }`}
           />
@@ -421,7 +425,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'completed'
                   ? 'bg-success-solid text-white shadow-xs'
-                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
+                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-control)]'
               }`}
             >
               <Check className="w-3.5 h-3.5" />
@@ -434,7 +438,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'in_progress'
                   ? 'bg-info-solid text-white shadow-xs'
-                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
+                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-control)]'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -447,7 +451,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               className={`px-3 py-1 rounded-[var(--radius-btn)] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 status === 'blocked'
                   ? 'bg-danger-solid text-white shadow-xs'
-                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
+                  : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-control)]'
               }`}
             >
               <X className="w-3.5 h-3.5" />
@@ -468,7 +472,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                   className={`text-xs px-2.5 py-0.5 rounded-[var(--radius-btn)] transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-[var(--accent)] text-[var(--on-accent)] font-medium shadow-xs'
-                      : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-app)]'
+                      : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-control)]'
                   }`}
                 >
                   {tag}
@@ -483,8 +487,9 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                   type="text"
                   value={newTagInput}
                   onChange={(e) => setNewTagInput(e.target.value)}
+                  aria-label="New tag"
                   placeholder="#tag"
-                  className="w-20 px-1.5 py-0.5 text-xs bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-[var(--text-main)] focus:outline-hidden"
+                  className="w-20 px-1.5 py-0.5 text-xs bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)]"
                   autoFocus
                 />
                 <button
@@ -505,7 +510,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowNewTagInput(true)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-text)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-dashed border-[var(--border-app)] hover:border-[var(--accent)] transition-colors cursor-pointer"
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-text)] px-2 py-0.5 rounded-[var(--radius-btn)] border border-dashed border-[var(--border-control)] hover:border-[var(--accent)] transition-colors cursor-pointer"
                 title="Add custom tag"
               >
                 + Tag
@@ -522,8 +527,9 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               type="url"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
+              aria-label="Link to attach (PR, Jira, Figma, Docs)"
               placeholder="Attach URL (PR, Jira, Figma, Docs)"
-              className="w-full bg-transparent text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden"
+              className="w-full bg-transparent text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)]"
             />
           </div>
 
@@ -546,7 +552,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs px-2.5 py-0.5 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-[var(--text-main)] transition-colors cursor-pointer font-medium"
+                className="text-xs px-2.5 py-0.5 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-[var(--text-main)] transition-colors cursor-pointer font-medium"
               >
                 {imageBase64 ? 'Replace' : 'Upload'}
               </button>
@@ -605,7 +611,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                       className={`text-xs px-2.5 py-1 rounded-[var(--radius-btn)] transition-all cursor-pointer ${
                         durationMinutes === preset.mins
                           ? 'bg-[var(--accent)] text-[var(--on-accent)] font-semibold'
-                          : 'bg-[var(--bg-surface)] border border-[var(--border-app)] text-[var(--text-main)] hover:border-[var(--accent)]'
+                          : 'bg-[var(--bg-surface)] border border-[var(--border-control)] text-[var(--text-main)] hover:border-[var(--accent)]'
                       }`}
                     >
                       {preset.label}
@@ -614,11 +620,12 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                   <div className="flex items-center gap-1 ml-2">
                     <input
                       type="number"
+                      aria-label="Custom duration in minutes"
                       min={0}
                       step={5}
                       value={durationMinutes || ''}
                       onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
-                      className="w-16 px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-[var(--text-main)] font-mono text-center focus:outline-hidden"
+                      className="w-16 px-2 py-1 text-xs bg-[var(--bg-surface)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)] font-mono text-center"
                     />
                     <span className="text-xs text-[var(--text-muted)]">mins</span>
                   </div>
@@ -684,9 +691,14 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
       {/* New Project Modal */}
       {showNewProjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="glass-panel p-5 max-w-sm w-full shadow-2xl space-y-3">
-            <h3 className="text-sm font-bold text-[var(--text-main)]">Add New Project</h3>
+        <ModalShell
+          onClose={() => setShowNewProjectModal(false)}
+          labelledBy="new-project-title"
+          backdropClassName="p-4"
+          className="glass-panel p-5 max-w-sm w-full shadow-2xl space-y-3"
+        >
+          <>
+            <h3 id="new-project-title" className="text-sm font-bold text-[var(--text-main)]">Add New Project</h3>
             <form onSubmit={handleCreateProject} className="space-y-3">
               <div>
                 <label className="block text-xs text-[var(--text-muted)] mb-1">Project Name</label>
@@ -695,8 +707,9 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                   required
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
+                  aria-label="Project name"
                   placeholder="e.g. Infrastructure Modernization"
-                  className="w-full px-3 py-1.5 text-xs sm:text-sm bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-[var(--text-main)] focus:outline-hidden"
+                  className="w-full px-3 py-1.5 text-xs sm:text-sm bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)]"
                   autoFocus
                 />
               </div>
@@ -730,8 +743,8 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </>
+        </ModalShell>
       )}
 
     </div>

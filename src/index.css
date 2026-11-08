@@ -41,6 +41,53 @@
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
   }
+
+  /* Keyboard focus: one ring for every control, in a colour that already passes AA on every
+     surface of every theme (--accent-text). Utilities such as outline-hidden are not used on
+     controls any more, so this rule is the only thing drawing focus. */
+  :focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline-offset: 0;
+  }
+  /* A dialog panel takes focus itself so screen readers announce it; no ring on the panel. */
+  [role='dialog']:focus-visible {
+    outline: none;
+  }
+
+  /* WCAG 2.2 AA target size (2.5.8): nothing clickable is smaller than 24 x 24 CSS px.
+     Larger utilities (min-h-*, h-*, p-*) still win because they sit in the utilities layer. */
+  button,
+  [role='button'],
+  select {
+    min-width: 24px;
+    min-height: 24px;
+  }
+  textarea,
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']) {
+    min-height: 24px;
+  }
+}
+
+/* Motion is decoration here, so it goes away for people who ask for less of it.
+   Spinners stay: they say "working", not "look at me". */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 /* =========================================================================

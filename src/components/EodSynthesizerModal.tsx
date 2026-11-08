@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ModalShell } from './ui/ModalShell';
+import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
@@ -277,16 +279,19 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div
-        className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden shadow-2xl transition-all ${
-          isMatrix
-            ? 'bg-[var(--bg-app)] border-[var(--accent)] text-[var(--text-main)] font-mono shadow-[0_0_30px_rgba(0,255,102,0.2)]'
-            : isMinimalist
-            ? 'bg-[var(--bg-app)] border-[var(--border-app)] text-[var(--text-main)]'
-            : 'bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)] '
-        }`}
-      >
+    <ModalShell
+      onClose={onClose}
+      labelledBy="eod-title"
+      backdropClassName="p-3 sm:p-4"
+      className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden shadow-2xl ${
+        isMatrix
+          ? 'bg-[var(--bg-app)] border-[var(--accent)] text-[var(--text-main)] font-mono shadow-[0_0_30px_rgba(0,255,102,0.2)]'
+          : isMinimalist
+          ? 'bg-[var(--bg-app)] border-[var(--border-app)] text-[var(--text-main)]'
+          : 'bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)] '
+      }`}
+    >
+      <>
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)] shrink-0">
           <div className="flex items-center gap-2.5">
@@ -294,7 +299,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               {isMatrix ? <Terminal className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <h2 id="eod-title" className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <span>End-of-Day (EOD) AI Log Synthesizer</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-warning/15 text-warning border border-warning/30 uppercase">
                   {activeModelName}
@@ -310,18 +315,15 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             <button
               onClick={handleManualResynthesize}
               disabled={isLoading}
-              className="px-2.5 py-1 text-xs font-medium rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:border-[var(--text-main)] bg-[var(--bg-subtle)] text-[var(--text-main)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-2.5 py-1 text-xs font-medium rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-[var(--text-main)] bg-[var(--bg-subtle)] text-[var(--text-main)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               title="Re-run synthesis"
             >
               {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-warning" />}
               <span className="hidden sm:inline">Re-synthesize</span>
             </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-            >
+            <IconButton label="Close" onClick={onClose}>
               <X className="w-5 h-5" />
-            </button>
+            </IconButton>
           </div>
         </div>
 
@@ -461,7 +463,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                             onChange={(e) =>
                               handleUpdateItem(item.id, 'status', e.target.value as TaskStatus)
                             }
-                            className="px-2.5 py-1 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-xs text-[var(--text-main)] font-semibold cursor-pointer"
+                            className="px-2.5 py-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-xs text-[var(--text-main)] font-semibold cursor-pointer"
                           >
                             <option value="completed">Completed</option>
                             <option value="in_progress">In Progress</option>
@@ -473,6 +475,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                             <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                             <input
                               type="number"
+                              aria-label="Duration in minutes"
                               min={0}
                               max={720}
                               value={item.durationMinutes}
@@ -483,7 +486,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                                   Math.max(0, parseInt(e.target.value) || 0)
                                 )
                               }
-                              className="w-12 text-xs font-mono font-bold bg-transparent text-[var(--text-main)] focus:outline-hidden"
+                              className="w-12 text-xs font-mono font-bold bg-transparent text-[var(--text-main)]"
                             />
                             <span className="text-[11px] text-[var(--text-muted)]">mins</span>
                           </div>
@@ -502,7 +505,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                           onChange={(e) =>
                             handleUpdateItem(item.id, 'summaryBullets', e.target.value)
                           }
-                          className={`w-full text-sm leading-relaxed p-3.5 rounded-[var(--radius-card)] border resize-y focus:outline-hidden transition-all ${textareaThemeClass}`}
+                          className={`w-full text-sm leading-relaxed p-3.5 rounded-[var(--radius-card)] border resize-y transition-all ${textareaThemeClass}`}
                         />
                       </div>
 
@@ -595,7 +598,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-subtle)] cursor-pointer"
             >
               Cancel
             </button>
@@ -620,7 +623,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    </ModalShell>
   );
 };

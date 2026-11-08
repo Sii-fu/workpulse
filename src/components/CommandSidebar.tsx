@@ -141,8 +141,9 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
+                aria-label="New planned task for today"
                 placeholder="New planned task for today... (Enter)"
-                className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-2.5 py-1.5 text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden focus:border-[var(--border-focus)] transition-all"
+                className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-2.5 py-1.5 text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--border-focus)] transition-all"
               />
               <button
                 type="submit"

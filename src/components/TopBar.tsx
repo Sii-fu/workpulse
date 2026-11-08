@@ -27,6 +27,9 @@ interface TopBarProps {
   isSyncing?: boolean;
 }
 
+const SEARCH_KEY =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K';
+
 export const TopBar: React.FC<TopBarProps> = ({
   activeTab,
   setActiveTab,
@@ -48,33 +51,35 @@ export const TopBar: React.FC<TopBarProps> = ({
         
         {/* Zone 1: Brand Wordmark / Terminal Prompt */}
         <div className="flex items-center gap-3 shrink-0">
-          <div
+          <button
+            type="button"
             className="flex items-center gap-2 cursor-pointer group"
             onClick={() => setActiveTab('feed')}
+            aria-label="WorkPulse, go to Timeline"
           >
             {isMatrix ? (
-              <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--accent-text)] matrix-glow">
+              <span className="flex items-center gap-1.5 font-mono text-xs text-[var(--accent-text)] matrix-glow">
                 <Terminal className="w-4 h-4" />
                 <span className="font-bold tracking-wider hidden sm:inline">root@workpulse:~$</span>
                 <span className="font-bold tracking-wider sm:hidden">~/pulse$</span>
                 <span className="w-1.5 h-3.5 bg-[var(--accent)] animate-pulse inline-block" />
-              </div>
+              </span>
             ) : (
               <>
-                <div className="w-7 h-7 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center font-bold text-xs shadow-md shadow-[var(--accent-glow)]">
+                <span className="w-7 h-7 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] flex items-center justify-center font-bold text-xs shadow-md shadow-[var(--accent-glow)]">
                   W
-                </div>
-                <div className="flex flex-col">
+                </span>
+                <span className="flex flex-col text-left">
                   <span className="font-bold text-sm tracking-tight text-[var(--text-main)] whitespace-nowrap leading-none">
                     WorkPulse
                   </span>
                   <span className="text-[10px] text-[var(--text-muted)] tracking-wider uppercase font-mono mt-0.5 hidden sm:inline">
                     OS Hub
                   </span>
-                </div>
+                </span>
               </>
             )}
-          </div>
+          </button>
 
           {/* Sheets Status Indicator */}
           <div
@@ -105,12 +110,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Zone 2: Navigation Links (Desktop) */}
-        <nav className="hidden md:flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-[var(--radius-btn)] border border-[var(--border-app)]">
+        <nav aria-label="Main" className="hidden md:flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-[var(--radius-btn)] border border-[var(--border-app)]">
           <button
             onClick={() => setActiveTab('feed')}
+            aria-current={activeTab === 'feed' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'feed'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
@@ -120,9 +126,10 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           <button
             onClick={() => setActiveTab('backlog')}
+            aria-current={activeTab === 'backlog' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'backlog'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
@@ -132,9 +139,10 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           <button
             onClick={() => setActiveTab('analytics')}
+            aria-current={activeTab === 'analytics' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'analytics'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
@@ -144,9 +152,10 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           <button
             onClick={() => setActiveTab('settings')}
+            aria-current={activeTab === 'settings' ? 'page' : undefined}
             className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'settings'
-                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+                ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
@@ -163,6 +172,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={onOpenAiStandup}
             className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
             title="Generate AI Standup report (WhatsApp, Slack, Executive)"
+            aria-label="AI Standup"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">AI Standup</span>
@@ -171,11 +181,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           {/* Quick Search palette (Cmd+K) */}
           <button
             onClick={onOpenSearch}
-            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors flex items-center gap-1 text-xs cursor-pointer border border-transparent hover:border-[var(--border-app)]"
+            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors flex items-center gap-1 text-xs cursor-pointer border border-transparent hover:border-[var(--border-control)]"
             title="Search logs (Ctrl/Cmd + K)"
+            aria-label="Search logs"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline text-[10px] font-mono">⌘K</span>
+            <span className="hidden xl:inline text-[10px] font-mono" aria-hidden="true">{SEARCH_KEY}</span>
           </button>
 
           {/* Animated Sun / Moon Toggle Button (or Matrix CRT OLED badge) */}
@@ -190,9 +201,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={() => onColorModeChange(colorMode === 'dark' ? 'light' : 'dark')}
-              className="relative p-2 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] transition-all cursor-pointer flex items-center justify-center overflow-hidden"
+              className="relative p-2 rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle-hover)] text-[var(--text-main)] transition-all cursor-pointer flex items-center justify-center overflow-hidden"
               title={`Switch to ${colorMode === 'dark' ? 'Light' : 'Dark'} Mode (Theme remains preserved)`}
-              aria-label="Toggle Light/Dark Mode"
+              aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
             >
               <div
                 className={`transition-all duration-300 transform ${
@@ -218,8 +229,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           {/* Settings Icon Quick Shortcut (Mobile & Tablet) */}
           <button
             onClick={() => setActiveTab('settings')}
-            className="md:hidden p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer border border-transparent hover:border-[var(--border-app)]"
+            className="md:hidden p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] rounded-[var(--radius-btn)] transition-colors cursor-pointer border border-transparent hover:border-[var(--border-control)]"
             title="Open Settings"
+            aria-label="Open settings"
           >
             <Settings className="w-4 h-4" />
           </button>

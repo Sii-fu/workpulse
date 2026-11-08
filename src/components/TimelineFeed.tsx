@@ -152,8 +152,9 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search logs"
               placeholder="Search logs by keywords, projects, tags..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden focus:border-[var(--border-focus)] transition-colors"
+              className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--border-focus)] transition-colors"
             />
             {searchQuery && (
               <button
@@ -194,7 +195,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs focus:outline-hidden cursor-pointer"
+            className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs cursor-pointer"
           >
             <option value="all" className="bg-[var(--bg-surface)]">All Projects</option>
             {projects.map((p) => (
@@ -207,7 +208,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs focus:outline-hidden cursor-pointer"
+            className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs cursor-pointer"
           >
             <option value="all" className="bg-[var(--bg-surface)]">All Statuses</option>
             <option value="completed" className="bg-[var(--bg-surface)]">Completed</option>
@@ -219,7 +220,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
             <select
               value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
-              className="bg-[var(--bg-subtle)] border border-[var(--border-app)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs focus:outline-hidden cursor-pointer"
+              className="bg-[var(--bg-subtle)] border border-[var(--border-control)] text-[var(--text-main)] rounded-[var(--radius-btn)] px-2.5 py-1 text-xs cursor-pointer"
             >
               <option value="all" className="bg-[var(--bg-surface)]">All Tags</option>
               {allTags.map((tag) => (
@@ -294,7 +295,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
 
               <button
                 onClick={onClearSelection}
-                className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:bg-[var(--bg-subtle)] text-[var(--text-muted)] cursor-pointer"
+                className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:bg-[var(--bg-subtle)] text-[var(--text-muted)] cursor-pointer"
               >
                 Clear
               </button>

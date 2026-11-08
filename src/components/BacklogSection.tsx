@@ -372,7 +372,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCreatingProject((v) => !v)}
-                  className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:border-[var(--border-focus)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)] text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                  className="px-2 py-1 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-[var(--border-focus)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)] text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
                   title="Create new project"
                 >
                   <FolderPlus className="w-3 h-3 text-[var(--accent-text)]" />
@@ -392,8 +392,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 type="text"
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
+                aria-label="Project name"
                 placeholder="Project Name (e.g. Mobile App Redesign)..."
-                className="flex-1 min-w-[200px] px-3 py-1.5 text-xs bg-[var(--bg-surface)] border border-[var(--border-app)] rounded-[var(--radius-btn)] text-[var(--text-main)] focus:outline-hidden focus:border-[var(--accent)]"
+                className="flex-1 min-w-[200px] px-3 py-1.5 text-xs bg-[var(--bg-surface)] border border-[var(--border-control)] rounded-[var(--radius-btn)] text-[var(--text-main)] focus:border-[var(--accent)]"
                 autoFocus
               />
               <div className="flex items-center gap-1.5">
@@ -445,7 +446,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                         : isMinimalist
                         ? 'border-[var(--text-main)] bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-none'
                         : 'border-[var(--border-focus)] bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-sm ring-2'
-                      : 'border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)]'
+                      : 'border-[var(--border-control)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)]'
                   }`}
                   style={{
                     borderColor: isSelected && !isMinimalist && !isMatrix ? project.color : undefined,
@@ -485,8 +486,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                 type="text"
                 value={taskTitle}
                 onChange={(e) => setTaskTitle(e.target.value)}
+                aria-label="New task title"
                 placeholder={`Add a task for "${selectedProject?.name || 'Project'}"... (Press Enter)`}
-                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-3.5 py-2 text-xs sm:text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden focus:border-[var(--border-focus)] transition-colors pr-24"
+                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3.5 py-2 text-xs sm:text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:border-[var(--border-focus)] transition-colors pr-24"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline pointer-events-none">
                 [↵ Enter]
@@ -553,7 +555,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           onClick={() => setMobileTab('focus')}
           className={`flex-1 py-1.5 px-3 rounded-[var(--radius-btn)] whitespace-nowrap font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'focus'
-              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -565,7 +567,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           onClick={() => setMobileTab('queue')}
           className={`flex-1 py-1.5 px-3 rounded-[var(--radius-btn)] whitespace-nowrap font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'queue'
-              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -577,7 +579,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           onClick={() => setMobileTab('paused_blocked')}
           className={`flex-1 py-1.5 px-3 rounded-[var(--radius-btn)] whitespace-nowrap font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'paused_blocked'
-              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -589,7 +591,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
           onClick={() => setMobileTab('done')}
           className={`flex-1 py-1.5 px-3 rounded-[var(--radius-btn)] whitespace-nowrap font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'done'
-              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-app)]'
+              ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
         >
@@ -663,7 +665,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                   type="checkbox"
                                   checked={selectedTaskIds.has(task.id)}
                                   onChange={() => handleToggleSelectTask(task.id)}
-                                  className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                  className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                   title="Select task for EOD synthesis"
                                 />
                                 <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
@@ -842,7 +844,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                   type="checkbox"
                                   checked={selectedTaskIds.has(task.id)}
                                   onChange={() => handleToggleSelectTask(task.id)}
-                                  className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                  className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                   title="Select task for EOD synthesis"
                                 />
                                 <span className="font-semibold text-[var(--text-main)]">{task.title}</span>
@@ -916,8 +918,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="text"
                                 value={blockerReasonInput}
                                 onChange={(e) => setBlockerReasonInput(e.target.value)}
+                                aria-label="Reason for blocking"
                                 placeholder="e.g. Waiting on PR review or backend endpoint..."
-                                className="flex-1 min-w-[200px] bg-[var(--bg-surface)] border border-danger/40 rounded px-2.5 py-1 text-xs text-[var(--text-main)] focus:outline-hidden"
+                                className="flex-1 min-w-[200px] bg-[var(--bg-surface)] border border-danger/40 rounded px-2.5 py-1 text-xs text-[var(--text-main)]"
                                 autoFocus
                               />
                               <button
@@ -1040,7 +1043,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             type="checkbox"
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => handleToggleSelectTask(task.id)}
-                            className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                            className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                             title="Select task for EOD synthesis"
                           />
                           <span className="truncate text-[var(--text-muted)]">{task.title}</span>
@@ -1103,7 +1106,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="checkbox"
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
-                                className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                 title="Select task for EOD synthesis"
                               />
                               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] shrink-0" />
@@ -1161,8 +1164,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="text"
                                 value={blockerReasonInput}
                                 onChange={(e) => setBlockerReasonInput(e.target.value)}
+                                aria-label="Reason for blocking"
                                 placeholder="e.g. Waiting on PR review or backend endpoint..."
-                                className="flex-1 min-w-[200px] bg-[var(--bg-surface)] border border-danger/40 rounded px-2.5 py-1 text-xs text-[var(--text-main)] focus:outline-hidden"
+                                className="flex-1 min-w-[200px] bg-[var(--bg-surface)] border border-danger/40 rounded px-2.5 py-1 text-xs text-[var(--text-main)]"
                                 autoFocus
                               />
                               <button
@@ -1203,7 +1207,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                             type="checkbox"
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => handleToggleSelectTask(task.id)}
-                            className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                            className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                             title="Select task for EOD synthesis"
                           />
                           <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
@@ -1258,6 +1262,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       {/* Project Header Bar */}
                       <tr
                         onClick={() => toggleStageCollapse(`proj_${group.project.id}`)}
+                        tabIndex={0}
+                        aria-expanded={!isCollapsed}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStageCollapse(`proj_${group.project.id}`); } }}
                         className="h-7 bg-[var(--bg-subtle)]/80 hover:bg-[var(--bg-subtle-hover)] cursor-pointer select-none border-t-2 border-[var(--border-app)]"
                       >
                         <td colSpan={5} className="px-2 py-1 font-bold text-[11px] text-[var(--text-main)]">
@@ -1335,7 +1342,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         type="checkbox"
                                         checked={selectedTaskIds.has(task.id)}
                                         onChange={() => handleToggleSelectTask(task.id)}
-                                        className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                        className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                         title="Select task for EOD synthesis"
                                       />
                                       <span className={stage === 'done' ? 'line-through opacity-60' : ''}>
@@ -1494,8 +1501,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                           type="text"
                                           value={blockerReasonInput}
                                           onChange={(e) => setBlockerReasonInput(e.target.value)}
+                                          aria-label="Reason for blocking"
                                           placeholder="e.g. Awaiting PR review or backend endpoint..."
-                                          className="flex-1 bg-black/40 border border-danger/40 rounded px-2 py-0.5 text-xs text-[var(--text-main)] focus:outline-hidden"
+                                          className="flex-1 bg-black/40 border border-danger/40 rounded px-2 py-0.5 text-xs text-[var(--text-main)]"
                                           autoFocus
                                         />
                                         <button
@@ -1539,6 +1547,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                       {/* Section Header Row */}
                       <tr
                         onClick={() => toggleStageCollapse(`stage_${section.key}`)}
+                        tabIndex={0}
+                        aria-expanded={!collapsedStages[`stage_${section.key}`]}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStageCollapse(`stage_${section.key}`); } }}
                         className={`h-7 cursor-pointer select-none transition-colors border-t-2 border-[var(--border-app)] ${
                           section.key === 'in_progress' ? 'bg-warning/10 hover:bg-warning/15' :
                           section.key === 'blocked' ? 'bg-danger/10 hover:bg-danger/15' :
@@ -1621,7 +1632,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                         type="checkbox"
                                         checked={selectedTaskIds.has(task.id)}
                                         onChange={() => handleToggleSelectTask(task.id)}
-                                        className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                        className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                         title="Select task for EOD synthesis"
                                       />
                                       <span className={stage === 'done' ? 'line-through opacity-60' : ''}>
@@ -1780,8 +1791,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                           type="text"
                                           value={blockerReasonInput}
                                           onChange={(e) => setBlockerReasonInput(e.target.value)}
+                                          aria-label="Reason for blocking"
                                           placeholder="e.g. Awaiting PR review or backend endpoint..."
-                                          className="flex-1 bg-black/40 border border-danger/40 rounded px-2 py-0.5 text-xs text-[var(--text-main)] focus:outline-hidden"
+                                          className="flex-1 bg-black/40 border border-danger/40 rounded px-2 py-0.5 text-xs text-[var(--text-main)]"
                                           autoFocus
                                         />
                                         <button
@@ -2208,7 +2220,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="checkbox"
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
-                                className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                 title="Select task for EOD synthesis"
                               />
                               <span
@@ -2275,8 +2287,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               type="text"
                               value={blockerReasonInput}
                               onChange={(e) => setBlockerReasonInput(e.target.value)}
+                              aria-label="Reason for blocking"
                               placeholder="e.g. Awaiting backend deployment..."
-                              className="w-full px-2 py-1 text-xs bg-[var(--bg-surface)] border border-danger/40 rounded text-[var(--text-main)] focus:outline-hidden"
+                              className="w-full px-2 py-1 text-xs bg-[var(--bg-surface)] border border-danger/40 rounded text-[var(--text-main)]"
                               autoFocus
                             />
                             <div className="flex items-center justify-end gap-1.5">
@@ -2475,7 +2488,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="checkbox"
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
-                                className="w-4 h-4 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                                className="w-4 h-4 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                                 title="Select task for EOD synthesis"
                               />
                               {project && (
@@ -2519,8 +2532,9 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                                 type="text"
                                 value={blockerReasonInput}
                                 onChange={(e) => setBlockerReasonInput(e.target.value)}
+                                aria-label="Reason for blocking"
                                 placeholder="e.g. Awaiting PR review from backend team..."
-                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--bg-surface)] border border-danger/40 rounded text-[var(--text-main)] focus:outline-hidden"
+                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--bg-surface)] border border-danger/40 rounded text-[var(--text-main)]"
                                 autoFocus
                               />
                               <div className="flex items-center justify-end gap-1.5">
@@ -2560,7 +2574,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onUpdateTaskStage(task.id, 'planned')}
-                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:border-[var(--text-main)] bg-[var(--bg-subtle)] text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-[var(--text-main)] bg-[var(--bg-subtle)] text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Pause timer and move back into Planned Queue"
                               >
                                 <RotateCcw className="w-4 h-4 mr-1.5" />
@@ -2571,7 +2585,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onUpdateTaskStage(task.id, 'paused')}
-                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:border-info bg-[var(--bg-subtle)] hover:bg-info/10 text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-info bg-[var(--bg-subtle)] hover:bg-info/10 text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Pause this task temporarily"
                               >
                                 <Pause className="w-3 h-3 text-info" />
@@ -2582,7 +2596,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleStartBlocking(task)}
-                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] hover:border-danger bg-[var(--bg-subtle)] hover:bg-danger/10 text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-danger bg-[var(--bg-subtle)] hover:bg-danger/10 text-xs text-[var(--text-main)] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Mark task as blocked"
                               >
                                 <Ban className="w-3 h-3 text-danger" />
@@ -2632,7 +2646,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               type="checkbox"
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
-                              className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                              className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                               title="Select task for EOD synthesis"
                             />
                             <span className="font-semibold truncate">{task.title}</span>
@@ -2754,7 +2768,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               type="checkbox"
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
-                              className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                              className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                               title="Select task for EOD synthesis"
                             />
                             <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
@@ -2811,14 +2825,15 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                     type="text"
                     value={queueSearch}
                     onChange={(e) => setQueueSearch(e.target.value)}
+                    aria-label="Filter task queue"
                     placeholder="Filter queue..."
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] pl-7 pr-2 py-1 text-xs text-[var(--text-main)] focus:outline-hidden"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] pl-7 pr-2 py-1 text-xs text-[var(--text-main)]"
                   />
                 </div>
                 <select
                   value={queueProjectFilter}
                   onChange={(e) => setQueueProjectFilter(e.target.value)}
-                  className="bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-[var(--radius-btn)] px-2 py-1 text-xs text-[var(--text-main)] focus:outline-hidden cursor-pointer"
+                  className="bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-2 py-1 text-xs text-[var(--text-main)] cursor-pointer"
                 >
                   <option value="all">All Projects</option>
                   {activeProjects.map((p) => (
@@ -2851,7 +2866,7 @@ export const BacklogSection: React.FC<BacklogSectionProps> = ({
                               type="checkbox"
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
-                              className="w-3.5 h-3.5 rounded border-[var(--border-app)] accent-warning cursor-pointer shrink-0"
+                              className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
                               title="Select task for EOD synthesis"
                             />
                             {project && (

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ModalShell } from './ui/ModalShell';
+import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { WorkLog, ReportFormat, ReportTone } from '../types';
 import { generateAiReport } from '../utils/aiGenerator';
@@ -115,8 +117,13 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
-      <div className="bg-[var(--bg-surface)] border border-[var(--border-app)] rounded-[var(--radius-card)] max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <ModalShell
+      onClose={onClose}
+      labelledBy="standup-title"
+      backdropClassName="p-4 sm:p-6 overflow-y-auto"
+      className="bg-[var(--bg-surface)] border border-[var(--border-app)] rounded-[var(--radius-card)] max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+    >
+      <>
         
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)]">
@@ -125,7 +132,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[var(--text-main)]">
+              <h2 id="standup-title" className="text-base font-bold text-[var(--text-main)]">
                 AI Standup & Communication Hub
               </h2>
               <p className="text-xs text-[var(--text-muted)]">
@@ -133,12 +140,9 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] transition-colors"
-          >
+          <IconButton label="Close" onClick={onClose}>
             <X className="w-4 h-4" />
-          </button>
+          </IconButton>
         </div>
 
         {/* Modal Controls Body */}
@@ -156,7 +160,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 className={`p-3 rounded-lg border text-left transition-all ${
                   format === 'whatsapp'
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--text-main)] ring-1 ring-[var(--accent)]'
-                    : 'border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    : 'border-[var(--border-control)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
@@ -171,7 +175,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 className={`p-3 rounded-lg border text-left transition-all ${
                   format === 'slack'
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--text-main)] ring-1 ring-[var(--accent)]'
-                    : 'border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    : 'border-[var(--border-control)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
@@ -186,7 +190,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 className={`p-3 rounded-lg border text-left transition-all ${
                   format === 'executive'
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--text-main)] ring-1 ring-[var(--accent)]'
-                    : 'border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    : 'border-[var(--border-control)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold text-xs">
@@ -206,7 +210,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value as ReportTone)}
-                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-md px-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-hidden focus:border-[var(--accent)]"
+                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-md px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--accent)]"
               >
                 <option value="casual">Casual & Direct (Team standup)</option>
                 <option value="corporate">Formal Corporate (Management)</option>
@@ -223,8 +227,9 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 type="text"
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
+                aria-label="Recipient name or title"
                 placeholder="e.g. Sarah, Tech Lead, Team"
-                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-md px-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-hidden focus:border-[var(--accent)]"
+                className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-md px-3 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--accent)]"
               />
             </div>
           </div>
@@ -276,7 +281,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               value={generatedReport}
               onChange={(e) => setGeneratedReport(e.target.value)}
               rows={9}
-              className="w-full bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded-md p-3 text-xs sm:text-sm text-[var(--text-main)] font-mono leading-relaxed focus:outline-hidden focus:border-[var(--accent)] resize-y"
+              className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-md p-3 text-xs sm:text-sm text-[var(--text-main)] font-mono leading-relaxed focus:border-[var(--accent)] resize-y"
             />
           </div>
 
@@ -292,7 +297,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
             <button
               onClick={handleCopyToClipboard}
               disabled={!generatedReport}
-              className="px-3.5 py-2 rounded-md bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-[var(--text-main)] text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-md bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-[var(--text-main)] text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>Copy to Clipboard</span>
@@ -318,7 +323,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
           </div>
         </div>
 
-      </div>
-    </div>
+      </>
+    </ModalShell>
   );
 };

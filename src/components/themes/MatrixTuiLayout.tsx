@@ -202,8 +202,9 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               type="text"
               value={cliInput}
               onChange={(e) => setCliInput(e.target.value)}
+              aria-label="Command line"
               placeholder='log -m "Task description..." or plain text (type help for docs)'
-              className="w-full bg-transparent border-0 text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-hidden text-xs"
+              className="w-full bg-transparent border-0 text-[var(--text-main)] placeholder-[var(--text-subtle)] text-xs"
               autoFocus
             />
             <span className="w-2 h-4 bg-[var(--accent)] animate-pulse inline-block shrink-0" />
