@@ -21,6 +21,7 @@ interface AiStandupModalProps {
   logs: WorkLog[];
   selectedLogIds: string[];
   geminiApiKey: string;
+  defaultRecipientName?: string;
   defaultTone: ReportTone;
   onCopySuccess: () => void;
 }
@@ -31,12 +32,13 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   logs,
   selectedLogIds,
   geminiApiKey,
+  defaultRecipientName,
   defaultTone,
   onCopySuccess,
 }) => {
   const [format, setFormat] = useState<ReportFormat>('whatsapp');
   const [tone, setTone] = useState<ReportTone>(defaultTone || 'casual');
-  const [recipientName, setRecipientName] = useState<string>('');
+  const [recipientName, setRecipientName] = useState<string>(defaultRecipientName || '');
   const [generatedReport, setGeneratedReport] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationSource, setGenerationSource] = useState<'gemini' | 'template' | null>(null);
@@ -50,9 +52,17 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
       ? logs.filter((l) => selectedLogIds.includes(l.id))
       : logs.filter((l) => l.date === todayStr);
 
-  // Trigger initial generation when modal opens
+  // Trigger initial generation when modal opens; clear everything when it closes so a reopened
+  // modal never shows (and lets you copy) an earlier report.
   useEffect(() => {
-    if (isOpen && activeLogs.length > 0 && !generatedReport) {
+    if (!isOpen) {
+      setGeneratedReport('');
+      setGenerationSource(null);
+      setAiModel(undefined);
+      setAiError(null);
+      return;
+    }
+    if (activeLogs.length > 0) {
       handleGenerate();
     }
   }, [isOpen]);
@@ -60,11 +70,18 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
+    // Nothing to report: do not fall back to older logs, they would be sent as today's work.
+    if (activeLogs.length === 0) {
+      setGeneratedReport('');
+      setGenerationSource(null);
+      setAiError(null);
+      return;
+    }
     setIsGenerating(true);
     setAiError(null);
     try {
       const result = await generateAiReport({
-        logs: activeLogs.length > 0 ? activeLogs : logs.slice(0, 5),
+        logs: activeLogs,
         format,
         tone,
         customApiKey: geminiApiKey,
@@ -216,7 +233,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
           <div className="flex justify-end pt-1">
             <button
               onClick={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGenerating || activeLogs.length === 0}
               className="px-3.5 py-1.5 rounded-md bg-[var(--bg-subtle)] hover:bg-[var(--border-app)] text-[var(--text-main)] text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               {isGenerating ? (
@@ -244,6 +261,11 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               )}
             </div>
 
+            {activeLogs.length === 0 && (
+              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                No logs for today yet. Add a log, or select logs in the timeline, then reopen the standup.
+              </div>
+            )}
             {aiError && (
               <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 AI failed: {aiError} Showing template text instead. Check it before sending.

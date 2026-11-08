@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { defaultProject, activeProjectsOf } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus } from '../../types';
 import {
@@ -35,12 +36,12 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
 }) => {
   const todayStr = localDateStr();
   const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState(defaultProject(projects)?.id || '');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [linkUrl, setLinkUrl] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
-  const activeProject = projects.find((p) => p.id === projectId) || projects[0];
+  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -53,7 +54,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
       projectName: activeProject?.name || 'General',
       description: description.trim(),
       status,
-      tags: selectedTag ? [selectedTag] : ['#deep-work'],
+      tags: selectedTag ? [selectedTag] : [],
       linkUrl: linkUrl.trim() || undefined,
       durationMinutes: undefined,
       energyRating: 4,
@@ -100,7 +101,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
               onChange={(e) => setProjectId(e.target.value)}
               className="bg-transparent text-[var(--text-main)] font-semibold text-xs border-b border-[#e3e2de] dark:border-[#333333] pb-0.5 focus:outline-hidden cursor-pointer"
             >
-              {projects.map((p) => (
+              {activeProjectsOf(projects).map((p) => (
                 <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
                   {p.name}
                 </option>

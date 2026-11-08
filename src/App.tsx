@@ -107,6 +107,7 @@ export default function App() {
   const [reminderDismissed, setReminderDismissed] = useState(false);
 
   // Pre-fill log state for "Log with Details"
+  const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
   const [prefillLog, setPrefillLog] = useState<{
     description: string;
     projectId: string;
@@ -359,6 +360,20 @@ export default function App() {
     }
   };
 
+  const handleEditLog = (log: WorkLog) => {
+    setEditingLog(log);
+    setPrefillLog(null);
+    setActiveTab('feed');
+    setTimeout(() => loggerRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const handleUpdateLog = (id: string, data: Omit<WorkLog, 'id' | 'createdAt'>) => {
+    // editedAt makes the Sync button send the changed log to the sheet again.
+    const updated = logs.map((l) => (l.id === id ? { ...l, ...data, editedAt: new Date().toISOString() } : l));
+    setLogs(updated);
+    if (saveLogs(updated).ok) addToast('Log updated', 'success');
+  };
+
   const handleDeleteLog = (id: string) => {
     const index = logs.findIndex((l) => l.id === id);
     if (index === -1) return;
@@ -483,7 +498,14 @@ export default function App() {
     });
     setBacklog(updated);
     saveBacklog(updated);
-    addToast('Task reopened and moved to Active Focus', 'info');
+    addToast(
+      targetStage === 'in_progress'
+        ? 'Task reopened and moved to Active Focus'
+        : targetStage === 'planned'
+          ? 'Task reopened and moved to the Planned queue'
+          : 'Task reopened',
+      'info',
+    );
   };
 
   const handleToggleBacklogTask = (taskId: string) => {
@@ -498,7 +520,8 @@ export default function App() {
   };
 
   const handleConvertTaskToLog = (task: BacklogTask) => {
-    const project = projects.find((p) => p.id === task.projectId) || projects[0];
+    // A deleted project is named "General" below; never borrow another project's name (B13).
+    const project = projects.find((p) => p.id === task.projectId);
     const nowIso = new Date().toISOString();
     const newSeconds = unloggedSeconds(task);
 
@@ -698,6 +721,29 @@ export default function App() {
     }
   };
 
+  const handleStartFresh = () => {
+    if (
+      window.confirm(
+        'Remove ALL logs, tasks and tags, and keep a single "General" project? Your settings (theme, API key, Sheet URL) stay. A backup file of your current data is downloaded first.',
+      )
+    ) {
+      downloadTextFile(
+        `workpulse-pre-fresh-${localDateStr()}.json`,
+        buildBackup({ logs, backlog, projects, tags, settings }),
+      );
+      const general: Project = { id: `proj-${Date.now()}`, name: 'General', color: '#6366f1', isArchived: false };
+      setLogs([]);
+      setBacklog([]);
+      setProjects([general]);
+      setTags([]);
+      saveLogs([]);
+      saveBacklog([]);
+      saveProjects([general]);
+      saveTags([]);
+      addToast('Started fresh. Your previous data was downloaded as a backup file.');
+    }
+  };
+
   const handleFixLogDates = (fixes: DateFix[]) => {
     downloadTextFile(
       `workpulse-pre-datefix-${localDateStr()}.json`,
@@ -805,7 +851,17 @@ export default function App() {
           isDismissed={reminderDismissed}
           onDismiss={handleDismissReminder}
           onScrollToLogger={() => {
-            loggerRef.current?.scrollIntoView({ behavior: 'smooth' });
+            // Go to the log form in every theme: modern has a ref; the other layouts have a quick-log input.
+            setActiveTab('feed');
+            setTimeout(() => {
+              if (loggerRef.current) {
+                loggerRef.current.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                const input = document.querySelector<HTMLElement>('main textarea, main input[type="text"]');
+                input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input?.focus();
+              }
+            }, 100);
           }}
         />
 
@@ -854,6 +910,7 @@ export default function App() {
             {/* 3. MATRIX CLI: The Retro UNIX Terminal User Interface (CLI Prompt + Tmux Bar) */}
             {settings.theme === 'matrix' && (
               <MatrixTuiLayout
+                onOpenImage={(base64) => setActiveLightboxImage(base64)}
                 logs={logs}
                 backlog={backlog}
                 projects={projects}
@@ -884,6 +941,9 @@ export default function App() {
                       activeTheme={settings.theme}
                       prefillData={prefillLog}
                       onClearPrefill={() => setPrefillLog(null)}
+                      editingLog={editingLog}
+                      onUpdateLog={handleUpdateLog}
+                      onCancelEdit={() => setEditingLog(null)}
                       onAddLog={handleAddLog}
                       onAddProject={handleAddProject}
                       onAddTag={handleAddTag}
@@ -894,7 +954,7 @@ export default function App() {
                     logs={logs}
                     projects={projects}
                     activeTheme={settings.theme}
-                    onEditLog={(log) => addToast(`Focused: ${log.projectName}`, 'info')}
+                    onEditLog={handleEditLog}
                     onDeleteLog={handleDeleteLog}
                     onDuplicateLog={handleDuplicateLog}
                     onOpenImage={(base64) => setActiveLightboxImage(base64)}
@@ -962,7 +1022,7 @@ export default function App() {
             <AnalyticsView
               logs={logs}
               projects={projects}
-              onNotify={(msg) => addToast(msg, 'success')}
+              onNotify={(msg, type) => addToast(msg, type || 'success')}
             />
           </div>
         )}
@@ -989,6 +1049,7 @@ export default function App() {
             onResetSeedData={handleResetSeedData}
             onImportBackup={handleImportBackup}
             onFixLogDates={handleFixLogDates}
+            onStartFresh={handleStartFresh}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
           />
         )}
@@ -1022,6 +1083,7 @@ export default function App() {
         logs={logs}
         selectedLogIds={selectedLogIds}
         geminiApiKey={settings.geminiApiKey}
+        defaultRecipientName={settings.defaultRecipientName}
         defaultTone={settings.defaultTone}
         onCopySuccess={() => addToast('Standup report copied to clipboard! 🎉')}
       />

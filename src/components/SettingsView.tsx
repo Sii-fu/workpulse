@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
+import { toCsv } from '../utils/csv';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
@@ -51,6 +52,7 @@ interface SettingsViewProps {
   onResetSeedData: () => void;
   onImportBackup: (data: BackupData) => void;
   onFixLogDates: (fixes: DateFix[]) => void;
+  onStartFresh: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
 }
 
@@ -68,6 +70,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onResetSeedData,
   onImportBackup,
   onFixLogDates,
+  onStartFresh,
   onNotify,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
@@ -227,15 +230,23 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
 
   // Export CSV
   const handleExportCSV = () => {
-    let csv = 'ID,Date,Time,Project,Description,Status,Tags,Link,Duration_Mins,Energy_Rating\n';
-    logs.forEach((l) => {
-      const desc = `"${l.description.replace(/"/g, '""')}"`;
-      const tagsStr = `"${l.tags.join(' ')}"`;
-      const link = `"${l.linkUrl || ''}"`;
-      csv += `${l.id},${l.date},${l.time},"${l.projectName}",${desc},${l.status},${tagsStr},${link},${l.durationMinutes || 0},${l.energyRating || 0}\n`;
-    });
+    const csv = toCsv([
+      ['ID', 'Date', 'Time', 'Project', 'Description', 'Status', 'Tags', 'Link', 'Duration_Mins', 'Energy_Rating'],
+      ...logs.map((l) => [
+        l.id,
+        l.date,
+        l.time,
+        l.projectName,
+        l.description,
+        l.status,
+        l.tags.join(' '),
+        l.linkUrl || '',
+        l.durationMinutes || 0,
+        l.energyRating || 0,
+      ]),
+    ]);
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -808,6 +819,23 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   </button>
                 </div>
               )}
+
+              <div className="p-4 rounded-[var(--radius-card)] border border-rose-500/20 bg-rose-500/5 space-y-2">
+                <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">
+                  Start Fresh
+                </span>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Remove the demo logs, tasks and projects and start with an empty workspace and one "General" project.
+                  Settings stay. A backup file is downloaded first.
+                </p>
+                <button
+                  type="button"
+                  onClick={onStartFresh}
+                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Start with empty data
+                </button>
+              </div>
 
               <div className="p-4 rounded-[var(--radius-card)] border border-rose-500/20 bg-rose-500/5 space-y-2">
                 <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">

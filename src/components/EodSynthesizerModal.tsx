@@ -136,8 +136,14 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       }
 
       const data = await resp.json();
-      const logs: SynthesizedLogItem[] = (data.synthesizedLogs || []).map((item: any) => ({
+      const logs: SynthesizedLogItem[] = (Array.isArray(data.synthesizedLogs) ? data.synthesizedLogs : []).map((item: any) => ({
         ...item,
+        // Never trust the response shape: a missing list must not crash the modal (C4).
+        taskIds: Array.isArray(item.taskIds) ? item.taskIds : [],
+        underlyingTasks: Array.isArray(item.underlyingTasks) ? item.underlyingTasks : [],
+        summaryBullets: typeof item.summaryBullets === 'string' ? item.summaryBullets : '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        durationMinutes: typeof item.durationMinutes === 'number' ? item.durationMinutes : 0,
         id: item.id || item.splitId || `${item.projectId}_${item.status}`,
       }));
 

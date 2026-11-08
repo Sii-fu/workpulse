@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { isAllowedScriptUrl } from './src/utils/scriptUrl';
 import { GEMINI_MODEL_CASCADE, GEMINI_TIMEOUT_MS } from './src/utils/geminiModels';
 import { buildBuckets, mergeSynthesis, templateLog } from './src/utils/eodSynthesis';
+import { isAllowedHostHeader, isAllowedOrigin } from './src/utils/hostCheck';
 
 // Load .env.local first (local overrides), then fall back to .env
 dotenv.config({ path: ['.env.local', '.env'], quiet: true });
@@ -60,6 +61,18 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
   // Localhost only by default. Set HOST=0.0.0.0 to allow other devices on your network (no authentication!).
   const HOST = process.env.HOST || '127.0.0.1';
+
+  // DNS-rebinding guard (S3): while bound to localhost, /api only answers requests addressed to a
+  // local hostname. With HOST set to something else the user opted in to LAN access, so skip it.
+  const extraHosts = (process.env.ALLOWED_HOSTS || '').split(',').map((h) => h.trim()).filter(Boolean);
+  if (HOST === '127.0.0.1') {
+    app.use('/api', (req, res, next) => {
+      if (!isAllowedHostHeader(req.headers.host, extraHosts) || !isAllowedOrigin(req.headers.origin, extraHosts)) {
+        return res.status(403).json({ error: 'Forbidden: unexpected Host or Origin.' });
+      }
+      next();
+    });
+  }
 
   app.use(express.json({ limit: '15mb' }));
 
@@ -320,7 +333,7 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
   });
 
   // Vite middleware in dev or static files in prod
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('--prod');
   if (!isProd) {
     const vite = await createViteServer({
       // Share the app's HTTP server for HMR so no extra port (24678) is needed

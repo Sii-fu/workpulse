@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { defaultProject } from '../utils/projects';
 import { localDateStr, localTimeStr } from '../utils/dates';
 import { downscaleImage } from '../utils/image';
 import { Project, TaskStatus, WorkLog, ThemeId } from '../types';
@@ -29,6 +30,9 @@ interface DailyLoggerProps {
   activeTheme?: ThemeId;
   prefillData?: { description: string; projectId: string; status?: TaskStatus } | null;
   onClearPrefill?: () => void;
+  editingLog?: WorkLog | null;
+  onUpdateLog?: (id: string, data: Omit<WorkLog, 'id' | 'createdAt'>) => void;
+  onCancelEdit?: () => void;
   onAddLog: (log: Omit<WorkLog, 'id' | 'createdAt'>) => void;
   onAddProject: (name: string, color: string) => void;
   onAddTag: (tag: string) => void;
@@ -49,6 +53,9 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   activeTheme,
   prefillData,
   onClearPrefill,
+  editingLog,
+  onUpdateLog,
+  onCancelEdit,
   onAddLog,
   onAddProject,
   onAddTag,
@@ -59,7 +66,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
   const [date, setDate] = useState<string>(today);
   const dateTouched = useRef(false); // true once the user picked a date by hand
   const [time, setTime] = useState<string>(nowTime);
-  const [projectId, setProjectId] = useState<string>(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState<string>(defaultProject(projects)?.id || '');
   const [description, setDescription] = useState<string>('');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -97,13 +104,14 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       if (draft.energyRating) setEnergyRating(draft.energyRating);
       // Only restore a draft's date if it is still today: an old draft must not file today's work under an old date (B8).
       if (draft.date && draft.date === localDateStr()) setDate(draft.date);
-    } else if (projects[0]?.id) {
-      setProjectId(projects[0].id);
+    } else if (defaultProject(projects)?.id) {
+      setProjectId(defaultProject(projects)!.id);
     }
   }, []);
 
   // Auto-save draft
   useEffect(() => {
+    if (editingLog) return; // editing an existing log must not overwrite the saved draft
     if (description.trim().length > 0 || linkUrl.trim().length > 0) {
       saveActiveDraft({
         description,
@@ -116,11 +124,29 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
         date,
       });
     }
-  }, [description, projectId, status, selectedTags, linkUrl, durationMinutes, energyRating, date]);
+  }, [description, projectId, status, selectedTags, linkUrl, durationMinutes, energyRating, date, editingLog]);
+
+  // Load a log into the form when the user clicks Edit on it (U5)
+  useEffect(() => {
+    if (!editingLog) return;
+    dateTouched.current = true;
+    setDescription(editingLog.description);
+    setProjectId(editingLog.projectId);
+    setStatus(editingLog.status);
+    setSelectedTags(editingLog.tags);
+    setLinkUrl(editingLog.linkUrl || '');
+    setImageBase64(editingLog.imageBase64 || '');
+    setDurationMinutes(editingLog.durationMinutes || 0);
+    setEnergyRating(editingLog.energyRating || 4);
+    setDate(editingLog.date);
+    setTime(editingLog.time);
+    setShowAdditional(true);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  }, [editingLog]);
 
   useEffect(() => {
     if (!projectId && projects.length > 0) {
-      setProjectId(projects[0].id);
+      setProjectId(defaultProject(projects)!.id);
     }
   }, [projects, projectId]);
 
@@ -136,7 +162,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
     }
   }, [prefillData]);
 
-  const activeProject = projects.find((p) => p.id === projectId) || projects[0];
+  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -183,7 +209,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       return;
     }
 
-    onAddLog({
+    const payload = {
       date,
       time: time || localTimeStr(),
       projectId: activeProject?.id || 'default',
@@ -195,13 +221,20 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
       imageBase64: imageBase64 || undefined,
       durationMinutes: durationMinutes || undefined,
       energyRating,
-    });
+    };
+
+    if (editingLog && onUpdateLog) {
+      onUpdateLog(editingLog.id, payload);
+      onCancelEdit?.();
+    } else {
+      onAddLog(payload);
+      clearActiveDraft();
+    }
 
     setDescription('');
     setLinkUrl('');
     setImageBase64('');
     setSelectedTags([]);
-    clearActiveDraft();
     // Back to today after each submit (B8)
     dateTouched.current = false;
     setDate(localDateStr());
@@ -297,7 +330,30 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
 
         {/* Textarea with Theme-Specific Chrome */}
         <div className="relative">
-          {prefillData && (
+          {editingLog && (
+            <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-amber-500/10 border border-amber-500/40 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
+              <span className="font-medium">
+                <span className="text-amber-500 font-bold">Editing log</span> from {editingLog.date} {editingLog.time}: change it below and save.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onCancelEdit?.();
+                  setDescription('');
+                  setLinkUrl('');
+                  setImageBase64('');
+                  setSelectedTags([]);
+                  dateTouched.current = false;
+                  setDate(localDateStr());
+                }}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] underline cursor-pointer shrink-0"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {prefillData && !editingLog && (
             <div className="mb-2 p-2 rounded-[var(--radius-btn)] bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-xs text-[var(--text-main)] flex items-center justify-between gap-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <Zap className="w-3.5 h-3.5 text-[var(--accent)] fill-current shrink-0" />
@@ -619,7 +675,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({
             className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs sm:text-sm font-semibold shadow-md shadow-[var(--accent-glow)] transition-all flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Commit Work Log</span>
+            <span>{editingLog ? 'Save changes' : 'Commit Work Log'}</span>
             <CornerDownLeft className="w-3.5 h-3.5 opacity-60" />
           </button>
         </div>

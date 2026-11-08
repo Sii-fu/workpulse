@@ -16,6 +16,8 @@ export interface WorkLog {
   createdAt: string;
   // When this log was confirmed written to the Google Sheet (undefined = not synced yet).
   syncedAt?: string;
+  // When the user last edited this log; a log edited after its last sync needs sending again.
+  editedAt?: string;
   isSynthesized?: boolean;
   underlyingTasks?: {
     id: string;

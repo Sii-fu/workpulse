@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { parseLogCommand } from '../../utils/logCommand';
+import { defaultProject, activeProjectsOf } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
 import { Terminal, Send, Trash2, Copy, Check } from 'lucide-react';
@@ -15,6 +17,7 @@ interface MatrixTuiLayoutProps {
   onToggleTask: (taskId: string) => void;
   onConvertTaskToLog?: (task: BacklogTask) => void;
   onOpenAiStandup: () => void;
+  onOpenImage?: (base64: string) => void;
 }
 
 export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
@@ -29,6 +32,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
   onToggleTask,
   onConvertTaskToLog,
   onOpenAiStandup,
+  onOpenImage,
 }) => {
   const [cliInput, setCliInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([
@@ -129,28 +133,21 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       }
     }
 
-    // Parse log command: log -m "..." or plain string
-    let desc = cmd;
-    let projName = projects[0]?.name || 'Core Platform';
-    let status: TaskStatus = 'completed';
-    let mins: number | undefined;
-
-    if (cmd.startsWith('log ')) {
-      const msgMatch = cmd.match(/-m\s+"([^"]+)"/) || cmd.match(/-m\s+([^\s]+)/);
-      if (msgMatch) desc = msgMatch[1];
-
-      const projMatch = cmd.match(/-p\s+"([^"]+)"/) || cmd.match(/-p\s+([^\s]+)/);
-      if (projMatch) projName = projMatch[1];
-
-      if (cmd.includes('-s blocked')) status = 'blocked';
-      if (cmd.includes('-s in_progress')) status = 'in_progress';
-
-      const timeMatch = cmd.match(/-t\s+(\d+)/);
-      if (timeMatch) mins = parseInt(timeMatch[1]);
+    // Parse the command (see parseLogCommand): log -m "..." -p "Project" -s blocked -t 45, or plain text
+    const parsed = parseLogCommand(cmd);
+    if (!parsed.description) {
+      setCommandHistory((prev) => [...prev, `$ ${cmd}`, '>> ERROR: nothing to log. Usage: log -m "message" [-p project] [-s blocked|in_progress] [-t minutes]']);
+      setCliInput('');
+      return;
     }
-
+    const desc = parsed.description;
+    const status: TaskStatus = parsed.status;
+    const mins = parsed.minutes;
+    const activeProjects = activeProjectsOf(projects);
     const matchedProject =
-      projects.find((p) => p.name.toLowerCase().includes(projName.toLowerCase())) || projects[0];
+      (parsed.project &&
+        activeProjects.find((p) => p.name.toLowerCase().includes(parsed.project!.toLowerCase()))) ||
+      defaultProject(projects);
 
     onAddLog({
       date: localDateStr(),
@@ -159,7 +156,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
       projectName: matchedProject?.name || 'General',
       description: desc,
       status,
-      tags: ['#terminal'],
+      tags: [],
       durationMinutes: mins,
       energyRating: 5,
     });
@@ -240,7 +237,19 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
               </div>
               <p className="text-[#00ff66] opacity-90">&gt; {log.description}</p>
               <div className="flex items-center justify-between text-[10px] text-[#3a8a4c] pt-0.5">
-                <span>TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ')}</span>
+                <span>
+                  TIME: {log.durationMinutes || 0}m · TAGS: {log.tags.join(' ')}
+                  {log.imageBase64 && onOpenImage && (
+                    <button onClick={() => onOpenImage(log.imageBase64 as string)} className="ml-2 hover:text-[#00ff66] cursor-pointer">
+                      [IMG]
+                    </button>
+                  )}
+                  {log.linkUrl && (
+                    <a href={log.linkUrl} target="_blank" rel="noopener noreferrer" className="ml-2 hover:text-[#00ff66]">
+                      [LINK]
+                    </a>
+                  )}
+                </span>
                 <div className="flex items-center gap-2">
                   <button onClick={() => onDuplicateLog(log)} className="hover:text-[#00ff66] cursor-pointer">
                     [CLONE]

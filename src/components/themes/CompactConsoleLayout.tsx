@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { defaultProject, activeProjectsOf } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
 import {
@@ -43,12 +44,12 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
   onConvertTaskToLog,
 }) => {
   const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id || '');
+  const [projectId, setProjectId] = useState(defaultProject(projects)?.id || '');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [duration, setDuration] = useState('30');
   const [showBacklog, setShowBacklog] = useState(false);
 
-  const activeProject = projects.find((p) => p.id === projectId) || projects[0];
+  const activeProject = projects.find((p) => p.id === projectId) || defaultProject(projects);
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +62,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       projectName: activeProject?.name || 'General',
       description: description.trim(),
       status,
-      tags: ['#deep-work'],
+      tags: [],
       durationMinutes: parseInt(duration) || undefined,
       energyRating: 4,
     });
@@ -85,7 +86,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
           onChange={(e) => setProjectId(e.target.value)}
           className="h-8 px-2 bg-[var(--bg-subtle)] border border-[var(--border-app)] rounded text-xs font-semibold text-[var(--text-main)] focus:outline-hidden cursor-pointer"
         >
-          {projects.map((p) => (
+          {activeProjectsOf(projects).map((p) => (
             <option key={p.id} value={p.id} className="bg-[var(--bg-surface)]">
               {p.name}
             </option>
@@ -222,16 +223,39 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                     {log.date}
                   </td>
                   <td className="px-2.5 font-semibold text-[var(--text-main)] whitespace-nowrap truncate max-w-[130px]">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5 min-w-0">
                       <span
                         className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{ backgroundColor: project?.color || '#6366f1' }}
                       />
-                      <span>{log.projectName}</span>
+                      <span className="truncate" title={log.projectName}>
+                        {log.projectName}
+                      </span>
                     </span>
                   </td>
                   <td className="px-2.5 text-[var(--text-main)] font-sans truncate max-w-[420px]">
                     <span className="truncate">{log.description}</span>
+                    {log.imageBase64 && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenImage(log.imageBase64 as string)}
+                        className="ml-2 text-[10px] text-[var(--accent)] hover:underline cursor-pointer"
+                        title="View screenshot"
+                      >
+                        [IMG]
+                      </button>
+                    )}
+                    {log.linkUrl && (
+                      <a
+                        href={log.linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-[10px] text-[var(--accent)] hover:underline"
+                        title={log.linkUrl}
+                      >
+                        [LINK]
+                      </a>
+                    )}
                   </td>
                   <td className="px-2.5 whitespace-nowrap">
                     {log.status === 'completed' ? (
@@ -250,14 +274,14 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
                       <button
                         onClick={() => onDuplicateLog(log)}
                         className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-[var(--accent)] text-[10px] cursor-pointer"
-                        title="Duplicate (D)"
+                        title="Duplicate"
                       >
                         DUP
                       </button>
                       <button
                         onClick={() => onDeleteLog(log.id)}
                         className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] hover:text-rose-400 text-[10px] cursor-pointer"
-                        title="Delete (DEL)"
+                        title="Delete"
                       >
                         DEL
                       </button>
