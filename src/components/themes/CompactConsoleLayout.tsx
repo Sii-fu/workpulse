@@ -61,7 +61,7 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
       description: description.trim(),
       status,
       tags: ['#deep-work'],
-      durationMinutes: parseInt(duration) || 30,
+      durationMinutes: parseInt(duration) || undefined,
       energyRating: 4,
     });
 

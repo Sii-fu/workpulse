@@ -174,7 +174,7 @@ CRITICAL ARCHITECTURAL RULES (ABSOLUTE REQUIREMENTS):
    - For 'blocked' groups: Concisely articulate the external blocker, dependency, or decision gate (e.g., "• Halted database migration pending upstream API credentials from DevOps.")
    - For 'in_progress' groups: Summarize the active development milestone, technical investigation, or next steps (e.g., "• Advancing performance profiling on client-side state hydration to eliminate initial paint latency.")
 5. Each bullet point MUST start with "• ".
-6. Estimate realistic duration in minutes based on totalElapsedSeconds (min 15 mins per group).
+6. Duration is computed by the app from tracked time. Set durationMinutes to round(totalElapsedSeconds / 60); do not estimate.
 7. Suggest 2-3 relevant tags (e.g., #deep-work, #backend, #infra, #frontend).
 
 You MUST respond strictly with valid JSON conforming to this schema (no markdown formatting or wrappers outside JSON):

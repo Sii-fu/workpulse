@@ -25,6 +25,7 @@ import {
 import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
+import { minutesFromSeconds } from './utils/duration';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -466,7 +467,7 @@ export default function App() {
       return;
     }
 
-    const durationMins = newSeconds > 0 ? Math.max(5, Math.round(newSeconds / 60)) : 30;
+    const durationMins = minutesFromSeconds(newSeconds);
 
     const newLog: WorkLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -477,7 +478,7 @@ export default function App() {
       description: task.title,
       status: 'completed',
       tags: ['#deep-work'],
-      durationMinutes: durationMins,
+      durationMinutes: durationMins || undefined,
       energyRating: 4,
       createdAt: nowIso,
     };
@@ -514,7 +515,7 @@ export default function App() {
       description: item.summaryBullets,
       status: item.status,
       tags: item.tags,
-      durationMinutes: item.durationMinutes,
+      durationMinutes: item.durationMinutes || undefined,
       isSynthesized: true,
       underlyingTasks: item.underlyingTasks,
       createdAt: new Date().toISOString(),

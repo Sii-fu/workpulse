@@ -48,7 +48,8 @@ describe('mergeSynthesis (B9)', () => {
     expect(logs).toHaveLength(3);
     expect(logs.find((l) => l.splitId === 'a_completed')).toMatchObject({
       source: 'ai',
-      durationMinutes: 45,
+      // 600 tracked seconds = 10 minutes; the AI's own 45-minute estimate is ignored (B12)
+      durationMinutes: 10,
       summaryBullets: '• Shipped it',
     });
     expect(fallbackSplitIds.sort()).toEqual(['b_blocked', 'b_completed']);

@@ -132,7 +132,7 @@ export const MatrixTuiLayout: React.FC<MatrixTuiLayoutProps> = ({
     let desc = cmd;
     let projName = projects[0]?.name || 'Core Platform';
     let status: TaskStatus = 'completed';
-    let mins = 30;
+    let mins: number | undefined;
 
     if (cmd.startsWith('log ')) {
       const msgMatch = cmd.match(/-m\s+"([^"]+)"/) || cmd.match(/-m\s+([^\s]+)/);

@@ -1,3 +1,5 @@
+import { minutesFromSeconds } from './duration';
+
 // Pure grouping/merging for the EOD synthesizer (server.ts and tests). Tasks are grouped by
 // project x status; AI text is merged per group, and any group the AI skipped gets template text.
 
@@ -76,9 +78,9 @@ export function buildBuckets(tasks: any[], projects: EodProject[]): SplitBucket[
   return buckets;
 }
 
-// Minutes for a group, from tracked time (single place to change the duration rule, B12).
+// Minutes for a group come only from tracked time (B12).
 export function bucketMinutes(b: SplitBucket): number {
-  return Math.max(Math.round(b.totalElapsedSeconds / 60), b.tasks.length * 20, 15);
+  return minutesFromSeconds(b.totalElapsedSeconds);
 }
 
 function templateBullets(b: SplitBucket): string {
@@ -148,10 +150,8 @@ export function mergeSynthesis(
       fallbackSplitIds.push(b.splitId);
       return templateLog(b);
     }
-    const minutes =
-      typeof item.durationMinutes === 'number' && item.durationMinutes > 0
-        ? Math.round(item.durationMinutes)
-        : bucketMinutes(b);
+    // The AI's own duration estimate is ignored: durations must match tracked time.
+    const minutes = bucketMinutes(b);
     const tags =
       Array.isArray(item.tags) && item.tags.length > 0 && item.tags.every((t: unknown) => typeof t === 'string')
         ? item.tags

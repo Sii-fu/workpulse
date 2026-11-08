@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
+import { minutesFromSeconds } from '../utils/duration';
 import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
 import {
   Sparkles,
@@ -214,7 +215,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         );
         const activeTasks = updatedTasks.filter((t) => !t.excluded);
         const newTotalSecs = activeTasks.reduce((acc, t) => acc + (t.elapsedSeconds || 0), 0);
-        const newDuration = Math.max(15, Math.round(newTotalSecs / 60) || activeTasks.length * 20);
+        const newDuration = minutesFromSeconds(newTotalSecs);
 
         if (activeTasks.length === 0) {
           setSelectedLogIds((s) => {
@@ -465,14 +466,14 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                             <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                             <input
                               type="number"
-                              min={5}
+                              min={0}
                               max={720}
                               value={item.durationMinutes}
                               onChange={(e) =>
                                 handleUpdateItem(
                                   item.id,
                                   'durationMinutes',
-                                  Math.max(5, parseInt(e.target.value) || 0)
+                                  Math.max(0, parseInt(e.target.value) || 0)
                                 )
                               }
                               className="w-12 text-xs font-mono font-bold bg-transparent text-[var(--text-main)] focus:outline-hidden"
