@@ -23,6 +23,7 @@ interface TopBarProps {
   onOpenAiStandup: () => void;
   hasGoogleSheetLinked: boolean;
   onSyncGoogleSheet?: () => void;
+  unsyncedCount?: number;
   isSyncing?: boolean;
 }
 
@@ -36,6 +37,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAiStandup,
   hasGoogleSheetLinked,
   onSyncGoogleSheet,
+  unsyncedCount = 0,
   isSyncing,
 }) => {
   const isMatrix = activeTheme === 'matrix';
@@ -96,7 +98,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 disabled={isSyncing}
                 className="hover:underline ml-1 font-semibold text-[var(--accent)] disabled:opacity-50 cursor-pointer"
               >
-                {isSyncing ? '...' : 'Sync'}
+                {isSyncing ? '...' : unsyncedCount > 0 ? `Sync (${unsyncedCount})` : 'Sync'}
               </button>
             )}
           </div>

@@ -14,6 +14,8 @@ export interface WorkLog {
   durationMinutes?: number;
   energyRating?: number; // 1 to 5
   createdAt: string;
+  // When this log was confirmed written to the Google Sheet (undefined = not synced yet).
+  syncedAt?: string;
   isSynthesized?: boolean;
   underlyingTasks?: {
     id: string;
@@ -70,6 +72,8 @@ export interface AppSettings {
   defaultTone: ReportTone;
   defaultRecipientName?: string;
   lastDismissedReminderDate?: string;
+  // Logs created before this moment are assumed to be handled already and are never auto-sent.
+  syncTrackingSince?: string;
 }
 
 export interface ToastMessage {

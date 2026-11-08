@@ -295,7 +295,12 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
           const json = JSON.parse(text);
           return res.json(json);
         } catch {
-          return res.json({ success: response.ok, raw: text });
+          // Not JSON: usually a Google sign-in or error page. This is a failure, not a success.
+          return res.status(502).json({
+            status: 'error',
+            error:
+              'Google returned a web page instead of the script response. Deploy the script as a Web app with "Who has access" set to "Anyone", and check the URL ends in /exec.',
+          });
         }
       }
     } catch (err: any) {

@@ -25,30 +25,8 @@ function doGet(e) {
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
         message: 'WorkPulse Google Sheets Sync is active and connected!',
+        version: 2,
         timestamp: new Date().toISOString()
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    if (action === 'getLogs') {
-      var sheet = getOrCreateLogsSheet();
-      var data = sheet.getDataRange().getValues();
-      var logs = [];
-      
-      if (data.length > 1) {
-        var headers = data[0];
-        for (var i = 1; i < data.length; i++) {
-          var row = data[i];
-          var log = {};
-          for (var j = 0; j < headers.length; j++) {
-            log[headers[j]] = row[j];
-          }
-          logs.push(log);
-        }
-      }
-      
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'ok',
-        logs: logs
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
@@ -79,6 +57,7 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
         message: 'WorkPulse Google Sheets Sync is active and connected!',
+        version: 2,
         timestamp: new Date().toISOString()
       })).setMimeType(ContentService.MimeType.JSON);
     }
@@ -91,8 +70,8 @@ function doPost(e) {
         throw new Error('No log payload provided');
       }
       
-      sheet.appendRow([
-        new Date().toISOString(),
+      upsertRows(sheet, [[
+        log.createdAt || new Date().toISOString(),
         log.date || '',
         log.time || '',
         log.projectName || '',
@@ -102,8 +81,9 @@ function doPost(e) {
         log.linkUrl || '',
         log.durationMinutes || 0,
         log.energyRating || 0,
-        log.imageBase64 ? 'Yes (Image Attached)' : 'None'
-      ]);
+        log.imageBase64 ? 'Yes (Image Attached)' : 'None',
+        log.id || ''
+      ]]);
       
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
@@ -129,13 +109,12 @@ function doPost(e) {
           l.linkUrl || '',
           l.durationMinutes || 0,
           l.energyRating || 0,
-          l.imageBase64 ? 'Yes (Image Attached)' : 'None'
+          l.imageBase64 ? 'Yes (Image Attached)' : 'None',
+          l.id || ''
         ]);
       }
       
-      if (rows.length > 0) {
-        sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-      }
+      upsertRows(sheet, rows);
       
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
@@ -173,7 +152,8 @@ function getOrCreateLogsSheet() {
       'Link',
       'Duration_Minutes',
       'Energy_Rating',
-      'Proof_Attached'
+      'Proof_Attached',
+      'Id'
     ];
     sheet.appendRow(headers);
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
@@ -183,6 +163,42 @@ function getOrCreateLogsSheet() {
     sheet.autoResizeColumns(1, headers.length);
   }
   
+  // Older sheets: make sure the Id column (12th) exists and has its header.
+  if (sheet.getMaxColumns() < ID_COL) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), ID_COL - sheet.getMaxColumns());
+  }
+  if (!sheet.getRange(1, ID_COL).getValue()) {
+    sheet.getRange(1, ID_COL).setValue('Id').setFontWeight('bold').setBackground('#F3F4F6');
+  }
+
   return sheet;
+}
+
+// Column 12 holds the WorkPulse log id. Rows are updated in place when the id already exists,
+// so sending the same log twice never creates a duplicate row.
+var ID_COL = 12;
+
+function upsertRows(sheet, rows) {
+  if (rows.length === 0) return;
+  var index = {};
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var ids = sheet.getRange(2, ID_COL, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i][0]) index[ids[i][0]] = i + 2;
+    }
+  }
+  var fresh = [];
+  for (var r = 0; r < rows.length; r++) {
+    var id = rows[r][ID_COL - 1];
+    if (id && index[id]) {
+      sheet.getRange(index[id], 1, 1, rows[r].length).setValues([rows[r]]);
+    } else {
+      fresh.push(rows[r]);
+    }
+  }
+  if (fresh.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, fresh.length, fresh[0].length).setValues(fresh);
+  }
 }
 `;

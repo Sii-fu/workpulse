@@ -26,6 +26,7 @@ import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
 import { minutesFromSeconds } from './utils/duration';
+import { unsyncedLogs } from './utils/syncStatus';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -146,6 +147,21 @@ export default function App() {
   const saveTags = (v: string[]) => persist(storeTags(v), 'tags');
   const saveSettings = (v: AppSettings) => persist(storeSettings(v), 'settings');
 
+  // Records that these logs reached the Google Sheet, so they are never sent twice (B2).
+  const markLogsSynced = (ids: string[]) => {
+    const at = new Date().toISOString();
+    const idSet = new Set(ids);
+    setLogs((prev) => {
+      const next = prev.map((l) => (idSet.has(l.id) ? { ...l, syncedAt: at } : l));
+      saveLogs(next);
+      return next;
+    });
+  };
+
+  // Shows why a sync failed instead of failing silently (U2).
+  const reportSyncFailure = (message: string) =>
+    addToast(`Google Sheet sync failed: ${message} Saved locally; click Sync to retry.`, 'error');
+
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
@@ -164,8 +180,18 @@ export default function App() {
     const activeTheme = loaded.settings?.theme || 'modern';
     const activeMode = loaded.settings?.colorMode || (activeTheme === 'minimalist' ? 'light' : 'dark');
 
+    // Sync tracking starts now for users who already have a sheet: older logs are not re-sent.
+    const syncTrackingSince =
+      loaded.settings.googleScriptUrl && !loaded.settings.syncTrackingSince
+        ? new Date().toISOString()
+        : loaded.settings.syncTrackingSince;
+    if (syncTrackingSince !== loaded.settings.syncTrackingSince) {
+      storeSettings({ ...loaded.settings, syncTrackingSince });
+    }
+
     setSettings({
       ...loaded.settings,
+      syncTrackingSince,
       theme: activeTheme,
       colorMode: activeTheme === 'matrix' ? 'dark' : activeMode,
     });
@@ -278,7 +304,13 @@ export default function App() {
     addToast(`Mode: ${newMode.toUpperCase()}`, 'info');
   };
 
-  const handleSaveSettings = (newSettings: AppSettings) => {
+  const handleSaveSettings = (incoming: AppSettings) => {
+    // Connecting (or switching) a sheet: only logs created from now on are sent to it.
+    const urlChanged = incoming.googleScriptUrl !== settings.googleScriptUrl;
+    const newSettings =
+      incoming.googleScriptUrl && (urlChanged || !incoming.syncTrackingSince)
+        ? { ...incoming, syncTrackingSince: new Date().toISOString() }
+        : incoming;
     setSettings(newSettings);
     saveSettings(newSettings);
   };
@@ -296,8 +328,11 @@ export default function App() {
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
-        if (res.success && res.message.includes('Google Sheet')) {
+        if (res.success) {
+          markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet ✓', 'success');
+        } else {
+          reportSyncFailure(res.message);
         }
       });
     }
@@ -496,8 +531,11 @@ export default function App() {
     // Automatically push to Google Sheet if linked
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
-        if (res.success && res.message.includes('Google Sheet')) {
+        if (res.success) {
+          markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet', 'success');
+        } else {
+          reportSyncFailure(res.message);
         }
       });
     }
@@ -554,9 +592,10 @@ export default function App() {
       addToast('Syncing synthesized EOD logs with Google Sheets...', 'info');
       const res = await syncBatchLogsToSheet(settings.googleScriptUrl, newLogs);
       if (res.success) {
+        markLogsSynced(newLogs.map((l) => l.id));
         addToast('Synced with Google Sheet', 'success');
       } else {
-        addToast(res.message, 'error');
+        reportSyncFailure(res.message);
       }
     }
   };
@@ -656,13 +695,20 @@ export default function App() {
       return;
     }
 
+    const pending = unsyncedLogs(logs, settings.syncTrackingSince);
+    if (pending.length === 0) {
+      addToast('Everything is already synced to Google Sheet.', 'info');
+      return;
+    }
+
     setIsSyncingSheet(true);
-    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, logs);
+    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending);
     setIsSyncingSheet(false);
     if (result.success) {
+      markLogsSynced(pending.map((l) => l.id));
       addToast(result.message, 'success');
     } else {
-      addToast(result.message, 'error');
+      reportSyncFailure(result.message);
     }
   };
 
@@ -711,6 +757,9 @@ export default function App() {
         onOpenAiStandup={() => setIsAiStandupOpen(true)}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onSyncGoogleSheet={handleSyncGoogleSheet}
+        unsyncedCount={
+          settings.googleScriptUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0
+        }
         isSyncing={isSyncingSheet}
       />
 

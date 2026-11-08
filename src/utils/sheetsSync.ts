@@ -23,11 +23,17 @@ export async function testSheetConnection(scriptUrl: string): Promise<SyncResult
     });
 
     const data = await res.json();
-    if (res.ok && (data.status === 'ok' || data.success)) {
-      return { success: true, message: data.message || 'Connection to Google Sheet verified successfully!' };
-    } else {
-      return { success: false, message: data.error || data.message || 'Unexpected response from Google Sheet script.' };
+    // Only the script's own { status: 'ok' } counts: any other page that answers HTTP 200 does not.
+    if (res.ok && data.status === 'ok') {
+      const outdated = typeof data.version === 'number' ? data.version < 2 : true;
+      return {
+        success: true,
+        message: outdated
+          ? 'Connected. Your script is an older version: re-paste the latest script below and redeploy it to stop duplicate rows.'
+          : data.message || 'Connection to Google Sheet verified successfully!',
+      };
     }
+    return { success: false, message: data.error || data.message || 'Unexpected response from Google Sheet script.' };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Failed to connect to Google Sheet Web App.' };
   }
@@ -62,7 +68,7 @@ export async function syncSingleLogToSheet(scriptUrl: string, log: WorkLog): Pro
     if (res.ok && data.status === 'ok') {
       return { success: true, message: 'Synchronized with Google Sheet.' };
     }
-    return { success: false, message: data.message || 'Sheet sync response was not OK.' };
+    return { success: false, message: data.message || data.error || 'Sheet sync response was not OK.' };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Network error syncing to Google Sheet.' };
   }
@@ -101,7 +107,7 @@ export async function syncBatchLogsToSheet(scriptUrl: string, logs: WorkLog[]): 
         count: data.syncedCount || logs.length,
       };
     }
-    return { success: false, message: data.message || 'Batch sync failed.' };
+    return { success: false, message: data.message || data.error || 'Batch sync failed.' };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Error during batch synchronization.' };
   }

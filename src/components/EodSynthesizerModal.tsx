@@ -112,7 +112,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       setErrorMsg(
         isCustomSelection
           ? 'Selected tasks have no new time to log (tasks that were already logged are skipped).'
-          : 'All tasks for today have already been logged to Google Sheet! Only new, unsent tasks with activity will be included in subsequent syntheses.'
+          : 'All of today\'s tasks are already logged. Only tasks with new activity are included in later syntheses.'
       );
       return;
     }
