@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Copy,
+  Pencil,
   Trash2,
   CopyCheck,
   CheckSquare,
@@ -745,6 +746,14 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
                       title="Duplicate log"
                     >
                       <CopyCheck className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => onEditLog(log)}
+                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-[var(--radius-btn)] transition-colors cursor-pointer"
+                      title="Edit log"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
                     </button>
 
                     <button

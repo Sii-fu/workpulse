@@ -23,6 +23,12 @@ describe('isUnsynced (B2)', () => {
   it('without a tracking date every unsynced log counts', () => {
     expect(isUnsynced(log({}), undefined)).toBe(true);
   });
+  it('a log edited after its last sync is sent again, even an old one', () => {
+    expect(isUnsynced(log({ createdAt: '2020-01-01T00:00:00.000Z', syncedAt: '2026-11-08T10:00:00.000Z', editedAt: '2026-11-08T11:00:00.000Z' }), '2026-11-01T00:00:00.000Z')).toBe(true);
+  });
+  it('an edited log that was synced after the edit is done', () => {
+    expect(isUnsynced(log({ syncedAt: '2026-11-08T12:00:00.000Z', editedAt: '2026-11-08T11:00:00.000Z' }), '2026-11-01T00:00:00.000Z')).toBe(false);
+  });
   it('unsyncedLogs filters a list', () => {
     const list = [log({ id: 'a' }), log({ id: 'b', syncedAt: 'x' }), log({ id: 'c', createdAt: '2020-01-01T00:00:00.000Z' })];
     expect(unsyncedLogs(list, '2026-01-01T00:00:00.000Z').map((l) => l.id)).toEqual(['a']);

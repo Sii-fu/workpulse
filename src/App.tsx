@@ -107,6 +107,7 @@ export default function App() {
   const [reminderDismissed, setReminderDismissed] = useState(false);
 
   // Pre-fill log state for "Log with Details"
+  const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
   const [prefillLog, setPrefillLog] = useState<{
     description: string;
     projectId: string;
@@ -357,6 +358,20 @@ export default function App() {
         }
       });
     }
+  };
+
+  const handleEditLog = (log: WorkLog) => {
+    setEditingLog(log);
+    setPrefillLog(null);
+    setActiveTab('feed');
+    setTimeout(() => loggerRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const handleUpdateLog = (id: string, data: Omit<WorkLog, 'id' | 'createdAt'>) => {
+    // editedAt makes the Sync button send the changed log to the sheet again.
+    const updated = logs.map((l) => (l.id === id ? { ...l, ...data, editedAt: new Date().toISOString() } : l));
+    setLogs(updated);
+    if (saveLogs(updated).ok) addToast('Log updated', 'success');
   };
 
   const handleDeleteLog = (id: string) => {
@@ -926,6 +941,9 @@ export default function App() {
                       activeTheme={settings.theme}
                       prefillData={prefillLog}
                       onClearPrefill={() => setPrefillLog(null)}
+                      editingLog={editingLog}
+                      onUpdateLog={handleUpdateLog}
+                      onCancelEdit={() => setEditingLog(null)}
                       onAddLog={handleAddLog}
                       onAddProject={handleAddProject}
                       onAddTag={handleAddTag}
@@ -936,7 +954,7 @@ export default function App() {
                     logs={logs}
                     projects={projects}
                     activeTheme={settings.theme}
-                    onEditLog={(log) => addToast(`Focused: ${log.projectName}`, 'info')}
+                    onEditLog={handleEditLog}
                     onDeleteLog={handleDeleteLog}
                     onDuplicateLog={handleDuplicateLog}
                     onOpenImage={(base64) => setActiveLightboxImage(base64)}
