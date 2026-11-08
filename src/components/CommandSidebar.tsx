@@ -389,7 +389,7 @@ export const CommandSidebar: React.FC<CommandSidebarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                Gemini 3.8 Flash can automatically synthesize your tasks into polished WhatsApp messages, Slack standups, or Executive Memos.
+                Gemini can automatically synthesize your tasks into polished WhatsApp messages, Slack standups, or Executive Memos.
               </p>
             </div>
 

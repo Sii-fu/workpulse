@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
+import { modelLabel } from '../utils/geminiModels';
 import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
 import {
   Sparkles,
@@ -80,7 +81,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   const [expandedMicroTasks, setExpandedMicroTasks] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
-  const [activeModelName, setActiveModelName] = useState<string>('GEMINI 3.5 FLASH');
+  const [activeModelName, setActiveModelName] = useState<string>('GEMINI');
 
   const isMatrix = activeTheme === 'matrix';
   const isMinimalist = activeTheme === 'minimalist';
@@ -142,18 +143,18 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       setSelectedLogIds(new Set(logs.map((l) => l.id)));
 
       if (data.modelUsed) {
-        setActiveModelName(data.modelUsed.toUpperCase());
+        setActiveModelName(modelLabel(data.modelUsed).toUpperCase());
       } else {
-        setActiveModelName('GEMINI 3.5 CASCADE');
+        setActiveModelName('TEMPLATE');
       }
 
-      if (data.apiError || data.apiKeyMissing) {
+      if (data.apiError || data.apiKeyMissing || (data.fallbackSplitIds && data.fallbackSplitIds.length > 0)) {
         setAiWarning(data.notice || 'AI synthesis unavailable. Formatted via status-separated fallback.');
         setAiNote(null);
       } else if (data.notice) {
         setAiNote(data.notice);
       } else if (data.isAIGenerated) {
-        setAiNote(`Synthesized via ${data.modelUsed || 'Gemini 3.5 Flash'} into status-separated project timesheets.`);
+        setAiNote(`Synthesized via ${modelLabel(data.modelUsed)} into status-separated project timesheets.`);
       }
     } catch (err: any) {
       console.error('Synthesis error:', err);

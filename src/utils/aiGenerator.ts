@@ -8,7 +8,14 @@ export interface GenerateReportParams {
   recipientName?: string;
 }
 
-export async function generateAiReport(params: GenerateReportParams): Promise<{ text: string; source: 'gemini' | 'template' }> {
+export interface GenerateReportResult {
+  text: string;
+  source: 'gemini' | 'template';
+  model?: string; // model that wrote the text (source 'gemini')
+  error?: string; // why the AI was not used (source 'template')
+}
+
+export async function generateAiReport(params: GenerateReportParams): Promise<GenerateReportResult> {
   const { logs, format, tone, customApiKey, recipientName } = params;
 
   if (logs.length === 0) {
@@ -58,6 +65,7 @@ ${recipientName ? `Addressed to: ${recipientName}` : ''}
 
 Generate the final message text now. Do not wrap in markdown code fence unless code is included. Output directly.`;
 
+  let error: string | undefined;
   try {
     const res = await fetch('/api/gemini/generate', {
       method: 'POST',
@@ -71,20 +79,21 @@ Generate the final message text now. Do not wrap in markdown code fence unless c
       }),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.text) {
-        return { text: data.text.trim(), source: 'gemini' };
-      }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.text) {
+      return { text: data.text.trim(), source: 'gemini', model: data.modelUsed };
     }
+    error = data.error || `The AI request failed (status ${res.status}).`;
   } catch (err) {
     console.warn('Gemini API call failed or unavailable, using offline template generator:', err);
+    error = 'Could not reach the WorkPulse server.';
   }
 
   // High-fidelity fallback template generator
   return {
     text: generateFallbackTemplate(logs, format, tone, recipientName),
     source: 'template',
+    error,
   };
 }
 

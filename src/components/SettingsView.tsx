@@ -518,7 +518,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   Gemini AI & Communications Engine
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Configure Gemini 3.8 Flash parameters for generating automated WhatsApp, Slack, and Executive reports.
+                  Configure Gemini parameters for generating automated WhatsApp, Slack, and Executive reports.
                 </p>
               </div>
 
