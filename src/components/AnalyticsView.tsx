@@ -102,10 +102,15 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   }, [logs, projects, daysLimit]);
 
   // Max value for scaling bar chart
-  const maxDailyValue = useMemo(() => {
-    const values = dailyTimeline.map((d) => (metricType === 'hours' ? d.minutes / 60 : d.tasks));
-    return Math.max(...values, 4);
-  }, [dailyTimeline, metricType]);
+  const dailyValues = useMemo(
+    () => dailyTimeline.map((d) => (metricType === 'hours' ? d.minutes / 60 : d.tasks)),
+    [dailyTimeline, metricType]
+  );
+  // The bars are scaled to at least 4 so a quiet week does not look like a full one; the peak shown
+  // in words is the real one.
+  const peakValue = Math.max(...dailyValues, 0);
+  const maxDailyValue = Math.max(peakValue, 4);
+  const fmt = (v: number) => (metricType === 'hours' ? `${v.toFixed(1)}h` : `${v}`);
 
   // 1-Click Markdown Export generator
   const handleExportMarkdown = async () => {
@@ -162,6 +167,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <button
               key={r}
               onClick={() => setTimeRange(r)}
+              aria-pressed={timeRange === r}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 timeRange === r
                   ? 'bg-[var(--accent)] text-[var(--on-accent)] font-semibold shadow-xs'
@@ -205,40 +211,21 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
       </div>
 
-      {/* KPI Metric Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
-          <span className="text-xs text-[var(--text-muted)] font-medium">Total Hours</span>
-          <p className="text-2xl font-bold font-mono text-[var(--text-main)] mt-1 tabular-nums">
-            {totalHours}h
-          </p>
-          <span className="text-xs text-[var(--text-muted)]">{totalMinutes} mins tracked</span>
-        </div>
-
-        <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
-          <span className="text-xs text-[var(--text-muted)] font-medium">Completed</span>
-          <p className="text-2xl font-bold font-mono text-success mt-1 tabular-nums">
-            {completedCount}
-          </p>
-          <span className="text-xs text-[var(--text-muted)]">Tasks finished</span>
-        </div>
-
-        <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
-          <span className="text-xs text-[var(--text-muted)] font-medium">In Progress</span>
-          <p className="text-2xl font-bold font-mono text-info mt-1 tabular-nums">
-            {inProgressCount}
-          </p>
-          <span className="text-xs text-[var(--text-muted)]">Active in flight</span>
-        </div>
-
-        <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-surface)] border border-[var(--border-app)] shadow-xs">
-          <span className="text-xs text-[var(--text-muted)] font-medium">Blocked</span>
-          <p className="text-2xl font-bold font-mono text-danger mt-1 tabular-nums">
-            {blockedCount}
-          </p>
-          <span className="text-xs text-[var(--text-muted)]">Awaiting unblock</span>
-        </div>
-      </div>
+      {/* The period in four numbers: one panel with hairline dividers, not four cards */}
+      <dl className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-[var(--border-app)] bg-[var(--bg-surface)] border border-[var(--border-app)] rounded-[var(--radius-card)]">
+        {[
+          { label: 'Time tracked', value: `${totalHours}h`, note: `${totalMinutes} minutes`, tone: 'text-[var(--text-main)]' },
+          { label: 'Completed', value: completedCount, note: 'logs marked done', tone: 'text-success' },
+          { label: 'In progress', value: inProgressCount, note: 'still open', tone: 'text-info' },
+          { label: 'Blocked', value: blockedCount, note: 'waiting on something', tone: 'text-danger' },
+        ].map((k) => (
+          <div key={k.label} className="p-4">
+            <dt className="text-xs text-[var(--text-muted)] font-medium">{k.label}</dt>
+            <dd className={`text-2xl font-semibold font-mono mt-1 tabular-nums ${k.tone}`}>{k.value}</dd>
+            <dd className="text-xs text-[var(--text-muted)]">{k.note}</dd>
+          </div>
+        ))}
+      </dl>
 
       {/* Main Charts Split */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -254,6 +241,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <div className="flex items-center gap-1 p-0.5 rounded bg-[var(--bg-subtle)] text-xs">
               <button
                 onClick={() => setMetricType('hours')}
+                aria-pressed={metricType === 'hours'}
                 className={`px-2 py-0.5 rounded transition-colors ${
                   metricType === 'hours'
                     ? 'bg-[var(--bg-surface)] text-[var(--text-main)] font-semibold shadow-xs'
@@ -264,6 +252,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               </button>
               <button
                 onClick={() => setMetricType('tasks')}
+                aria-pressed={metricType === 'tasks'}
                 className={`px-2 py-0.5 rounded transition-colors ${
                   metricType === 'tasks'
                     ? 'bg-[var(--bg-surface)] text-[var(--text-main)] font-semibold shadow-xs'
@@ -275,19 +264,32 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
           </div>
 
-          {/* Responsive SVG Bar Chart */}
-          <div className="h-56 w-full flex items-end gap-1.5 sm:gap-2 pt-6 pb-2 border-b border-[var(--border-app)]">
-            {dailyTimeline.map((item) => {
-              const val = metricType === 'hours' ? item.minutes / 60 : item.tasks;
+          {/* The same numbers as a table for screen readers; the bars are the picture of it */}
+          <table className="sr-only">
+            <caption>Daily {metricType === 'hours' ? 'hours' : 'tasks'} over the last {daysLimit} days</caption>
+            <thead>
+              <tr><th>Day</th><th>{metricType === 'hours' ? 'Hours' : 'Tasks'}</th></tr>
+            </thead>
+            <tbody>
+              {dailyTimeline.map((item, i) => (
+                <tr key={item.date}><td>{item.label}</td><td>{fmt(dailyValues[i])}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div aria-hidden="true" className="h-56 w-full flex items-end gap-1.5 sm:gap-2 pt-6 pb-2 border-b border-[var(--border-app)]">
+            {dailyTimeline.map((item, idx) => {
+              const val = dailyValues[idx];
+              // Every bar says its value when there is room; on a long range, only the busiest and the latest day do.
+              const showValue = val > 0 && (daysLimit <= 14 || val === peakValue || idx === dailyTimeline.length - 1);
               const heightPercent = maxDailyValue > 0 ? (val / maxDailyValue) * 100 : 0;
 
               return (
                 <div key={item.date} className="flex-1 flex flex-col items-center h-full justify-end group relative">
                   
-                  {/* Tooltip on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 px-2 py-1 rounded bg-[var(--text-main)] text-[var(--bg-app)] text-xs font-mono pointer-events-none whitespace-nowrap z-20 shadow-sm">
-                    {item.label}: {metricType === 'hours' ? `${val.toFixed(1)}h` : `${val} tasks`}
-                  </div>
+                  {showValue && (
+                    <span className="text-xs font-mono tabular-nums text-[var(--text-main)] mb-1 whitespace-nowrap">{fmt(val)}</span>
+                  )}
 
                   {/* Bar */}
                   <div
@@ -309,8 +311,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-1">
-            <span>Peak Day: {maxDailyValue.toFixed(1)} {metricType}</span>
-            <span>Average: {(totalMinutes / (daysLimit * 60)).toFixed(1)} hrs/day</span>
+            <span>Busiest day: {peakValue.toFixed(1)} {metricType}</span>
+            <span>Average: {(totalMinutes / (daysLimit * 60)).toFixed(1)} h per day</span>
           </div>
         </div>
 
@@ -330,7 +332,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               
               {/* SVG Donut */}
               <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
                   {(() => {
                     let cumulativeAngle = 0;
                     return projectStats.map((p, idx) => {

@@ -696,6 +696,49 @@ def matrix_scanlines_opt_in(s):
     s.no_errors()
 
 
+# -- Tasks and Analytics (P4) ------------------------------------------------------------------
+@check("tasks_all_themes")
+def tasks_all_themes(s):
+    """In every theme the running task's clock ticks, and a task can be logged with details."""
+    p = s.page
+    clock = re.compile(r"\b\d{2}:\d{2}:\d{2}\b")
+    for theme in THEMES:
+        s.set_theme(theme)
+        s.tab("backlog")
+        main = p.locator("main")
+        first = clock.findall(main.inner_text())
+        assert first, f"{theme}: no running clock on the Tasks screen"
+        p.wait_for_timeout(2300)
+        assert clock.findall(main.inner_text()) != first, f"{theme}: the Tasks clock did not tick"
+        btn_ = main.get_by_role("button", name=re.compile(r"^Log with details: ")).first
+        expect(btn_).to_be_visible()
+        title = btn_.get_attribute("aria-label").split(": ", 1)[1]
+        btn_.click()
+        p.wait_for_timeout(400)
+        if theme == "modern":
+            ta = p.locator(SEL["log_textarea"]).first
+        else:
+            expect(p.get_by_role("dialog")).to_be_visible(timeout=3000)
+            ta = p.get_by_role("dialog").locator("textarea").first
+        expect(ta, f"{theme}: task title did not reach the log form").to_have_value(title)
+        if theme != "modern":
+            p.keyboard.press("Escape")
+            p.wait_for_timeout(250)
+    s.no_errors()
+
+
+@check("analytics_labelled")
+def analytics_labelled(s):
+    """The daily chart has its values as text (a table for screen readers, labels on the bars)."""
+    p = s.page
+    s.tab("analytics")
+    table = p.locator("table.sr-only")
+    expect(table).to_have_count(1)
+    assert table.locator("tbody tr").count() == 7, "expected one row per day for the last 7 days"
+    assert p.get_by_text(re.compile(r"Busiest day:")).count() == 1
+    s.no_errors()
+
+
 @check("modal_escape_all_themes")
 def modal_escape_all_themes(s):
     """The search palette must open and close with the keyboard in every theme."""

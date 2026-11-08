@@ -49,6 +49,8 @@ import { ReminderBanner } from './components/ReminderBanner';
 import { ToastContainer } from './components/ToastContainer';
 import { LogEditorDialog } from './components/feed/LogEditorDialog';
 import { RunningStrip } from './components/RunningStrip';
+import { useStableCallback } from './hooks/useStableCallback';
+import { publishTimers } from './utils/timerStore';
 import { LogListProps, QuickLogProps } from './components/feed/types';
 import { isPendingTask } from './utils/taskLogging';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
@@ -238,6 +240,13 @@ export default function App() {
     }
   }, [dataLoaded, settings.theme, settings.colorMode, settings.crtEffect]);
 
+  // A half-done edit or pre-filled log belongs to the layout it was started in: Modern edits inline,
+  // the others in a dialog, so switching theme must not pop the old one open.
+  useEffect(() => {
+    setEditingLog(null);
+    setPrefillLog(null);
+  }, [settings.theme]);
+
   // 3. Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -256,6 +265,11 @@ export default function App() {
   const timerDirty = useRef(false);
   const timerLastSaveAt = useRef(Date.now());
   const backlogRef = useRef<BacklogTask[]>([]);
+
+  // Mirror the running tasks' seconds for the clocks that show them (they redraw on their own).
+  useEffect(() => {
+    publishTimers(backlog);
+  }, [backlog]);
 
   useEffect(() => {
     backlogRef.current = backlog;
@@ -492,7 +506,7 @@ export default function App() {
     saveBacklog(updated);
 
     if (stage === 'in_progress') {
-      addToast(`"${task.title.slice(0, 32)}..." set to Active Focus`, 'success');
+      addToast(`"${task.title.slice(0, 32)}..." is now running`, 'success');
     } else if (stage === 'paused') {
       addToast('Task shifted to Paused', 'info');
     } else if (stage === 'blocked') {
@@ -523,7 +537,7 @@ export default function App() {
     saveBacklog(updated);
     addToast(
       targetStage === 'in_progress'
-        ? 'Task reopened and moved to Active Focus'
+        ? 'Task reopened and running'
         : targetStage === 'planned'
           ? 'Task reopened and moved to the Planned queue'
           : 'Task reopened',
@@ -834,6 +848,18 @@ export default function App() {
   const hasLogsToday = logs.some((l) => l.date === todayStr);
   const pendingTasksCount = backlog.filter(isPendingTask).length;
 
+  // Handlers for the memoized Tasks screen: stable identities that always call the latest closure.
+  const tasksHandlers = {
+    onAddTask: useStableCallback(handleAddBacklogTask),
+    onUpdateTaskStage: useStableCallback(handleUpdateTaskStage),
+    onToggleTask: useStableCallback(handleToggleBacklogTask),
+    onConvertTaskToLog: useStableCallback(handleConvertTaskToLog),
+    onLogWithDetails: useStableCallback(handleLogWithDetails),
+    onDeleteTask: useStableCallback(handleDeleteBacklogTask),
+    onAddProject: useStableCallback(handleAddProject),
+    onReopenTask: useStableCallback(handleReopenTask),
+    onOpenEodSynthesizer: useStableCallback(handleOpenEodSynthesizer),
+  };
   if (!dataLoaded) {
     return (
       <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
@@ -1020,15 +1046,15 @@ export default function App() {
               backlog={backlog}
               projects={projects}
               activeTheme={settings.theme}
-              onAddTask={handleAddBacklogTask}
-              onUpdateTaskStage={handleUpdateTaskStage}
-              onToggleTask={handleToggleBacklogTask}
-              onConvertTaskToLog={handleConvertTaskToLog}
-              onLogWithDetails={handleLogWithDetails}
-              onDeleteTask={handleDeleteBacklogTask}
-              onAddProject={handleAddProject}
-              onReopenTask={handleReopenTask}
-              onOpenEodSynthesizer={handleOpenEodSynthesizer}
+              onAddTask={tasksHandlers.onAddTask}
+              onUpdateTaskStage={tasksHandlers.onUpdateTaskStage}
+              onToggleTask={tasksHandlers.onToggleTask}
+              onConvertTaskToLog={tasksHandlers.onConvertTaskToLog}
+              onLogWithDetails={tasksHandlers.onLogWithDetails}
+              onDeleteTask={tasksHandlers.onDeleteTask}
+              onAddProject={tasksHandlers.onAddProject}
+              onReopenTask={tasksHandlers.onReopenTask}
+              onOpenEodSynthesizer={tasksHandlers.onOpenEodSynthesizer}
             />
           </div>
         )}
