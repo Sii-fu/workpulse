@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { WorkLog, ReportFormat, ReportTone } from '../types';
 import { generateAiReport } from '../utils/aiGenerator';
+import { modelLabel } from '../utils/geminiModels';
 import {
   Sparkles,
   Copy,
@@ -38,6 +39,8 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   const [generatedReport, setGeneratedReport] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationSource, setGenerationSource] = useState<'gemini' | 'template' | null>(null);
+  const [aiModel, setAiModel] = useState<string | undefined>(undefined);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Active logs to include: if specific logs are selected, use them; otherwise use today's logs
   const todayStr = new Date().toISOString().split('T')[0];
@@ -57,6 +60,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    setAiError(null);
     try {
       const result = await generateAiReport({
         logs: activeLogs.length > 0 ? activeLogs : logs.slice(0, 5),
@@ -67,6 +71,8 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
       });
       setGeneratedReport(result.text);
       setGenerationSource(result.source);
+      setAiModel(result.model);
+      setAiError(result.error ?? null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -232,10 +238,16 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               <span className="font-semibold">Generated Message Output (Editable):</span>
               {generationSource && (
                 <span className="text-[11px] opacity-75">
-                  Powered by {generationSource === 'gemini' ? 'Gemini 3.8 Flash' : 'High-Fidelity Smart Template'}
+                  Powered by {generationSource === 'gemini' ? modelLabel(aiModel) : 'High-Fidelity Smart Template'}
                 </span>
               )}
             </div>
+
+            {aiError && (
+              <div className="text-[11px] px-2.5 py-1.5 rounded-[var(--radius-btn)] border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                AI failed: {aiError} Showing template text instead. Check it before sending.
+              </div>
+            )}
 
             <textarea
               value={generatedReport}

@@ -6,12 +6,52 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { isAllowedScriptUrl } from './src/utils/scriptUrl';
+import { GEMINI_MODEL_CASCADE, GEMINI_TIMEOUT_MS } from './src/utils/geminiModels';
+import { buildBuckets, mergeSynthesis, templateLog } from './src/utils/eodSynthesis';
 
 // Load .env.local first (local overrides), then fall back to .env
 dotenv.config({ path: ['.env.local', '.env'], quiet: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// The SDK reports API errors as a JSON string; show just the human-readable message.
+function readableError(raw: unknown): string {
+  const text = typeof raw === 'string' && raw ? raw : 'error';
+  const m = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(text);
+  return m ? m[1] : text;
+}
+
+// Tries each model in order. Every request is cancelled (AbortSignal) after GEMINI_TIMEOUT_MS,
+// so a hung model cannot stall the route. Returns the first non-empty answer, or all the errors.
+async function generateWithCascade(
+  ai: GoogleGenAI,
+  contents: string,
+  config: Record<string, unknown>,
+): Promise<{ text: string; model: string; errors: string[] }> {
+  const errors: string[] = [];
+  for (const model of GEMINI_MODEL_CASCADE) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: { ...config, abortSignal: AbortSignal.timeout(GEMINI_TIMEOUT_MS) },
+      });
+      const text = response.text || '';
+      if (text.trim()) return { text, model, errors };
+      errors.push(`${model}: empty response`);
+    } catch (err: any) {
+      const message = readableError(err?.message);
+      console.warn(`Gemini model ${model} failed (${message}), trying the next one...`);
+      errors.push(`${model}: ${message}`);
+      // A rejected key will be rejected by every model: stop instead of repeating the failure.
+      if (/api key|permission|unauthori[sz]ed|forbidden/i.test(message)) break;
+    }
+  }
+  return { text: '', model: '', errors };
+}
+
+const shortReason = (errors: string[]) => (errors[0] || 'unknown error').slice(0, 200);
 
 async function startServer() {
   const app = express();
@@ -49,19 +89,19 @@ async function startServer() {
         },
       });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: systemInstruction
-          ? {
-              systemInstruction,
-              temperature: 0.7,
-            }
-          : undefined,
-      });
-
-      const text = response.text || '';
-      return res.json({ text });
+      const result = await generateWithCascade(
+        ai,
+        prompt,
+        systemInstruction ? { systemInstruction, temperature: 0.7 } : {},
+      );
+      if (!result.text) {
+        console.error('Gemini standup failed on every model:', result.errors);
+        return res.status(502).json({
+          error: `AI request failed: ${shortReason(result.errors)}`,
+          details: result.errors,
+        });
+      }
+      return res.json({ text: result.text, modelUsed: result.model });
     } catch (err: any) {
       console.error('Gemini API Error:', err);
       const message = err?.message || 'Failed to generate content with Gemini';
@@ -78,155 +118,23 @@ async function startServer() {
         return res.json({ synthesizedLogs: [] });
       }
 
-      // Group candidate tasks by project
-      const projectMap = new Map<string, { id: string; name: string; color: string }>();
-      (projects || []).forEach((p: any) => {
-        if (p && p.id) projectMap.set(p.id, p);
-      });
-
-      const grouped = new Map<string, any[]>();
-      tasks.forEach((t: any) => {
-        const pId = t.projectId || 'general';
-        if (!grouped.has(pId)) grouped.set(pId, []);
-        grouped.get(pId)!.push(t);
-      });
-
-      // Status-Separated Split Groups (Project × Status)
-      // Planned tasks are strictly excluded from timesheets
-      interface SplitBucket {
-        splitId: string;
-        projectId: string;
-        projectName: string;
-        projectColor: string;
-        status: 'completed' | 'in_progress' | 'blocked';
-        tasks: any[];
-        totalElapsedSeconds: number;
-      }
-
-      const splitBuckets: SplitBucket[] = [];
-
-      for (const [pId, pTasks] of grouped.entries()) {
-        const project = projectMap.get(pId) || { id: pId, name: 'General Initiative', color: '#6366f1' };
-
-        const doneTasks: any[] = [];
-        const blockedTasks: any[] = [];
-        const inProgressTasks: any[] = [];
-
-        pTasks.forEach((t) => {
-          const stage = t.stage || (t.completed ? 'done' : 'planned');
-          // Planned tasks without activity are NEVER logged to official timesheets
-          if (stage === 'planned' && !t.completed) {
-            return;
-          }
-          if (stage === 'blocked') {
-            blockedTasks.push(t);
-          } else if (stage === 'done' || t.completed) {
-            doneTasks.push(t);
-          } else if (stage === 'in_progress' || stage === 'paused') {
-            inProgressTasks.push(t);
-          }
-        });
-
-        if (doneTasks.length > 0) {
-          const totalSecs = doneTasks.reduce((acc, t) => acc + (t.elapsedSeconds || 0), 0);
-          splitBuckets.push({
-            splitId: `${pId}_completed`,
-            projectId: pId,
-            projectName: project.name,
-            projectColor: project.color,
-            status: 'completed',
-            tasks: doneTasks,
-            totalElapsedSeconds: totalSecs,
-          });
-        }
-
-        if (blockedTasks.length > 0) {
-          const totalSecs = blockedTasks.reduce((acc, t) => acc + (t.elapsedSeconds || 0), 0);
-          splitBuckets.push({
-            splitId: `${pId}_blocked`,
-            projectId: pId,
-            projectName: project.name,
-            projectColor: project.color,
-            status: 'blocked',
-            tasks: blockedTasks,
-            totalElapsedSeconds: totalSecs,
-          });
-        }
-
-        if (inProgressTasks.length > 0) {
-          const totalSecs = inProgressTasks.reduce((acc, t) => acc + (t.elapsedSeconds || 0), 0);
-          splitBuckets.push({
-            splitId: `${pId}_in_progress`,
-            projectId: pId,
-            projectName: project.name,
-            projectColor: project.color,
-            status: 'in_progress',
-            tasks: inProgressTasks,
-            totalElapsedSeconds: totalSecs,
-          });
-        }
-      }
-
+      const splitBuckets = buildBuckets(tasks, Array.isArray(projects) ? projects.filter((p: any) => p && p.id) : []);
       if (splitBuckets.length === 0) {
         return res.json({ synthesizedLogs: [] });
       }
 
+      const templates = () => splitBuckets.map(templateLog);
       const activeApiKey = customApiKey?.trim() || process.env.GEMINI_API_KEY;
-
-      // Intelligent natural language fallback generator (Project × Status Split)
-      const generateFallback = () => {
-        return splitBuckets.map((bucket) => {
-          const bullets: string[] = [];
-          if (bucket.status === 'completed') {
-            const titles = bucket.tasks.map((t) => t.title).join(', ');
-            bullets.push(`• Completed deliverables: Successfully finalized and delivered ${titles}.`);
-          } else if (bucket.status === 'blocked') {
-            bucket.tasks.forEach((t) => {
-              const reason = t.blockReason ? ` (Blocker: ${t.blockReason})` : '';
-              bullets.push(`• Roadblock encountered: Progress halted on ${t.title}${reason}.`);
-            });
-          } else {
-            const titles = bucket.tasks.map((t) => t.title).join(', ');
-            bullets.push(`• Active focus: Currently advancing engineering implementation for ${titles}.`);
-          }
-
-          const durationMinutes = Math.max(Math.round(bucket.totalElapsedSeconds / 60), bucket.tasks.length * 20, 15);
-
-          return {
-            id: bucket.splitId,
-            splitId: bucket.splitId,
-            projectId: bucket.projectId,
-            projectName: bucket.projectName,
-            projectColor: bucket.projectColor,
-            status: bucket.status,
-            durationMinutes,
-            summaryBullets: bullets.join('\n'),
-            tags: [
-              '#eod-synthesis',
-              `#${bucket.projectName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-              `#${bucket.status}`,
-            ],
-            taskIds: bucket.tasks.map((t) => t.id),
-            underlyingTasks: bucket.tasks.map((t) => ({
-              id: t.id,
-              title: t.title,
-              stage: t.stage || (t.completed ? 'done' : 'in_progress'),
-              elapsedSeconds: t.elapsedSeconds || 0,
-            })),
-          };
-        });
-      };
 
       if (!activeApiKey) {
         return res.json({
-          synthesizedLogs: generateFallback(),
+          synthesizedLogs: templates(),
           isAIGenerated: false,
           apiKeyMissing: true,
-          notice: 'Synthesized using natural language fallback. Add your Gemini API key in Settings for AI executive synthesis.',
+          notice: 'No Gemini API key: using template text. Add your key in Settings for AI synthesis.',
         });
       }
 
-      // We have an active API key: synthesize via resilient Gemini cascade!
       const ai = new GoogleGenAI({
         apiKey: activeApiKey,
         httpOptions: {
@@ -235,14 +143,6 @@ async function startServer() {
           },
         },
       });
-
-      // Reliable Gemini model cascade to avoid 503 server overloaded errors
-      const MODEL_CASCADE = [
-        'gemini-3.5-flash',      // Primary: rock-solid, zero 503 high-demand errors
-        'gemini-3.8-flash',      // Latest frontier release
-        'gemini-3.1-flash-lite', // Rapid fallback
-        'gemini-2.5-flash',      // Safety net
-      ];
 
       const promptPayload = {
         date,
@@ -274,7 +174,7 @@ CRITICAL ARCHITECTURAL RULES (ABSOLUTE REQUIREMENTS):
    - For 'blocked' groups: Concisely articulate the external blocker, dependency, or decision gate (e.g., "• Halted database migration pending upstream API credentials from DevOps.")
    - For 'in_progress' groups: Summarize the active development milestone, technical investigation, or next steps (e.g., "• Advancing performance profiling on client-side state hydration to eliminate initial paint latency.")
 5. Each bullet point MUST start with "• ".
-6. Estimate realistic duration in minutes based on totalElapsedSeconds (min 15 mins per group).
+6. Duration is computed by the app from tracked time. Set durationMinutes to round(totalElapsedSeconds / 60); do not estimate.
 7. Suggest 2-3 relevant tags (e.g., #deep-work, #backend, #infra, #frontend).
 
 You MUST respond strictly with valid JSON conforming to this schema (no markdown formatting or wrappers outside JSON):
@@ -294,97 +194,48 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
 
       const userPrompt = `Synthesize the following project-status split groups into executive work logs for date: ${date}.\n\nSplit Groups Data:\n${JSON.stringify(promptPayload, null, 2)}\n\nSynthesize distinct executive entries for each split group now. Remember: NO raw task titles with [COMPLETED] tags.`;
 
-      let aiResponseText = '';
-      let successfulModel = '';
-      const cascadeErrors: string[] = [];
+      const result = await generateWithCascade(ai, userPrompt, {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        temperature: 0.3,
+      });
 
-      for (const model of MODEL_CASCADE) {
-        try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`${model} request timed out after 18s`)), 18000)
-          );
-
-          const aiResponse = await Promise.race([
-            ai.models.generateContent({
-              model,
-              contents: userPrompt,
-              config: {
-                systemInstruction,
-                responseMimeType: 'application/json',
-                temperature: 0.3,
-              },
-            }),
-            timeoutPromise,
-          ]);
-
-          const text = aiResponse.text || '';
-          if (text.trim()) {
-            aiResponseText = text;
-            successfulModel = model;
-            break;
-          }
-        } catch (err: any) {
-          console.warn(`Gemini cascade model ${model} failed (${err?.message || err}), trying next model in cascade...`);
-          cascadeErrors.push(`${model}: ${err?.message || 'error'}`);
-        }
-      }
-
-      if (!aiResponseText) {
-        console.warn('All Gemini cascade models failed, activating status-split natural fallback:', cascadeErrors);
+      if (!result.text) {
+        console.warn('All Gemini models failed, using templates:', result.errors);
         return res.json({
-          synthesizedLogs: generateFallback(),
+          synthesizedLogs: templates(),
           isAIGenerated: false,
-          apiError: cascadeErrors.join('; '),
-          notice: 'AI models temporarily in high demand. Formatted via natural language executive fallback.',
+          apiError: result.errors.join('; '),
+          notice: `AI request failed (${shortReason(result.errors)}). Showing template text instead.`,
         });
       }
 
+      let aiItems: unknown[] = [];
       try {
-        const parsed = JSON.parse(aiResponseText);
-        const synthesizedList = Array.isArray(parsed.synthesized) ? parsed.synthesized : [];
-
-        const bucketMap = new Map<string, SplitBucket>();
-        splitBuckets.forEach((b) => bucketMap.set(b.splitId, b));
-
-        const finalResults = synthesizedList.map((item: any) => {
-          const bucket = bucketMap.get(item.splitId) || splitBuckets.find((b) => b.projectId === item.projectId && b.status === item.status);
-          const project = projectMap.get(item.projectId || bucket?.projectId || '');
-          const bTasks = bucket?.tasks || [];
-
-          return {
-            id: item.splitId || bucket?.splitId || `${item.projectId}_${item.status}`,
-            splitId: item.splitId || bucket?.splitId || `${item.projectId}_${item.status}`,
-            projectId: item.projectId || bucket?.projectId || 'general',
-            projectName: item.projectName || project?.name || bucket?.projectName || 'Project',
-            projectColor: project?.color || bucket?.projectColor || '#6366f1',
-            status: (item.status === 'blocked' ? 'blocked' : item.status === 'in_progress' ? 'in_progress' : 'completed') as 'completed' | 'in_progress' | 'blocked',
-            durationMinutes: item.durationMinutes || (bucket ? Math.max(15, Math.round(bucket.totalElapsedSeconds / 60)) : 30),
-            summaryBullets: item.summaryBullets || bTasks.map((t: any) => `• ${t.title}`).join('\n'),
-            tags: Array.isArray(item.tags) ? item.tags : ['#eod-synthesis'],
-            taskIds: bTasks.map((t: any) => t.id),
-            underlyingTasks: bTasks.map((t: any) => ({
-              id: t.id,
-              title: t.title,
-              stage: t.stage || (t.completed ? 'done' : 'in_progress'),
-              elapsedSeconds: t.elapsedSeconds || 0,
-            })),
-          };
-        });
-
-        return res.json({
-          synthesizedLogs: finalResults.length > 0 ? finalResults : generateFallback(),
-          isAIGenerated: true,
-          modelUsed: successfulModel,
-        });
+        const parsed = JSON.parse(result.text);
+        aiItems = Array.isArray(parsed?.synthesized) ? parsed.synthesized : [];
       } catch (parseErr: any) {
-        console.error('Failed to parse Gemini JSON output:', parseErr, aiResponseText);
+        console.error('Failed to parse Gemini JSON output:', parseErr, result.text);
         return res.json({
-          synthesizedLogs: generateFallback(),
+          synthesizedLogs: templates(),
           isAIGenerated: false,
-          apiError: 'Failed to parse AI output schema',
-          notice: 'AI formatting anomaly. Formatted via natural language executive fallback.',
+          apiError: 'Failed to parse AI output',
+          notice: 'The AI returned an unreadable answer. Showing template text instead.',
         });
       }
+
+      const { logs, fallbackSplitIds } = mergeSynthesis(splitBuckets, aiItems);
+      const aiCount = logs.length - fallbackSplitIds.length;
+      return res.json({
+        synthesizedLogs: logs,
+        isAIGenerated: aiCount > 0,
+        modelUsed: result.model,
+        fallbackSplitIds,
+        notice:
+          fallbackSplitIds.length > 0
+            ? `The AI wrote ${aiCount} of ${logs.length} groups. The other ${fallbackSplitIds.length} use template text: check them before pushing.`
+            : undefined,
+      });
     } catch (err: any) {
       console.error('EOD Synthesis API Error:', err);
       return res.status(500).json({ error: err?.message || 'Failed to synthesize EOD logs' });
@@ -444,7 +295,12 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
           const json = JSON.parse(text);
           return res.json(json);
         } catch {
-          return res.json({ success: response.ok, raw: text });
+          // Not JSON: usually a Google sign-in or error page. This is a failure, not a success.
+          return res.status(502).json({
+            status: 'error',
+            error:
+              'Google returned a web page instead of the script response. Deploy the script as a Web app with "Who has access" set to "Anyone", and check the URL ends in /exec.',
+          });
         }
       }
     } catch (err: any) {

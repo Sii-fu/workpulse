@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
+import { modelLabel } from '../utils/geminiModels';
+import { minutesFromSeconds } from '../utils/duration';
 import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
 import {
   Sparkles,
@@ -79,7 +82,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   const [expandedMicroTasks, setExpandedMicroTasks] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
-  const [activeModelName, setActiveModelName] = useState<string>('GEMINI 3.5 FLASH');
+  const [activeModelName, setActiveModelName] = useState<string>('GEMINI');
 
   const isMatrix = activeTheme === 'matrix';
   const isMinimalist = activeTheme === 'minimalist';
@@ -94,40 +97,22 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     setAiWarning(null);
+    // Never keep results from an earlier run: they could be pushed a second time (B4).
+    setSynthesizedItems([]);
+    setSelectedLogIds(new Set());
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Scoping: Strict "Today Only" & Unsent Tasks (Unless explicitly selected by user)
-    const candidateTasks = tasksToUse.filter((t) => {
-      // If user manually multi-selected these tasks in the workspace, synthesize them
-      if (isCustomSelection) {
-        if (t.stage === 'planned' && !t.completed && (!t.elapsedSeconds || t.elapsedSeconds === 0)) return false;
-        return true;
-      }
-
-      // Default scoping: ALWAYS ignore already synthesized tasks
-      if (t.isSynthesized) return false;
-
-      // Planned tasks with no work done are NEVER logged
-      if (t.stage === 'planned' && !t.completed && (!t.elapsedSeconds || t.elapsedSeconds === 0)) return false;
-
-      const isToday =
-        t.dueDate === todayStr ||
-        t.originalDate === todayStr ||
-        t.completedAt?.startsWith(todayStr) ||
-        t.startedAt?.startsWith(todayStr);
-
-      const hasActivity = (t.elapsedSeconds && t.elapsedSeconds > 0) || t.completed || t.stage !== 'planned';
-
-      return isToday && hasActivity;
-    });
+    // Scoping (see isEodCandidate): fully logged tasks are never offered again; tasks with new
+    // time since their last log are.
+    const candidateTasks = tasksToUse.filter((t) => isEodCandidate(t, todayStr, isCustomSelection));
 
     if (candidateTasks.length === 0) {
       setIsLoading(false);
       setErrorMsg(
         isCustomSelection
-          ? 'Selected tasks have no activity to log.'
-          : 'All tasks for today have already been logged to Google Sheet! Only new, unsent tasks with activity will be included in subsequent syntheses.'
+          ? 'Selected tasks have no new time to log (tasks that were already logged are skipped).'
+          : 'All of today\'s tasks are already logged. Only tasks with new activity are included in later syntheses.'
       );
       return;
     }
@@ -137,7 +122,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tasks: candidateTasks,
+          tasks: candidateTasks.map(withUnloggedTime),
           projects,
           date: todayStr,
           customApiKey: geminiApiKey,
@@ -159,18 +144,18 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
       setSelectedLogIds(new Set(logs.map((l) => l.id)));
 
       if (data.modelUsed) {
-        setActiveModelName(data.modelUsed.toUpperCase());
+        setActiveModelName(modelLabel(data.modelUsed).toUpperCase());
       } else {
-        setActiveModelName('GEMINI 3.5 CASCADE');
+        setActiveModelName('TEMPLATE');
       }
 
-      if (data.apiError || data.apiKeyMissing) {
+      if (data.apiError || data.apiKeyMissing || (data.fallbackSplitIds && data.fallbackSplitIds.length > 0)) {
         setAiWarning(data.notice || 'AI synthesis unavailable. Formatted via status-separated fallback.');
         setAiNote(null);
       } else if (data.notice) {
         setAiNote(data.notice);
       } else if (data.isAIGenerated) {
-        setAiNote(`Synthesized via ${data.modelUsed || 'Gemini 3.5 Flash'} into status-separated project timesheets.`);
+        setAiNote(`Synthesized via ${modelLabel(data.modelUsed)} into status-separated project timesheets.`);
       }
     } catch (err: any) {
       console.error('Synthesis error:', err);
@@ -230,7 +215,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         );
         const activeTasks = updatedTasks.filter((t) => !t.excluded);
         const newTotalSecs = activeTasks.reduce((acc, t) => acc + (t.elapsedSeconds || 0), 0);
-        const newDuration = Math.max(15, Math.round(newTotalSecs / 60) || activeTasks.length * 20);
+        const newDuration = minutesFromSeconds(newTotalSecs);
 
         if (activeTasks.length === 0) {
           setSelectedLogIds((s) => {
@@ -481,14 +466,14 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                             <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                             <input
                               type="number"
-                              min={5}
+                              min={0}
                               max={720}
                               value={item.durationMinutes}
                               onChange={(e) =>
                                 handleUpdateItem(
                                   item.id,
                                   'durationMinutes',
-                                  Math.max(5, parseInt(e.target.value) || 0)
+                                  Math.max(0, parseInt(e.target.value) || 0)
                                 )
                               }
                               className="w-12 text-xs font-mono font-bold bg-transparent text-[var(--text-main)] focus:outline-hidden"
@@ -611,7 +596,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={isSubmitting || isLoading || selectedLogIds.size === 0}
+              disabled={isSubmitting || isLoading || !!errorMsg || selectedLogIds.size === 0}
               className="px-5 py-2 text-xs font-bold rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-md shadow-[var(--accent-glow)] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (

@@ -23,6 +23,10 @@ import {
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
+import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
+import { advanceClock } from './utils/timer';
+import { minutesFromSeconds } from './utils/duration';
+import { unsyncedLogs } from './utils/syncStatus';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -143,6 +147,21 @@ export default function App() {
   const saveTags = (v: string[]) => persist(storeTags(v), 'tags');
   const saveSettings = (v: AppSettings) => persist(storeSettings(v), 'settings');
 
+  // Records that these logs reached the Google Sheet, so they are never sent twice (B2).
+  const markLogsSynced = (ids: string[]) => {
+    const at = new Date().toISOString();
+    const idSet = new Set(ids);
+    setLogs((prev) => {
+      const next = prev.map((l) => (idSet.has(l.id) ? { ...l, syncedAt: at } : l));
+      saveLogs(next);
+      return next;
+    });
+  };
+
+  // Shows why a sync failed instead of failing silently (U2).
+  const reportSyncFailure = (message: string) =>
+    addToast(`Google Sheet sync failed: ${message} Saved locally; click Sync to retry.`, 'error');
+
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
@@ -161,8 +180,18 @@ export default function App() {
     const activeTheme = loaded.settings?.theme || 'modern';
     const activeMode = loaded.settings?.colorMode || (activeTheme === 'minimalist' ? 'light' : 'dark');
 
+    // Sync tracking starts now for users who already have a sheet: older logs are not re-sent.
+    const syncTrackingSince =
+      loaded.settings.googleScriptUrl && !loaded.settings.syncTrackingSince
+        ? new Date().toISOString()
+        : loaded.settings.syncTrackingSince;
+    if (syncTrackingSince !== loaded.settings.syncTrackingSince) {
+      storeSettings({ ...loaded.settings, syncTrackingSince });
+    }
+
     setSettings({
       ...loaded.settings,
+      syncTrackingSince,
       theme: activeTheme,
       colorMode: activeTheme === 'matrix' ? 'dark' : activeMode,
     });
@@ -200,9 +229,35 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 4. Live Automatic Task Timer Engine (Ticks every second for In-Progress tasks)
+  // 4. Live Automatic Task Timer Engine.
+  // Each tick adds the REAL seconds since the last tick (hidden tabs are throttled by the browser),
+  // and the backlog is saved every 30 s and when the tab is hidden or closed, not every second.
+  const timerDirty = useRef(false);
+  const timerLastSaveAt = useRef(Date.now());
+  const backlogRef = useRef<BacklogTask[]>([]);
+
   useEffect(() => {
+    backlogRef.current = backlog;
+    if (timerDirty.current && Date.now() - timerLastSaveAt.current >= 30000) {
+      saveBacklog(backlog);
+      timerDirty.current = false;
+      timerLastSaveAt.current = Date.now();
+    }
+  }, [backlog]);
+
+  useEffect(() => {
+    let lastTickMs = Date.now();
+    const flush = () => {
+      if (timerDirty.current) {
+        saveBacklog(backlogRef.current);
+        timerDirty.current = false;
+        timerLastSaveAt.current = Date.now();
+      }
+    };
     const timerInterval = setInterval(() => {
+      const { seconds, nextMs } = advanceClock(lastTickMs, Date.now());
+      lastTickMs = nextMs;
+      if (seconds === 0) return;
       setBacklog((prev) => {
         let changed = false;
         const updated = prev.map((t) => {
@@ -210,19 +265,26 @@ export default function App() {
             changed = true;
             return {
               ...t,
-              elapsedSeconds: (t.elapsedSeconds || 0) + 1,
+              elapsedSeconds: (t.elapsedSeconds || 0) + seconds,
             };
           }
           return t;
         });
-        if (changed) {
-          saveBacklog(updated);
-        }
+        if (changed) timerDirty.current = true;
         return changed ? updated : prev;
       });
     }, 1000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
 
-    return () => clearInterval(timerInterval);
+    return () => {
+      clearInterval(timerInterval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
   }, []);
 
   // 4. Persistence Handlers
@@ -242,7 +304,13 @@ export default function App() {
     addToast(`Mode: ${newMode.toUpperCase()}`, 'info');
   };
 
-  const handleSaveSettings = (newSettings: AppSettings) => {
+  const handleSaveSettings = (incoming: AppSettings) => {
+    // Connecting (or switching) a sheet: only logs created from now on are sent to it.
+    const urlChanged = incoming.googleScriptUrl !== settings.googleScriptUrl;
+    const newSettings =
+      incoming.googleScriptUrl && (urlChanged || !incoming.syncTrackingSince)
+        ? { ...incoming, syncTrackingSince: new Date().toISOString() }
+        : incoming;
     setSettings(newSettings);
     saveSettings(newSettings);
   };
@@ -260,8 +328,11 @@ export default function App() {
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
-        if (res.success && res.message.includes('Google Sheet')) {
+        if (res.success) {
+          markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet ✓', 'success');
+        } else {
+          reportSyncFailure(res.message);
         }
       });
     }
@@ -382,6 +453,9 @@ export default function App() {
           isRunning: targetStage === 'in_progress',
           completedAt: undefined,
           startedAt: targetStage === 'in_progress' ? new Date().toISOString() : t.startedAt,
+          // New work after reopening can be logged again; loggedSeconds keeps what was already logged.
+          isSynthesized: false,
+          synthesizedAt: undefined,
         };
       }
       return t;
@@ -404,9 +478,31 @@ export default function App() {
 
   const handleConvertTaskToLog = (task: BacklogTask) => {
     const project = projects.find((p) => p.id === task.projectId) || projects[0];
-    const durationMins = task.elapsedSeconds && task.elapsedSeconds > 0
-      ? Math.max(5, Math.round(task.elapsedSeconds / 60))
-      : 30;
+    const nowIso = new Date().toISOString();
+    const newSeconds = unloggedSeconds(task);
+
+    // Mark the task as logged so the EOD synthesizer does not log it a second time (B3).
+    const markDone = (t: BacklogTask): BacklogTask => ({
+      ...t,
+      completed: true,
+      stage: 'done' as TaskStage,
+      isRunning: false,
+      completedAt: nowIso,
+      isSynthesized: true,
+      synthesizedAt: nowIso,
+      loggedSeconds: task.elapsedSeconds || 0,
+    });
+
+    // Completed again after a reopen with no new tracked time: nothing new to log.
+    if (loggedSecondsOf(task) > 0 && newSeconds === 0) {
+      const done = backlog.map((t) => (t.id === task.id ? markDone(t) : t));
+      setBacklog(done);
+      saveBacklog(done);
+      addToast('Task completed (no new time to log)', 'info');
+      return;
+    }
+
+    const durationMins = minutesFromSeconds(newSeconds);
 
     const newLog: WorkLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -417,22 +513,12 @@ export default function App() {
       description: task.title,
       status: 'completed',
       tags: ['#deep-work'],
-      durationMinutes: durationMins,
+      durationMinutes: durationMins || undefined,
       energyRating: 4,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
-    const updatedBacklog = backlog.map((t) =>
-      t.id === task.id
-        ? {
-            ...t,
-            completed: true,
-            stage: 'done' as TaskStage,
-            isRunning: false,
-            completedAt: new Date().toISOString(),
-          }
-        : t
-    );
+    const updatedBacklog = backlog.map((t) => (t.id === task.id ? markDone(t) : t));
     setBacklog(updatedBacklog);
     saveBacklog(updatedBacklog);
 
@@ -445,8 +531,11 @@ export default function App() {
     // Automatically push to Google Sheet if linked
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
-        if (res.success && res.message.includes('Google Sheet')) {
+        if (res.success) {
+          markLogsSynced([newLog.id]);
           addToast('Synced with Google Sheet', 'success');
+        } else {
+          reportSyncFailure(res.message);
         }
       });
     }
@@ -464,7 +553,7 @@ export default function App() {
       description: item.summaryBullets,
       status: item.status,
       tags: item.tags,
-      durationMinutes: item.durationMinutes,
+      durationMinutes: item.durationMinutes || undefined,
       isSynthesized: true,
       underlyingTasks: item.underlyingTasks,
       createdAt: new Date().toISOString(),
@@ -472,6 +561,11 @@ export default function App() {
 
     // Preserve tasks 100% visible in their respective sections - ONLY update isSynthesized & synthesizedAt
     const touchedTaskIds = new Set(items.flatMap((i) => i.taskIds));
+    // The seconds each task contributed to these logs (the modal sends only not-yet-logged time).
+    const addedSeconds = new Map<string, number>();
+    items.forEach((i) =>
+      i.underlyingTasks.forEach((u) => addedSeconds.set(u.id, (addedSeconds.get(u.id) || 0) + (u.elapsedSeconds || 0))),
+    );
     const nowIso = new Date().toISOString();
     const updatedBacklog = backlog.map((t) => {
       if (touchedTaskIds.has(t.id)) {
@@ -479,6 +573,7 @@ export default function App() {
           ...t,
           isSynthesized: true,
           synthesizedAt: nowIso,
+          loggedSeconds: loggedSecondsOf(t) + (addedSeconds.get(t.id) || 0),
         };
       }
       return t;
@@ -497,9 +592,10 @@ export default function App() {
       addToast('Syncing synthesized EOD logs with Google Sheets...', 'info');
       const res = await syncBatchLogsToSheet(settings.googleScriptUrl, newLogs);
       if (res.success) {
+        markLogsSynced(newLogs.map((l) => l.id));
         addToast('Synced with Google Sheet', 'success');
       } else {
-        addToast(res.message, 'error');
+        reportSyncFailure(res.message);
       }
     }
   };
@@ -599,13 +695,20 @@ export default function App() {
       return;
     }
 
+    const pending = unsyncedLogs(logs, settings.syncTrackingSince);
+    if (pending.length === 0) {
+      addToast('Everything is already synced to Google Sheet.', 'info');
+      return;
+    }
+
     setIsSyncingSheet(true);
-    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, logs);
+    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending);
     setIsSyncingSheet(false);
     if (result.success) {
+      markLogsSynced(pending.map((l) => l.id));
       addToast(result.message, 'success');
     } else {
-      addToast(result.message, 'error');
+      reportSyncFailure(result.message);
     }
   };
 
@@ -654,6 +757,9 @@ export default function App() {
         onOpenAiStandup={() => setIsAiStandupOpen(true)}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onSyncGoogleSheet={handleSyncGoogleSheet}
+        unsyncedCount={
+          settings.googleScriptUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0
+        }
         isSyncing={isSyncingSheet}
       />
 

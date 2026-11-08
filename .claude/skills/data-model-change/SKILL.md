@@ -43,6 +43,7 @@ New `WorkLog` objects are built in several places. Set the field (or leave it un
   1. `appendRow([...])` in the `appendLog` branch of `doPost`
   2. `rows.push([...])` in the `batchSync` branch
   3. the `headers` array in `getOrCreateLogsSheet()`
+  Keep the `Id` column **last** (12th): the script upserts rows by it (`upsertRows`, `ID_COL`), so new columns go before it only if `ID_COL` moves too. `WorkLog.syncedAt` is set by the app after a confirmed sync, and manual Sync sends only logs that need it (`src/utils/syncStatus.ts`).
 - Tell the user: an already-deployed Apps Script must be **re-pasted and redeployed**. An existing `WorkPulse_Logs` sheet keeps its old header row, because headers are only written when the sheet is first created, so the header needs adding manually.
 
 ## 6. Display (check every theme)

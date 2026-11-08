@@ -54,7 +54,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
       status,
       tags: selectedTag ? [selectedTag] : ['#deep-work'],
       linkUrl: linkUrl.trim() || undefined,
-      durationMinutes: 30,
+      durationMinutes: undefined,
       energyRating: 4,
     });
 
