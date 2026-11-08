@@ -1,4 +1,5 @@
 import { BacklogTask } from '../types';
+import { localDateOfIso } from './dates';
 
 // Seconds of a task's tracked time already written into a log. Tasks logged before this field
 // existed only have isSynthesized, so for them everything tracked so far counts as logged.
@@ -27,8 +28,8 @@ export function isEodCandidate(t: BacklogTask, todayStr: string, isCustomSelecti
   const isToday =
     t.dueDate === todayStr ||
     t.originalDate === todayStr ||
-    !!t.completedAt?.startsWith(todayStr) ||
-    !!t.startedAt?.startsWith(todayStr);
+    (!!t.completedAt && localDateOfIso(t.completedAt) === todayStr) ||
+    (!!t.startedAt && localDateOfIso(t.startedAt) === todayStr);
   const hasActivity = unlogged > 0 || t.completed || t.stage !== 'planned';
   return isToday && hasActivity;
 }

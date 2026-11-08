@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus, BacklogTask } from '../../types';
 import {
   CornerDownLeft,
@@ -54,8 +55,8 @@ export const CompactConsoleLayout: React.FC<CompactConsoleLayoutProps> = ({
     if (!description.trim()) return;
 
     onAddLog({
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
+      date: localDateStr(),
+      time: localTimeStr(),
       projectId: activeProject?.id || 'default',
       projectName: activeProject?.name || 'General',
       description: description.trim(),

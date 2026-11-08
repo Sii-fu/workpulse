@@ -1,4 +1,5 @@
 import { WorkLog, BacklogTask, Project, AppSettings, BackupData } from '../types';
+import { localDateStr } from './dates';
 import { getInitialSeedData, DEFAULT_SETTINGS } from '../data/seedData';
 
 const KEYS = {
@@ -78,33 +79,19 @@ function runMigrations(_storedVersion: number): void {
   // No migrations yet: version 1 is the current shape.
 }
 
-export function loadStoredData() {
-  const seed = getInitialSeedData();
-  const warnings: string[] = [];
-
-  const logs = readKey<WorkLog[]>(KEYS.LOGS, isLogArray, seed.logs, [], warnings);
-  let backlog = readKey<BacklogTask[]>(KEYS.BACKLOG, isBacklogArray, seed.backlog, [], warnings);
-  const projects = readKey<Project[]>(KEYS.PROJECTS, isProjectArray, seed.projects, [], warnings);
-  const tags = readKey<string[]>(KEYS.TAGS, isStringArray, seed.tags, [], warnings);
-  const storedSettings = readKey<Partial<AppSettings> | null>(
-    KEYS.SETTINGS,
-    (v): v is Partial<AppSettings> | null => isSettingsObject(v),
-    null,
-    null,
-    warnings,
-  );
-  const settings: AppSettings = { ...DEFAULT_SETTINGS, ...(storedSettings || {}) };
-
-  // Apply auto-rollover logic: if a task's dueDate is in the past and it is not completed, roll it over to today!
-  const todayStr = new Date().toISOString().split('T')[0];
-  let updatedBacklog = false;
-
-  backlog = backlog.map((task) => {
+// Normalises tasks and moves unfinished past-due tasks to todayStr. Also runs while the app stays
+// open across midnight (App.tsx), not only at load.
+export function rollOverTasks(
+  backlog: BacklogTask[],
+  todayStr: string,
+): { tasks: BacklogTask[]; changed: boolean } {
+  let changed = false;
+  const tasks = backlog.map((task) => {
     const normalizedStage = task.stage || (task.completed ? 'done' : 'planned');
     const isDone = normalizedStage === 'done' || task.completed;
 
     if (!isDone && task.dueDate < todayStr) {
-      updatedBacklog = true;
+      changed = true;
       return {
         ...task,
         stage: normalizedStage,
@@ -123,6 +110,30 @@ export function loadStoredData() {
       isRunning: normalizedStage === 'in_progress',
     };
   });
+  return { tasks, changed };
+}
+
+export function loadStoredData() {
+  const seed = getInitialSeedData();
+  const warnings: string[] = [];
+
+  const logs = readKey<WorkLog[]>(KEYS.LOGS, isLogArray, seed.logs, [], warnings);
+  let backlog = readKey<BacklogTask[]>(KEYS.BACKLOG, isBacklogArray, seed.backlog, [], warnings);
+  const projects = readKey<Project[]>(KEYS.PROJECTS, isProjectArray, seed.projects, [], warnings);
+  const tags = readKey<string[]>(KEYS.TAGS, isStringArray, seed.tags, [], warnings);
+  const storedSettings = readKey<Partial<AppSettings> | null>(
+    KEYS.SETTINGS,
+    (v): v is Partial<AppSettings> | null => isSettingsObject(v),
+    null,
+    null,
+    warnings,
+  );
+  const settings: AppSettings = { ...DEFAULT_SETTINGS, ...(storedSettings || {}) };
+
+  // Auto-rollover: unfinished tasks whose due date has passed move to today (local date).
+  const rolled = rollOverTasks(backlog, localDateStr());
+  backlog = rolled.tasks;
+  const updatedBacklog = rolled.changed;
 
   try {
     if (updatedBacklog) {

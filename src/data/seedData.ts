@@ -1,4 +1,5 @@
 import { Project, WorkLog, BacklogTask, AppSettings } from '../types';
+import { localDateStr } from '../utils/dates';
 
 export const INITIAL_PROJECTS: Project[] = [
   { id: 'proj-1', name: 'Core Platform & API', color: '#10b981', isArchived: false },
@@ -34,7 +35,7 @@ export function getInitialSeedData(): {
   tags: string[];
 } {
   const today = new Date();
-  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+  const formatDate = (d: Date) => localDateStr(d);
 
   const todayStr = formatDate(today);
 

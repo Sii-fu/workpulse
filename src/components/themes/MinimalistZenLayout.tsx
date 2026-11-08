@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { localDateStr, localTimeStr } from '../../utils/dates';
 import { WorkLog, Project, TaskStatus } from '../../types';
 import {
   Check,
@@ -32,7 +33,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
   onOpenImage,
   onCopyText,
 }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState(projects[0]?.id || '');
   const [status, setStatus] = useState<TaskStatus>('completed');
@@ -47,7 +48,7 @@ export const MinimalistZenLayout: React.FC<MinimalistZenLayoutProps> = ({
 
     onAddLog({
       date: todayStr,
-      time: new Date().toTimeString().slice(0, 5),
+      time: localTimeStr(),
       projectId: activeProject?.id || 'default',
       projectName: activeProject?.name || 'General',
       description: description.trim(),

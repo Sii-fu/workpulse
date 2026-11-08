@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { localDateStr } from '../utils/dates';
 import { WorkLog, ReportFormat, ReportTone } from '../types';
 import { generateAiReport } from '../utils/aiGenerator';
 import { modelLabel } from '../utils/geminiModels';
@@ -43,7 +44,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Active logs to include: if specific logs are selected, use them; otherwise use today's logs
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
   const activeLogs =
     selectedLogIds.length > 0
       ? logs.filter((l) => selectedLogIds.includes(l.id))

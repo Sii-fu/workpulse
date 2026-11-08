@@ -1,4 +1,5 @@
 import express from 'express';
+import { localDateStr } from './src/utils/dates';
 import http from 'http';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
@@ -112,7 +113,7 @@ async function startServer() {
   // End-of-Day (EOD) AI Log Synthesizer endpoint
   app.post('/api/synthesize-eod', async (req, res) => {
     try {
-      const { tasks = [], projects = [], date = new Date().toISOString().split('T')[0], customApiKey } = req.body;
+      const { tasks = [], projects = [], date = localDateStr(), customApiKey } = req.body;
 
       if (!Array.isArray(tasks) || tasks.length === 0) {
         return res.json({ synthesizedLogs: [] });

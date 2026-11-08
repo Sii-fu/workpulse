@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { localDateStr, localTimeStr } from './utils/dates';
 import {
   WorkLog,
   BacklogTask,
@@ -20,6 +21,7 @@ import {
   saveTags as storeTags,
   saveSettings as storeSettings,
   replaceAllData,
+  rollOverTasks,
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
@@ -27,6 +29,7 @@ import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
 import { minutesFromSeconds } from './utils/duration';
 import { unsyncedLogs } from './utils/syncStatus';
+import { applyDateFixes, DateFix } from './utils/logDates';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -196,7 +199,7 @@ export default function App() {
       colorMode: activeTheme === 'matrix' ? 'dark' : activeMode,
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr();
     if (loaded.settings?.lastDismissedReminderDate === todayStr) {
       setReminderDismissed(true);
     }
@@ -287,6 +290,24 @@ export default function App() {
     };
   }, []);
 
+  // Midnight rollover: if the date changes while the app stays open, move unfinished past-due
+  // tasks to the new day (before, this only happened when the page was reloaded).
+  useEffect(() => {
+    let lastDate = localDateStr();
+    const id = setInterval(() => {
+      const now = localDateStr();
+      if (now === lastDate) return;
+      lastDate = now;
+      setBacklog((prev) => {
+        const { tasks, changed } = rollOverTasks(prev, now);
+        if (!changed) return prev;
+        saveBacklog(tasks);
+        return tasks;
+      });
+    }, 30000);
+    return () => clearInterval(id);
+  }, []);
+
   // 4. Persistence Handlers
   const handleThemeChange = (newTheme: ThemeId) => {
     const newMode = newTheme === 'matrix' ? 'dark' : settings.colorMode;
@@ -363,8 +384,8 @@ export default function App() {
     const duplicated: WorkLog = {
       ...log,
       id: `log-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
+      date: localDateStr(),
+      time: localTimeStr(),
       createdAt: new Date().toISOString(),
     };
     const updated = [duplicated, ...logs];
@@ -382,10 +403,10 @@ export default function App() {
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       projectId,
-      dueDate: new Date().toISOString().split('T')[0],
+      dueDate: localDateStr(),
       completed: stage === 'done',
       stage,
-      originalDate: new Date().toISOString().split('T')[0],
+      originalDate: localDateStr(),
       isRolledOver: false,
       startedAt: stage === 'in_progress' ? new Date().toISOString() : undefined,
     };
@@ -506,8 +527,8 @@ export default function App() {
 
     const newLog: WorkLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
+      date: localDateStr(),
+      time: localTimeStr(),
       projectId: task.projectId,
       projectName: project?.name || 'General',
       description: task.title,
@@ -543,11 +564,11 @@ export default function App() {
 
   // EOD AI Synthesizer Push Handler
   const handleConfirmEodPush = async (items: SynthesizedLogItem[]) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr();
     const newLogs: WorkLog[] = items.map((item) => ({
       id: `log-eod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       date: todayStr,
-      time: new Date().toTimeString().slice(0, 5),
+      time: localTimeStr(),
       projectId: item.projectId,
       projectName: item.projectName,
       description: item.summaryBullets,
@@ -661,7 +682,7 @@ export default function App() {
       )
     ) {
       downloadTextFile(
-        `workpulse-pre-reset-${new Date().toISOString().split('T')[0]}.json`,
+        `workpulse-pre-reset-${localDateStr()}.json`,
         buildBackup({ logs, backlog, projects, tags, settings }),
       );
       const seed = getInitialSeedData();
@@ -674,6 +695,18 @@ export default function App() {
       saveProjects(seed.projects);
       saveTags(seed.tags);
       addToast('Reset to demo data. Your previous data was downloaded as a backup file.');
+    }
+  };
+
+  const handleFixLogDates = (fixes: DateFix[]) => {
+    downloadTextFile(
+      `workpulse-pre-datefix-${localDateStr()}.json`,
+      buildBackup({ logs, backlog, projects, tags, settings }),
+    );
+    const updated = applyDateFixes(logs, fixes);
+    setLogs(updated);
+    if (saveLogs(updated).ok) {
+      addToast(`Fixed the date of ${fixes.length} log(s). A backup file was downloaded first.`);
     }
   };
 
@@ -714,7 +747,7 @@ export default function App() {
 
   const handleDismissReminder = () => {
     setReminderDismissed(true);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDateStr();
     const updated = { ...settings, lastDismissedReminderDate: todayStr };
     setSettings(updated);
     saveSettings(updated);
@@ -728,7 +761,7 @@ export default function App() {
     }
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
   const hasLogsToday = logs.some((l) => l.date === todayStr);
   const pendingTasksCount = backlog.filter((t) => !t.completed && t.stage !== 'done').length;
 
@@ -955,6 +988,7 @@ export default function App() {
             backlog={backlog}
             onResetSeedData={handleResetSeedData}
             onImportBackup={handleImportBackup}
+            onFixLogDates={handleFixLogDates}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
           />
         )}
