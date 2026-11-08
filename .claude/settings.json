@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch)",
+      "Bash(git branch -a)",
+      "Bash(git branch -v)",
+      "Bash(git branch -vv)",
+      "Bash(git branch --show-current)"
+    ],
+    "deny": [
+      "Read(/.env.local)",
+      "Read(/.env)",
+      "Read(/node_modules/**)",
+      "Read(/dist/**)",
+      "Read(/package-lock.json)",
+      "Read(/bun.lock)"
+    ]
+  },
+  "skillOverrides": {
+    "brandkit": "off",
+    "design-taste-frontend": "off",
+    "design-taste-frontend-v1": "off",
+    "find-skills": "off",
+    "full-output-enforcement": "off",
+    "gpt-taste": "off",
+    "high-end-visual-design": "off",
+    "image-to-code": "off",
+    "imagegen-frontend-mobile": "off",
+    "imagegen-frontend-web": "off",
+    "industrial-brutalist-ui": "off",
+    "minimalist-ui": "off",
+    "redesign-existing-projects": "off",
+    "stitch-design-taste": "off",
+    "web-design-guidelines": "off"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/lint-on-stop.mjs"
+            ],
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "playwright@anthropic-plugin-directory": false,
+    "playwright@synced": false
+  }
+}

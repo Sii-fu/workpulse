@@ -1,0 +1,13 @@
+# Graphify: keep the knowledge graph code-only.
+# gitignore syntax; rules are relative to the repo root (the scan root).
+
+# Claude Code tooling (skills, hooks, settings)
+.claude/
+
+# Project docs
+/CLAUDE.md
+/README.md
+implementation_plan.md*
+
+# License files anywhere
+LICENSE*
