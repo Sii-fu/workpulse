@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { isAllowedScriptUrl } from './src/utils/scriptUrl';
 
 // Load .env.local first (local overrides), then fall back to .env
 dotenv.config({ path: ['.env.local', '.env'], quiet: true });
@@ -16,6 +17,8 @@ async function startServer() {
   const app = express();
   const httpServer = http.createServer(app);
   const PORT = Number(process.env.PORT) || 3000;
+  // Localhost only by default. Set HOST=0.0.0.0 to allow other devices on your network (no authentication!).
+  const HOST = process.env.HOST || '127.0.0.1';
 
   app.use(express.json({ limit: '15mb' }));
 
@@ -396,6 +399,12 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
         return res.status(400).json({ error: 'Google Apps Script URL is required' });
       }
 
+      if (!isAllowedScriptUrl(String(scriptUrl))) {
+        return res.status(400).json({
+          error: 'Only Google Apps Script URLs (https://script.google.com/macros/s/...) are allowed',
+        });
+      }
+
       const targetUrl = new URL(scriptUrl);
       if (action) {
         targetUrl.searchParams.set('action', action);
@@ -469,8 +478,8 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`WorkPulse Server running on http://0.0.0.0:${PORT}`);
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`WorkPulse Server running on http://${HOST}:${PORT}`);
   });
 }
 
