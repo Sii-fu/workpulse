@@ -10,6 +10,7 @@ import {
   ToastMessage,
   TaskStatus,
   TaskStage,
+  BackupData,
 } from './types';
 import {
   loadStoredData,
@@ -18,8 +19,10 @@ import {
   saveProjects as storeProjects,
   saveTags as storeTags,
   saveSettings as storeSettings,
+  replaceAllData,
   SaveResult,
 } from './utils/storage';
+import { buildBackup, downloadTextFile } from './utils/backup';
 import { getInitialSeedData } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
 
@@ -523,7 +526,15 @@ export default function App() {
   };
 
   const handleResetSeedData = () => {
-    if (window.confirm('Reset all work logs and backlog to the default software engineering seed data?')) {
+    if (
+      window.confirm(
+        'Replace all work logs, tasks, projects and tags with the demo data? A backup file of your current data will be downloaded first.',
+      )
+    ) {
+      downloadTextFile(
+        `workpulse-pre-reset-${new Date().toISOString().split('T')[0]}.json`,
+        buildBackup({ logs, backlog, projects, tags, settings }),
+      );
       const seed = getInitialSeedData();
       setLogs(seed.logs);
       setBacklog(seed.backlog);
@@ -533,8 +544,19 @@ export default function App() {
       saveBacklog(seed.backlog);
       saveProjects(seed.projects);
       saveTags(seed.tags);
-      addToast('Reset to software engineering seed data');
+      addToast('Reset to demo data. Your previous data was downloaded as a backup file.');
     }
+  };
+
+  const handleImportBackup = (data: BackupData) => {
+    // Keep this machine's API key; backups never contain one.
+    const result = replaceAllData({ ...data, settings: { ...data.settings, geminiApiKey: settings.geminiApiKey } });
+    if (!result.ok) {
+      addToast('Import failed: browser storage is full. Nothing was changed.', 'error');
+      return;
+    }
+    // Reload so the normal loader normalises the imported data (stages, rollover, theme).
+    window.location.reload();
   };
 
   const handleSyncGoogleSheet = async () => {
@@ -793,6 +815,7 @@ export default function App() {
             logs={logs}
             backlog={backlog}
             onResetSeedData={handleResetSeedData}
+            onImportBackup={handleImportBackup}
             onNotify={(msg, type) => addToast(msg, type || 'info')}
           />
         )}

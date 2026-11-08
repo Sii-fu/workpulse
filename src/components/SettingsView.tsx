@@ -7,7 +7,9 @@ import {
   WorkLog,
   BacklogTask,
   ReportTone,
+  BackupData,
 } from '../types';
+import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
@@ -44,6 +46,7 @@ interface SettingsViewProps {
   logs: WorkLog[];
   backlog: BacklogTask[];
   onResetSeedData: () => void;
+  onImportBackup: (data: BackupData) => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -59,6 +62,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   logs,
   backlog,
   onResetSeedData,
+  onImportBackup,
   onNotify,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
@@ -167,22 +171,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Export JSON
   const handleExportJSON = () => {
-    const data = {
-      logs,
-      backlog,
-      projects,
-      tags,
-      settings,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `workpulse-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    onNotify('Exported JSON backup', 'success');
+    downloadTextFile(
+      `workpulse-backup-${new Date().toISOString().split('T')[0]}.json`,
+      buildBackup({ logs, backlog, projects, tags, settings }),
+    );
+    onNotify('Exported JSON backup (the Gemini API key is not included)', 'success');
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const result = parseBackup(await file.text());
+    if (!result.ok) {
+      onNotify(`Import failed: ${result.error}`, 'error');
+      return;
+    }
+    const d = result.data;
+    if (
+      window.confirm(
+        `Replace ALL current data with this backup?
+
+${d.logs.length} logs, ${d.backlog.length} tasks, ${d.projects.length} projects, ${d.tags.length} tags.
+
+Your current Gemini API key is kept. Export a backup first if you want to keep your current data.`,
+      )
+    ) {
+      onImportBackup(d);
+    }
   };
 
   // Export CSV
@@ -717,7 +733,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Export Full JSON Backup
                   </span>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Contains all work logs, active planned tasks, projects, tags, and settings.
+                    Contains all work logs, tasks, projects, tags, and settings (never your Gemini API key). Importing replaces all current data.
                   </p>
                   <button
                     onClick={handleExportJSON}
@@ -726,6 +742,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <Download className="w-3.5 h-3.5" />
                     <span>Download JSON Backup</span>
                   </button>
+                  <label className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] inline-flex items-center gap-1.5 transition-all cursor-pointer ml-2">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import JSON Backup</span>
+                    <input type="file" accept="application/json,.json" className="hidden" onChange={handleImportFile} />
+                  </label>
                 </div>
 
                 <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-2.5">
@@ -750,7 +771,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Reset Data
                 </span>
                 <p className="text-xs text-[var(--text-muted)]">
-                  Restore default Software Engineering tasks, projects, and backlog seed data.
+                  Replaces logs, tasks, projects and tags with the demo data. A backup file is downloaded first.
                 </p>
                 <button
                   type="button"

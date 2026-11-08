@@ -1,4 +1,4 @@
-import { WorkLog, BacklogTask, Project, AppSettings } from '../types';
+import { WorkLog, BacklogTask, Project, AppSettings, BackupData } from '../types';
 import { getInitialSeedData, DEFAULT_SETTINGS } from '../data/seedData';
 
 const KEYS = {
@@ -155,6 +155,33 @@ export const saveBacklog = (backlog: BacklogTask[]) => saveKey(KEYS.BACKLOG, bac
 export const saveProjects = (projects: Project[]) => saveKey(KEYS.PROJECTS, projects, 'projects');
 export const saveTags = (tags: string[]) => saveKey(KEYS.TAGS, tags, 'tags');
 export const saveSettings = (settings: AppSettings) => saveKey(KEYS.SETTINGS, settings, 'settings');
+
+// Replaces all five data keys at once (backup import). If any write fails, every key is
+// restored to its previous value so a failed import cannot leave a half-written state.
+export function replaceAllData(d: BackupData): SaveResult {
+  const entries: [string, unknown][] = [
+    [KEYS.LOGS, d.logs],
+    [KEYS.BACKLOG, d.backlog],
+    [KEYS.PROJECTS, d.projects],
+    [KEYS.TAGS, d.tags],
+    [KEYS.SETTINGS, d.settings],
+  ];
+  const previous = entries.map(([k]) => [k, localStorage.getItem(k)] as const);
+  try {
+    for (const [k, v] of entries) localStorage.setItem(k, JSON.stringify(v));
+    return { ok: true };
+  } catch (e) {
+    for (const [k, v] of previous) {
+      try {
+        if (v === null) localStorage.removeItem(k);
+        else localStorage.setItem(k, v);
+      } catch {
+        // best effort
+      }
+    }
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 export function saveActiveDraft(draft: ActiveDraft) {
   try {

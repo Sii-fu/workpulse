@@ -75,3 +75,11 @@ export interface ToastMessage {
   type: 'success' | 'error' | 'info';
   message: string;
 }
+
+export interface BackupData {
+  logs: WorkLog[];
+  backlog: BacklogTask[];
+  projects: Project[];
+  tags: string[];
+  settings: AppSettings;
+}
