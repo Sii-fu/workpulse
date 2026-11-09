@@ -34,10 +34,14 @@ export function estimateMinutes(timesIso: string[]): number {
   return total;
 }
 
-export function formatEstimate(minutes: number): string {
-  if (minutes <= 0) return 'no duration';
+/** "45m", "2h", "1h 10m". */
+export function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  const body = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-  return `~${body} (estimated)`;
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+export function formatEstimate(minutes: number): string {
+  if (minutes <= 0) return 'no duration';
+  return `~${formatMinutes(minutes)} (estimated)`;
 }

@@ -25,6 +25,7 @@ import {
   Flame,
   Terminal,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 
 export interface SynthesizedLogItem {
@@ -58,6 +59,8 @@ interface EodSynthesizerModalProps {
   geminiApiKey: string;
   hasGoogleSheetLinked: boolean;
   onConfirmAndPush: (items: SynthesizedLogItem[]) => Promise<void>;
+  /** Opens the activity suggestions dialog (logs suggested from git commits and Claude Code history). */
+  onOpenActivity?: () => void;
 }
 
 function formatDurationSeconds(sec: number): string {
@@ -79,6 +82,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   geminiApiKey,
   hasGoogleSheetLinked,
   onConfirmAndPush,
+  onOpenActivity,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -338,6 +342,21 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
 
         {/* Modal Body / Review Console */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          {onOpenActivity && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-[var(--radius-card)] border border-[var(--border-control)] bg-[var(--bg-subtle)]">
+              <p className="text-xs text-[var(--text-muted)]">
+                Did work today that you did not track? Pick logs from your git commits and Claude Code history.
+              </p>
+              <button
+                type="button"
+                onClick={onOpenActivity}
+                className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Suggest from my activity</span>
+              </button>
+            </div>
+          )}
           {isLoading ? (
             <div className="py-16 text-center space-y-4">
               <Loader2 className="w-10 h-10 mx-auto text-[var(--accent-text)] animate-spin" />

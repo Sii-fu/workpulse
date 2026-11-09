@@ -9,6 +9,7 @@ import {
   RefreshCw,
   MessageSquareText,
   ClipboardCheck,
+  Sparkles,
 } from 'lucide-react';
 import { NAV_TABS } from '../utils/nav';
 import { LogoMark } from './ui/LogoMark';
@@ -24,6 +25,7 @@ interface TopBarProps {
   onOpenSearch: () => void;
   onOpenAiStandup: () => void;
   onOpenEod: () => void;
+  onOpenActivity: () => void;
   hasGoogleSheetLinked: boolean;
   onSyncGoogleSheet?: () => void;
   unsyncedCount?: number;
@@ -69,6 +71,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenSearch,
   onOpenAiStandup,
   onOpenEod,
+  onOpenActivity,
   hasGoogleSheetLinked,
   onSyncGoogleSheet,
   unsyncedCount = 0,
@@ -186,6 +189,16 @@ export const TopBar: React.FC<TopBarProps> = ({
             >
               <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">End of day</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenActivity}
+              className={pairBtn}
+              title="Suggest logs from your git commits and Claude Code history"
+              aria-label="Suggest logs"
+            >
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Suggest logs</span>
             </button>
           </div>
 

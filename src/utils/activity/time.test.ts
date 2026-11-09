@@ -1,7 +1,7 @@
 process.env.TZ = 'Asia/Dhaka';
 
 import { describe, it, expect } from 'vitest';
-import { localDayToUtcRange, estimateMinutes, formatEstimate } from './time';
+import { localDayToUtcRange, estimateMinutes, formatEstimate, formatMinutes } from './time';
 
 const inRange = (iso: string, r: { startIso: string; endIso: string }) => iso >= r.startIso && iso < r.endIso;
 
@@ -39,4 +39,12 @@ describe('formatEstimate', () => {
   it('formats minutes only', () => expect(formatEstimate(45)).toBe('~45m (estimated)'));
   it('formats whole hours', () => expect(formatEstimate(120)).toBe('~2h (estimated)'));
   it('says no duration for 0', () => expect(formatEstimate(0)).toBe('no duration'));
+});
+
+describe('formatMinutes', () => {
+  it('formats minutes, whole hours, and hours with minutes', () => {
+    expect(formatMinutes(45)).toBe('45m');
+    expect(formatMinutes(120)).toBe('2h');
+    expect(formatMinutes(70)).toBe('1h 10m');
+  });
 });

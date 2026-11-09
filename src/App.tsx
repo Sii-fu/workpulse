@@ -60,6 +60,8 @@ import { publishTimers } from './utils/timerStore';
 import { LogListProps, QuickLogProps } from './components/feed/types';
 import { isPendingTask } from './utils/taskLogging';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
+import { ActivitySuggestionsDialog } from './components/activity/ActivitySuggestionsDialog';
+import { sourcesFromSettings } from './utils/activity/settings';
 
 // Distinct Sub-Layouts Per Theme
 import { MinimalistZenLayout } from './components/themes/MinimalistZenLayout';
@@ -90,6 +92,7 @@ export default function App() {
   const [eodTasksSnapshot, setEodTasksSnapshot] = useState<BacklogTask[]>([]);
   const [isEodCustomSelection, setIsEodCustomSelection] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isActivityOpen, setIsActivityOpen] = useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
 
   // Opens EOD modal with a frozen snapshot of backlog tasks to decouple from 1-second live timer ticks
@@ -402,6 +405,35 @@ export default function App() {
     }
   };
 
+  // Adds several logs in one state update (handleAddLog called in a loop would overwrite itself,
+  // because each call starts from the same `logs`). Used by activity suggestions.
+  const handleAddLogs = (batch: Omit<WorkLog, 'id' | 'createdAt'>[]) => {
+    if (batch.length === 0) return;
+    const stamp = Date.now();
+    const created: WorkLog[] = batch.map((data, i) => ({
+      ...data,
+      id: `log-${stamp}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString(),
+    }));
+    const updated = [...created, ...logs];
+    setLogs(updated);
+    markJustAdded(created[0].id);
+    if (saveLogs(updated).ok) {
+      addToast(created.length === 1 ? 'Work log recorded successfully!' : `${created.length} work logs recorded.`);
+    }
+
+    if (settings.googleScriptUrl) {
+      syncBatchLogsToSheet(settings.googleScriptUrl, created).then((res) => {
+        if (res.success) {
+          markLogsSynced(created.map((l) => l.id));
+          addToast('Synced with Google Sheet', 'success');
+        } else {
+          reportSyncFailure(res.message, () => handleSyncGoogleSheet());
+        }
+      });
+    }
+  };
+
   const handleEditLog = (log: WorkLog) => {
     setEditingLog(log);
     setPrefillLog(null);
@@ -447,6 +479,9 @@ export default function App() {
       // a copy is a new log: it must not inherit "already synced" or "edited" from the original
       syncedAt: undefined,
       editedAt: undefined,
+      // the original keeps the activity it was suggested from; a copy must not hold it too, or
+      // deleting the original would never free that activity for suggestions again
+      sourceIds: undefined,
     };
     const updated = [duplicated, ...logs];
     setLogs(updated);
@@ -1016,6 +1051,7 @@ export default function App() {
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAiStandup={() => setIsAiStandupOpen(true)}
         onOpenEod={handleOpenEodSynthesizer}
+        onOpenActivity={() => setIsActivityOpen(true)}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onSyncGoogleSheet={handleSyncGoogleSheet}
         unsyncedCount={
@@ -1235,6 +1271,21 @@ export default function App() {
         geminiApiKey={settings.geminiApiKey}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onConfirmAndPush={handleConfirmEodPush}
+        onOpenActivity={() => setIsActivityOpen(true)}
+      />
+
+      {/* Activity suggestions: logs suggested from git commits and Claude Code history */}
+      <ActivitySuggestionsDialog
+        isOpen={isActivityOpen}
+        onClose={() => setIsActivityOpen(false)}
+        logs={logs}
+        backlog={backlog}
+        projects={projects}
+        folders={settings.activityFolders ?? []}
+        sources={sourcesFromSettings(settings)}
+        geminiApiKey={settings.geminiApiKey}
+        onAddLogs={handleAddLogs}
+        onOpenSettings={() => setActiveTab('settings')}
       />
 
       {/* AI Standup Modal */}
