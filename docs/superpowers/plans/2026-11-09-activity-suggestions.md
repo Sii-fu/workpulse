@@ -85,7 +85,7 @@ export interface Suggestion {
 
 ### Task 0: Branch
 
-- [ ] **Step 1: Create `feat/activity-suggestions`.** The base branch is **not yet confirmed**: the instruction says "from main", but `main` is 9 commits behind `design/overhaul` and this plan edits files (`App.tsx`, `SettingsView.tsx`, `types.ts`, `backup.ts`, `EodSynthesizerModal.tsx`, `TopBar.tsx`) whose current versions, including uncommitted work, exist only there. Do not run `git checkout -b` until the user has chosen the base and what to do with the uncommitted changes in the working tree. Then confirm with `git branch --show-current`.
+- [x] **Step 1: Create `feat/activity-suggestions`. Done.** The user chose to branch from `design/overhaul` instead of `main` (`main` is 9 commits behind, and the files this plan edits exist in their current form only there). The user's uncommitted work was committed first as `afc02bc` on `design/overhaul`, then the branch was created and the design and plan docs committed (`58d2d2a`). Confirm with `git branch --show-current`.
 
 ### Task 1: Data model, settings fields, pure time and sanitize helpers
 
@@ -239,5 +239,4 @@ export interface Suggestion {
 
 - Spec coverage: sources git + opt-in Claude (Tasks 2, 5), Settings folders and source toggles (5), Gemini by item ids with template fallback (3, 4), both entry points (6), estimated and editable duration with floor and break rule (1, 6), overlap warning including unlogged timer time (3, 6), de-dup with `sourceIds` and freeing on delete (3, 6), subfolder and cwd-prefix rules (2), loopback plus strict Host guard (4), privacy and redaction (1, 2, 4, 6), CLAUDE.md exception (7), data-model skill (1).
 - Confirmed by the user: suggestions are ordinary logs added via `handleAddLog`, so they sync to the Sheet like every other log; the End of day timesheet itself still comes from tasks only.
-- Open: the user's change 7 (whether to keep an "estimated" marker on the saved log via `data-model-change`) arrived with its choice still unfilled. This plan keeps the original behaviour (the log is a plain number once added) until the user answers. If a marker is wanted: add `WorkLog.durationEstimated?: boolean`, set it in `suggestionToLogData`, clear it in `handleUpdateLog` only when the duration is edited, show "(estimated)" in the four timelines and in the CSV/Sheet export decision, all in Task 1/3/6.
-- Open: Task 0 base branch (see Task 0).
+- Decided by the user: no "estimated" marker on the saved log. The estimate is labelled only while reviewing it in the dialog; once added, the log holds a plain number.
