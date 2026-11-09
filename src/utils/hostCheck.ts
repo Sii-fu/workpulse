@@ -25,3 +25,12 @@ export function isAllowedOrigin(origin: string | undefined, extraHosts: string[]
     return false;
   }
 }
+
+// Stricter than isAllowedHostHeader: the Host header must be exactly localhost:<port> or
+// 127.0.0.1:<port> (no bare hostname, no IPv6 form, no extra hosts). Used by the activity routes,
+// which read files on this computer.
+export function isStrictLocalHost(hostHeader: string | undefined, port: number): boolean {
+  if (!hostHeader) return false;
+  const h = hostHeader.trim().toLowerCase();
+  return h === `localhost:${port}` || h === `127.0.0.1:${port}`;
+}

@@ -10,6 +10,11 @@ import { isAllowedScriptUrl } from './src/utils/scriptUrl';
 import { GEMINI_MODEL_CASCADE, GEMINI_TIMEOUT_MS } from './src/utils/geminiModels';
 import { buildBuckets, mergeSynthesis, templateLog } from './src/utils/eodSynthesis';
 import { isAllowedHostHeader, isAllowedOrigin } from './src/utils/hostCheck';
+import { activityGuard } from './src/server/activityGuard';
+import { scanActivity } from './src/server/activityReaders';
+import { buildActivityPrompt, parseAiTasks } from './src/utils/activity/aiTasks';
+import { clip, redactSecrets } from './src/utils/activity/sanitize';
+import type { ActivityItem, ScanRequest } from './src/utils/activity/types';
 
 // Load .env.local first (local overrides), then fall back to .env
 dotenv.config({ path: ['.env.local', '.env'], quiet: true });
@@ -253,6 +258,74 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
     } catch (err: any) {
       console.error('EOD Synthesis API Error:', err);
       return res.status(500).json({ error: err?.message || 'Failed to synthesize EOD logs' });
+    }
+  });
+
+  // Activity suggestions. Both routes read or describe files on this computer, so they sit behind
+  // activityGuard (loopback bind + strict Host header).
+  app.post('/api/activity/scan', activityGuard(HOST, PORT), async (req, res) => {
+    const body = req.body as Partial<ScanRequest> | undefined;
+    if (!body || typeof body.date !== 'string' || !Array.isArray(body.folders) || typeof body.sources !== 'object' || body.sources === null) {
+      return res.status(400).json({ error: 'The activity request was incomplete.' });
+    }
+    try {
+      const result = await scanActivity({
+        date: body.date,
+        folders: body.folders,
+        sources: { claude: body.sources.claude === true, git: body.sources.git === true },
+      });
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(400).json({ error: err?.message || 'Could not read your activity.' });
+    }
+  });
+
+  app.post('/api/activity/suggest', activityGuard(HOST, PORT), async (req, res) => {
+    try {
+      const { items: rawItems, projectNameByFolder = {}, customApiKey } = req.body ?? {};
+      // Whatever the client sends is re-sanitised here: this is the last stop before Gemini.
+      const items: ActivityItem[] = (Array.isArray(rawItems) ? rawItems : [])
+        .filter(
+          (i: any) =>
+            i && typeof i.id === 'string' && typeof i.folder === 'string' && typeof i.time === 'string' &&
+            typeof i.text === 'string' && (i.source === 'git' || i.source === 'claude'),
+        )
+        .map((i: any) => ({ id: i.id, source: i.source, folder: i.folder, time: i.time, text: clip(redactSecrets(i.text), 200) }));
+      if (items.length === 0) return res.json({ tasks: [] });
+
+      const activeApiKey = (typeof customApiKey === 'string' ? customApiKey.trim() : '') || process.env.GEMINI_API_KEY;
+      if (!activeApiKey) {
+        return res.json({
+          tasks: null,
+          apiKeyMissing: true,
+          notice: 'No Gemini key: using plain wording. Add your key in Settings for AI wording.',
+        });
+      }
+
+      const names: Record<string, string> =
+        projectNameByFolder && typeof projectNameByFolder === 'object' ? projectNameByFolder : {};
+      const { systemInstruction, userPrompt, shortToId } = buildActivityPrompt(items, names);
+      const ai = new GoogleGenAI({ apiKey: activeApiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+      const result = await generateWithCascade(ai, userPrompt, {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        temperature: 0.3,
+      });
+
+      if (!result.text) {
+        console.warn('Activity suggestions: all Gemini models failed:', result.errors);
+        return res.json({ tasks: null, notice: `AI request failed (${shortReason(result.errors)}). Showing plain wording instead.` });
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(result.text);
+      } catch {
+        return res.json({ tasks: null, notice: 'The AI returned an unreadable answer. Showing plain wording instead.' });
+      }
+      return res.json({ tasks: parseAiTasks(parsed, shortToId, items), modelUsed: result.model });
+    } catch (err: any) {
+      console.error('Activity suggest error:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to group your activity.' });
     }
   });
 
