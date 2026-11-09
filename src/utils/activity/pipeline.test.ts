@@ -23,6 +23,7 @@ const base = {
   logs: [] as WorkLog[],
   backlog: [],
   geminiApiKey: 'k',
+  ai: 'claude' as const,
 };
 const items = [item('git:1', '2026-11-09T04:00:00.000Z'), item('git:2', '2026-11-09T04:10:00.000Z')];
 
@@ -35,7 +36,21 @@ describe('loadSuggestions', () => {
     expect(r.suggestions[0]).toMatchObject({ text: 'Did the thing', projectName: 'Alpha', minutes: 10 });
     expect(scan).toHaveBeenCalledWith({ date: DATE, folders: base.folders, sources: base.sources });
     expect(suggest.mock.calls[0][0].projectNameByFolder).toEqual({ '/p/app': 'Alpha' });
-    expect(suggest.mock.calls[0][0].customApiKey).toBe('k');
+    expect(suggest.mock.calls[0][0].provider).toBe('claude');
+    expect(suggest.mock.calls[0][0].customApiKey).toBe(''); // the Gemini key is only sent when Gemini is the chosen AI
+  });
+  it('sends the Gemini key and provider when Gemini is chosen', async () => {
+    const suggest = vi.fn().mockResolvedValue({ tasks: [{ text: 'T', itemIds: ['git:1', 'git:2'] }] });
+    await loadSuggestions({ ...base, ai: 'gemini' }, { scan: vi.fn().mockResolvedValue(scanOf(items)), suggest });
+    expect(suggest.mock.calls[0][0]).toMatchObject({ provider: 'gemini', customApiKey: 'k' });
+  });
+  it('writes plain wording without calling any AI when "none" is chosen', async () => {
+    const suggest = vi.fn();
+    const r = await loadSuggestions({ ...base, ai: 'none' }, { scan: vi.fn().mockResolvedValue(scanOf(items)), suggest });
+    expect(suggest).not.toHaveBeenCalled();
+    expect(r.notice).toBeUndefined();
+    expect(r.suggestions).toHaveLength(1);
+    expect(r.suggestions[0].text).toContain('work git:1');
   });
   it('drops activity already used by a saved log before asking the AI', async () => {
     const used = { id: 'log-1', date: DATE, time: '10:00', projectId: 'proj-a', projectName: 'Alpha', description: 'x', status: 'completed', tags: [], createdAt: 'c', sourceIds: ['git:1'] } as WorkLog;
@@ -95,8 +110,12 @@ describe('describeSources', () => {
 
 describe('noticeSignature', () => {
   it('changes when a source is switched on, so the data notice is shown again', () => {
-    expect(noticeSignature({ claude: false, git: true })).toBe('git');
-    expect(noticeSignature({ claude: true, git: true })).toBe('git+claude');
-    expect(noticeSignature({ claude: false, git: false })).toBe('');
+    expect(noticeSignature({ claude: false, git: true }, 'claude')).toBe('git|claude');
+    expect(noticeSignature({ claude: true, git: true }, 'claude')).toBe('git+claude|claude');
+    expect(noticeSignature({ claude: false, git: false }, 'claude')).toBe('|claude');
+  });
+  it('changes when the AI is changed, because the data goes somewhere else', () => {
+    const sources = { claude: false, git: true };
+    expect(new Set([noticeSignature(sources, 'claude'), noticeSignature(sources, 'gemini'), noticeSignature(sources, 'none')]).size).toBe(3);
   });
 });

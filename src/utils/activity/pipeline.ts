@@ -11,6 +11,7 @@ import type {
   SuggestResponse,
   Suggestion,
   ActivityItem,
+  ActivityAi,
 } from './types';
 
 export interface PipelineArgs {
@@ -20,7 +21,9 @@ export interface PipelineArgs {
   projects: Project[];
   logs: WorkLog[];
   backlog: BacklogTask[];
+  /** Only sent to the server when `ai` is 'gemini'. */
   geminiApiKey: string;
+  ai: ActivityAi;
 }
 
 export interface PipelineResult {
@@ -32,7 +35,7 @@ export interface PipelineResult {
 
 interface Deps {
   scan: (req: ScanRequest) => Promise<ScanResponse>;
-  suggest: (args: { items: ActivityItem[]; projectNameByFolder: Record<string, string>; customApiKey: string }) => Promise<SuggestResponse>;
+  suggest: (args: { items: ActivityItem[]; projectNameByFolder: Record<string, string>; customApiKey: string; provider: 'claude' | 'gemini' }) => Promise<SuggestResponse>;
 }
 
 const REAL: Deps = { scan: scanActivityApi, suggest: suggestTasksApi };
@@ -54,13 +57,21 @@ export async function loadSuggestions(args: PipelineArgs, deps: Deps = REAL): Pr
 
   let tasks = null as SuggestResponse['tasks'];
   let notice: string | undefined;
-  try {
-    const answer = await deps.suggest({ items, projectNameByFolder, customApiKey: args.geminiApiKey });
-    tasks = answer.tasks;
-    notice = answer.notice;
-  } catch (err) {
-    const why = err instanceof Error ? err.message : 'The AI could not be reached.';
-    notice = `${why} Showing plain wording instead.`;
+  // "none" is a choice, not a failure: no AI call and no notice.
+  if (args.ai !== 'none') {
+    try {
+      const answer = await deps.suggest({
+        items,
+        projectNameByFolder,
+        provider: args.ai,
+        customApiKey: args.ai === 'gemini' ? args.geminiApiKey : '',
+      });
+      tasks = answer.tasks;
+      notice = answer.notice;
+    } catch (err) {
+      const why = err instanceof Error ? err.message : 'The AI could not be reached.';
+      notice = `${why} Showing plain wording instead.`;
+    }
   }
 
   const suggestions = buildSuggestions(tasks ?? templateTasks(items), items, {
@@ -87,7 +98,10 @@ export function describeSources(sources: ActivitySources, status: Record<Activit
   return lines;
 }
 
-/** Identifies which sources the data notice covered, so it is shown again when one is switched on. */
-export function noticeSignature(sources: ActivitySources): string {
-  return [sources.git ? 'git' : '', sources.claude ? 'claude' : ''].filter(Boolean).join('+');
+/**
+ * Identifies what the data notice covered: which sources are read and which AI gets the text. The
+ * notice is shown again when either changes, because the data then goes somewhere new.
+ */
+export function noticeSignature(sources: ActivitySources, ai: ActivityAi): string {
+  return `${[sources.git ? 'git' : '', sources.claude ? 'claude' : ''].filter(Boolean).join('+')}|${ai}`;
 }

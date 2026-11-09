@@ -1,4 +1,4 @@
-import type { ActivityFolder } from './utils/activity/types';
+import type { ActivityAi, ActivityFolder } from './utils/activity/types';
 
 export type TaskStatus = 'completed' | 'in_progress' | 'blocked';
 
@@ -90,6 +90,8 @@ export interface AppSettings {
   // Activity sources. Claude Code prompts are opt-in (absent = off); git commits are on unless set to false.
   activityUseClaude?: boolean;
   activityUseGit?: boolean;
+  // Which AI groups the activity into suggestions. Absent = Claude Code.
+  activityAi?: ActivityAi;
 }
 
 export interface ToastMessage {

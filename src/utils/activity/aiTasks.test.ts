@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildActivityPrompt, parseAiTasks } from './aiTasks';
+import { buildActivityPrompt, parseAiTasks, ACTIVITY_TASKS_SCHEMA } from './aiTasks';
 import type { ActivityItem } from './types';
 
 const item = (id: string, over: Partial<ActivityItem> = {}): ActivityItem => ({
@@ -68,5 +68,32 @@ describe('parseAiTasks', () => {
   });
   it('returns no tasks for no items', () => {
     expect(parseAiTasks({ tasks: [] }, {}, [])).toEqual([]);
+  });
+});
+
+describe('parseAiTasks: stray ids in the wording', () => {
+  const items = [item('git:1'), item('git:2')];
+  const shortToId = { i1: 'git:1', i2: 'git:2' };
+  it('removes [i1]-style references from the text', () => {
+    const raw = { tasks: [{ text: 'Fixed the timer drift [i1] and added tests ([i2]).', itemIds: ['i1', 'i2'] }] };
+    const [task] = parseAiTasks(raw, shortToId, items);
+    expect(task.text).toBe('Fixed the timer drift and added tests.');
+  });
+  it('drops a task whose text was only references', () => {
+    const raw = { tasks: [{ text: '[i1] [i2]', itemIds: ['i1', 'i2'] }] };
+    expect(parseAiTasks(raw, shortToId, items)).toEqual([{ text: 'Other activity', itemIds: ['git:1', 'git:2'] }]);
+  });
+  it('tells the model not to put ids in the text', () => {
+    expect(buildActivityPrompt([item('git:1')], { '/p/app': 'App' }).systemInstruction).toMatch(/do not (write|mention|include).*ids?/i);
+  });
+});
+
+describe('ACTIVITY_TASKS_SCHEMA', () => {
+  it('describes { tasks: [{ text, itemIds[] }] }', () => {
+    expect(ACTIVITY_TASKS_SCHEMA).toMatchObject({
+      type: 'object',
+      required: ['tasks'],
+      properties: { tasks: { type: 'array', items: { required: ['text', 'itemIds'] } } },
+    });
   });
 });

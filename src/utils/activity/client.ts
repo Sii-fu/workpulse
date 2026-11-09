@@ -32,4 +32,5 @@ export const suggestTasksApi = (args: {
   items: ActivityItem[];
   projectNameByFolder: Record<string, string>;
   customApiKey: string;
+  provider: 'claude' | 'gemini';
 }): Promise<SuggestResponse> => post<SuggestResponse>('/api/activity/suggest', args);

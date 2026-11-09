@@ -5,6 +5,26 @@ const PER_FOLDER_CAP = 40;
 const ITEM_TEXT_MAX = 200;
 const OTHER_TEXT = 'Other activity';
 
+/** The shape the AI must answer with: { tasks: [{ text, itemIds[] }] }. */
+export const ACTIVITY_TASKS_SCHEMA = {
+  type: 'object',
+  properties: {
+    tasks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { text: { type: 'string' }, itemIds: { type: 'array', items: { type: 'string' } } },
+        required: ['text', 'itemIds'],
+      },
+    },
+  },
+  required: ['tasks'],
+};
+
+// Models sometimes leave the short ids in the sentence: "fixed the drift [i1] and ([i2]) tests".
+const cleanText = (text: string): string =>
+  text.replace(/\s*\(?\[i\d+\]\)?/g, '').replace(/\s+([.,;:])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+
 const baseName = (p: string): string => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 
 const SYSTEM_INSTRUCTION = `You turn a developer's raw activity for one day into short work-log entries.
@@ -17,6 +37,7 @@ RULES:
 1. Refer to items ONLY by their short ids, in "itemIds". Never invent ids. Every item should be in one task.
 2. Do NOT state any duration, time or number of minutes, and do NOT name or choose a project. The app works those out.
 3. No markdown, no bullet characters, no raw commit hashes, no file contents.
+4. Do not write the item ids in the text: ids belong only in "itemIds".
 
 Respond with valid JSON only, in exactly this shape:
 { "tasks": [ { "text": "string", "itemIds": ["i1", "i2"] } ] }`;
@@ -76,7 +97,7 @@ export function parseAiTasks(raw: unknown, shortToId: Record<string, string>, it
   const list = (raw as { tasks?: unknown } | null)?.tasks;
   if (Array.isArray(list)) {
     for (const t of list) {
-      const text = typeof t?.text === 'string' ? t.text.trim() : '';
+      const text = typeof t?.text === 'string' ? cleanText(t.text) : '';
       if (!text || !Array.isArray(t?.itemIds)) continue;
       const ids: string[] = [];
       for (const short of t.itemIds) {

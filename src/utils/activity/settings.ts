@@ -1,5 +1,5 @@
 import type { AppSettings } from '../../types';
-import type { ActivityFolder, ActivitySources } from './types';
+import type { ActivityAi, ActivityFolder, ActivitySources } from './types';
 
 /** A full path: a Windows drive path (E:\x or E:/x) or an absolute POSIX path. */
 export function isFullFolderPath(text: string): boolean {
@@ -41,4 +41,14 @@ export function activityFieldsFromSources(
     activityUseClaude: sources.claude ? true : undefined,
     activityUseGit: sources.git ? undefined : false,
   };
+}
+
+/** Claude Code unless another choice was saved. */
+export function aiFromSettings(s: Pick<AppSettings, 'activityAi'>): ActivityAi {
+  return s.activityAi ?? 'claude';
+}
+
+/** The settings value for this choice; the default is not stored. */
+export function aiField(ai: ActivityAi): ActivityAi | undefined {
+  return ai === 'claude' ? undefined : ai;
 }

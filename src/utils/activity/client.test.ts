@@ -31,11 +31,11 @@ describe('scanActivityApi', () => {
 describe('suggestTasksApi', () => {
   it('returns null tasks and the notice when the server falls back', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { tasks: null, notice: 'No key' })));
-    await expect(suggestTasksApi({ items: [], projectNameByFolder: {}, customApiKey: '' })).resolves.toEqual({ tasks: null, notice: 'No key' });
+    await expect(suggestTasksApi({ items: [], projectNameByFolder: {}, customApiKey: '', provider: 'claude' as const })).resolves.toEqual({ tasks: null, notice: 'No key' });
   });
   it('turns a network failure into a plain sentence', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-    const err = await suggestTasksApi({ items: [], projectNameByFolder: {}, customApiKey: '' }).catch((e) => e);
+    const err = await suggestTasksApi({ items: [], projectNameByFolder: {}, customApiKey: '', provider: 'claude' as const }).catch((e) => e);
     expect(err.message).not.toMatch(/failed to fetch/i);
   });
 });

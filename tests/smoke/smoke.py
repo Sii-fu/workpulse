@@ -911,7 +911,7 @@ def activity_suggestions(s):
     """Suggest logs from activity: nothing is read before the notice is accepted, a ticked suggestion
     becomes a log, and activity a log already used is not offered again. The server is stubbed."""
     p = s.page
-    calls = {"scan": 0, "suggest": []}
+    calls = {"scan": 0, "suggest": [], "providers": []}
     now = datetime.datetime.now(datetime.timezone.utc)
     iso = lambda m: (now - datetime.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     items = [
@@ -925,8 +925,10 @@ def activity_suggestions(s):
                                                        "git": {"ok": True, "count": 2}}})
 
     def suggest(route):
-        sent = [i["id"] for i in json.loads(route.request.post_data)["items"]]
+        body = json.loads(route.request.post_data)
+        sent = [i["id"] for i in body["items"]]
         calls["suggest"].append(sent)
+        calls["providers"].append((body["provider"], body["customApiKey"]))
         route.fulfill(json={"tasks": [{"text": "Stub task " + i.split(":")[1], "itemIds": [i]} for i in sent]})
 
     p.route("**/api/activity/scan", scan)
@@ -970,6 +972,8 @@ def activity_suggestions(s):
     dlg = open_dialog()
     expect(dlg.get_by_label("Log text")).to_have_count(1, timeout=5000)
     assert calls["suggest"][-1] == ["git:b"], f"used activity was offered again: {calls['suggest'][-1]}"
+    # Claude Code is the default AI, and the Gemini key is not sent unless Gemini is chosen
+    assert calls["providers"][0] == ("claude", ""), f"unexpected AI request: {calls['providers'][0]}"
     p.keyboard.press("Escape")
     expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
     s.no_errors()

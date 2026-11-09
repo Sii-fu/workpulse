@@ -13,8 +13,8 @@ import {
 } from '../types';
 import { parseBackup } from '../utils/backup';
 import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
-import { activityFieldsFromSources, sourcesFromSettings } from '../utils/activity/settings';
-import type { ActivityFolder, ActivitySources } from '../utils/activity/types';
+import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
+import type { ActivityAi, ActivityFolder, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { toCsv } from '../utils/csv';
@@ -108,6 +108,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Activity suggestions state
   const [activityFolders, setActivityFolders] = useState<ActivityFolder[]>(settings.activityFolders ?? []);
   const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
+  const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
 
   const handleSaveAll = () => {
     const updated: AppSettings = {
@@ -122,6 +123,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       defaultRecipientName: defaultRecipientName.trim() || undefined,
       activityFolders: activityFolders.length > 0 ? activityFolders : undefined,
       ...activityFieldsFromSources(activitySources),
+      activityAi: aiField(activityAi),
     };
     onSaveSettings(updated);
     onNotify('All settings successfully saved!', 'success');
@@ -807,10 +809,12 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <ActivityFoldersSettings
               folders={activityFolders}
               sources={activitySources}
+              ai={activityAi}
               projects={projects}
-              onChange={(folders, sources) => {
+              onChange={(folders, sources, ai) => {
                 setActivityFolders(folders);
                 setActivitySources(sources);
+                setActivityAi(ai);
               }}
             />
           )}

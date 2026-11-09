@@ -7,7 +7,7 @@ import { describeSources, loadSuggestions, noticeSignature, PipelineResult } fro
 import { suggestionToLogData, trackedMinutesFor } from '../../utils/activity/suggestions';
 import { formatEstimate, formatMinutes } from '../../utils/activity/time';
 import type { BacklogTask, Project, WorkLog } from '../../types';
-import type { ActivityFolder, ActivitySources, Suggestion } from '../../utils/activity/types';
+import type { ActivityAi, ActivityFolder, ActivitySources, Suggestion } from '../../utils/activity/types';
 
 interface ActivitySuggestionsDialogProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ interface ActivitySuggestionsDialogProps {
   projects: Project[];
   folders: ActivityFolder[];
   sources: ActivitySources;
+  ai: ActivityAi;
   geminiApiKey: string;
   /** Adds several logs in one go (one state update, one sheet sync). */
   onAddLogs: (logs: Omit<WorkLog, 'id' | 'createdAt'>[]) => void;
@@ -62,6 +63,7 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
   projects,
   folders,
   sources,
+  ai,
   geminiApiKey,
   onAddLogs,
   onOpenSettings,
@@ -74,14 +76,14 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
   const [addedCount, setAddedCount] = useState(0);
   const [runId, setRunId] = useState(0);
 
-  const signature = noticeSignature(sources);
+  const signature = noticeSignature(sources, ai);
   const hasSetup = folders.length > 0 && (sources.claude || sources.git);
   const activeProjects = projects.filter((p) => !p.isArchived);
 
   // The scan reads the latest logs and tasks without re-running whenever they change
   // (adding logs from this dialog changes them).
-  const latest = useRef({ logs, backlog, projects, folders, sources, geminiApiKey });
-  latest.current = { logs, backlog, projects, folders, sources, geminiApiKey };
+  const latest = useRef({ logs, backlog, projects, folders, sources, geminiApiKey, ai });
+  latest.current = { logs, backlog, projects, folders, sources, geminiApiKey, ai };
 
   // Only the newest scan may write its result: a slower, older one (date changed twice) is dropped.
   const scanSeq = useRef(0);
@@ -108,7 +110,7 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
     setError('');
     try {
       const l = latest.current;
-      const r = await loadSuggestions({ date: forDate, folders: l.folders, sources: l.sources, projects: l.projects, logs: l.logs, backlog: l.backlog, geminiApiKey: l.geminiApiKey });
+      const r = await loadSuggestions({ date: forDate, folders: l.folders, sources: l.sources, projects: l.projects, logs: l.logs, backlog: l.backlog, geminiApiKey: l.geminiApiKey, ai: l.ai });
       if (seq !== scanSeq.current) return;
       setResult(r);
       setRows(
@@ -223,15 +225,21 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
             <div className="py-8 max-w-lg mx-auto space-y-4">
               <h3 className="text-sm font-bold">Before the first scan</h3>
               <ul className="text-xs text-[var(--text-muted)] space-y-1.5 list-disc pl-5">
-                {sources.git && <li>The subjects of your git commits go to Gemini so it can group them and write the log text.</li>}
-                {sources.claude && (
-                  <li>
-                    The first line of your Claude Code prompts, session titles and edited file names go to Gemini too.
-                    Anything that looks like a key or password is hidden first.
-                  </li>
+                {ai === 'none' ? (
+                  <li>Nothing is sent anywhere: the log text is written on this computer from your commits and prompts.</li>
+                ) : (
+                  <>
+                    {sources.git && <li>The subjects of your git commits go to {ai === 'claude' ? 'Claude, through the Claude Code on this computer,' : 'Gemini'} so it can group them and write the log text.</li>}
+                    {sources.claude && (
+                      <li>
+                        The first line of your Claude Code prompts, session titles and edited file names go to {ai === 'claude' ? 'Claude' : 'Gemini'} too.
+                      </li>
+                    )}
+                    <li>Anything that looks like a key or password is hidden first.</li>
+                  </>
                 )}
                 <li>File contents and command output never leave your computer.</li>
-                <li>Without a Gemini key, the text is written from the same material on this computer instead.</li>
+                {ai !== 'none' && <li>If the AI is not available, the text is written from the same material on this computer instead.</li>}
               </ul>
               <button
                 type="button"

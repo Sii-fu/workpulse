@@ -12,7 +12,8 @@ import { buildBuckets, mergeSynthesis, templateLog } from './src/utils/eodSynthe
 import { isAllowedHostHeader, isAllowedOrigin } from './src/utils/hostCheck';
 import { activityGuard } from './src/server/activityGuard';
 import { scanActivity } from './src/server/activityReaders';
-import { buildActivityPrompt, parseAiTasks } from './src/utils/activity/aiTasks';
+import { ACTIVITY_TASKS_SCHEMA, buildActivityPrompt, parseAiTasks } from './src/utils/activity/aiTasks';
+import { runClaudeJson } from './src/server/claudeCli';
 import { clip, redactSecrets } from './src/utils/activity/sanitize';
 import type { ActivityItem, ScanRequest } from './src/utils/activity/types';
 
@@ -282,7 +283,9 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
 
   app.post('/api/activity/suggest', activityGuard(HOST, PORT), async (req, res) => {
     try {
-      const { items: rawItems, projectNameByFolder = {}, customApiKey } = req.body ?? {};
+      const { items: rawItems, projectNameByFolder = {}, customApiKey, provider: rawProvider } = req.body ?? {};
+      // Claude Code (the user's own login on this computer) is the default; Gemini only when asked for.
+      const provider: 'claude' | 'gemini' = rawProvider === 'gemini' ? 'gemini' : 'claude';
       // Whatever the client sends is re-sanitised here: this is the last stop before Gemini.
       const items: ActivityItem[] = (Array.isArray(rawItems) ? rawItems : [])
         .filter(
@@ -293,6 +296,21 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
         .map((i: any) => ({ id: i.id, source: i.source, folder: i.folder, time: i.time, text: clip(redactSecrets(i.text), 200) }));
       if (items.length === 0) return res.json({ tasks: [] });
 
+      const names: Record<string, string> =
+        projectNameByFolder && typeof projectNameByFolder === 'object' ? projectNameByFolder : {};
+      const { systemInstruction, userPrompt, shortToId } = buildActivityPrompt(items, names);
+
+      if (provider === 'claude') {
+        const run = await runClaudeJson({ prompt: `${systemInstruction}
+
+${userPrompt}`, schema: ACTIVITY_TASKS_SCHEMA });
+        if (!run.ok) {
+          console.warn('Activity suggestions: Claude Code failed:', run.reason);
+          return res.json({ tasks: null, notice: `${run.reason} Showing plain wording instead.` });
+        }
+        return res.json({ tasks: parseAiTasks(run.data, shortToId, items), modelUsed: 'Claude Code' });
+      }
+
       const activeApiKey = (typeof customApiKey === 'string' ? customApiKey.trim() : '') || process.env.GEMINI_API_KEY;
       if (!activeApiKey) {
         return res.json({
@@ -301,10 +319,6 @@ You MUST respond strictly with valid JSON conforming to this schema (no markdown
           notice: 'No Gemini key: using plain wording. Add your key in Settings for AI wording.',
         });
       }
-
-      const names: Record<string, string> =
-        projectNameByFolder && typeof projectNameByFolder === 'object' ? projectNameByFolder : {};
-      const { systemInstruction, userPrompt, shortToId } = buildActivityPrompt(items, names);
       const ai = new GoogleGenAI({ apiKey: activeApiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
       const result = await generateWithCascade(ai, userPrompt, {
         systemInstruction,

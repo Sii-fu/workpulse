@@ -1,5 +1,8 @@
 export type ActivitySource = 'claude' | 'git';
 
+/** Which AI groups the activity: Claude Code on this computer, Gemini, or none (plain wording). */
+export type ActivityAi = 'claude' | 'gemini' | 'none';
+
 export interface ActivityFolder {
   path: string;
   projectId: string;

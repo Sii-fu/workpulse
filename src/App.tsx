@@ -61,7 +61,7 @@ import { LogListProps, QuickLogProps } from './components/feed/types';
 import { isPendingTask } from './utils/taskLogging';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
 import { ActivitySuggestionsDialog } from './components/activity/ActivitySuggestionsDialog';
-import { sourcesFromSettings } from './utils/activity/settings';
+import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
 
 // Distinct Sub-Layouts Per Theme
 import { MinimalistZenLayout } from './components/themes/MinimalistZenLayout';
@@ -1283,6 +1283,7 @@ export default function App() {
         projects={projects}
         folders={settings.activityFolders ?? []}
         sources={sourcesFromSettings(settings)}
+        ai={aiFromSettings(settings)}
         geminiApiKey={settings.geminiApiKey}
         onAddLogs={handleAddLogs}
         onOpenSettings={() => setActiveTab('settings')}

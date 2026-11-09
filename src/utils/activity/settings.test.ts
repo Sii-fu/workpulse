@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addActivityFolder, isFullFolderPath, sourcesFromSettings, activityFieldsFromSources } from './settings';
+import { addActivityFolder, isFullFolderPath, sourcesFromSettings, activityFieldsFromSources, aiFromSettings, aiField } from './settings';
 
 describe('isFullFolderPath', () => {
   it.each(['E:\\projects\\app', 'e:/work/x', 'C:\\', '/home/me/app', '  E:\\a  '])('accepts %s', (p) => {
@@ -52,5 +52,21 @@ describe('sourcesFromSettings / activityFieldsFromSources', () => {
     for (const claude of [true, false]) for (const git of [true, false]) {
       expect(sourcesFromSettings(activityFieldsFromSources({ claude, git }))).toEqual({ claude, git });
     }
+  });
+});
+
+describe('aiFromSettings / aiField', () => {
+  it('uses Claude Code unless another choice was saved', () => {
+    expect(aiFromSettings({})).toBe('claude');
+    expect(aiFromSettings({ activityAi: 'gemini' })).toBe('gemini');
+    expect(aiFromSettings({ activityAi: 'none' })).toBe('none');
+  });
+  it('stores only a choice that differs from the default', () => {
+    expect(aiField('claude')).toBeUndefined();
+    expect(aiField('gemini')).toBe('gemini');
+    expect(aiField('none')).toBe('none');
+  });
+  it('round-trips', () => {
+    for (const ai of ['claude', 'gemini', 'none'] as const) expect(aiFromSettings({ activityAi: aiField(ai) })).toBe(ai);
   });
 });
