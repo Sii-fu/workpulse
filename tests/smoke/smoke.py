@@ -952,9 +952,14 @@ def activity_suggestions(s):
     expect(dlg).to_contain_text("(estimated)")
     # nothing is added until a row is ticked
     expect(btn(dlg, "Add selected")).to_be_disabled()
+    # the demo data already has 1h 30m for this project today: the warning says so
+    expect(dlg).to_contain_text("You already have 1h 30m tracked or logged")
+    dlg.get_by_label("Minutes").first.fill("30")
     dlg.get_by_label("Add: Stub task a").check()
     btn(dlg, "Add 1 selected").click()
     expect(rows).to_have_count(1)
+    # the warning counts what was just added, not what was on record when the scan ran
+    expect(dlg).to_contain_text("You already have 2h tracked or logged")
     saved = [l for l in s.ls("workpulse_logs") if l["description"] == "Stub task a"]
     assert len(saved) == 1 and saved[0]["sourceIds"] == ["git:a"], "ticked suggestion was not saved as a log"
     p.keyboard.press("Escape")

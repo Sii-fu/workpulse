@@ -2,7 +2,7 @@ import { localTimeStr } from '../dates';
 import { minutesFromSeconds } from '../duration';
 import { unloggedSeconds } from '../taskLogging';
 import { clip } from './sanitize';
-import { estimateMinutes } from './time';
+import { clusterTimes } from './time';
 import type { BacklogTask, Project, WorkLog } from '../../types';
 import type { ActivityFolder, ActivityItem, AiTask, Suggestion } from './types';
 
@@ -53,8 +53,9 @@ export function buildSuggestions(
 ): Suggestion[] {
   const byId = new Map(items.map((i) => [i.id, i]));
   const projectOfFolder = (folder: string) => args.folders.find((f) => f.path === folder)?.projectId ?? '';
-  const out: Suggestion[] = [];
 
+  // One group per (task, project), in task order.
+  const groups: { projectId: string; task: AiTask; items: ActivityItem[] }[] = [];
   for (const task of tasks) {
     const byProject = new Map<string, ActivityItem[]>();
     for (const id of task.itemIds) {
@@ -64,21 +65,67 @@ export function buildSuggestions(
       byProject.set(projectId, [...(byProject.get(projectId) ?? []), it]);
     }
     for (const [projectId, group] of byProject) {
-      const sorted = [...group].sort((a, b) => a.time.localeCompare(b.time));
-      out.push({
-        key: sorted[0].id,
-        folder: sorted[0].folder,
-        projectId,
-        projectName: args.projects.find((p) => p.id === projectId)?.name ?? 'Unassigned',
-        text: task.text,
-        minutes: estimateMinutes(sorted.map((i) => i.time)),
-        itemIds: sorted.map((i) => i.id),
-        evidence: evidenceOf(sorted),
-        trackedMinutes: trackedMinutesFor(args.date, projectId, args.logs, args.backlog),
-      });
+      groups.push({ projectId, task, items: [...group].sort((a, b) => a.time.localeCompare(b.time)) });
     }
   }
-  return out;
+
+  const minutes = minutesPerGroup(groups);
+  return groups.map((g, i) => ({
+    key: g.items[0].id,
+    folder: g.items[0].folder,
+    projectId: g.projectId,
+    projectName: args.projects.find((p) => p.id === g.projectId)?.name ?? 'Unassigned',
+    text: g.task.text,
+    minutes: minutes[i],
+    itemIds: g.items.map((x) => x.id),
+    evidence: evidenceOf(g.items),
+    trackedMinutes: trackedMinutesFor(args.date, g.projectId, args.logs, args.backlog),
+  }));
+}
+
+/**
+ * Estimated minutes for each group. The AI may interleave one stretch of work across several
+ * tasks, so a project's time is clustered once from all of its items and each cluster's minutes are
+ * shared between the groups by how many of its items they hold. The groups of a project then add up to
+ * that project's real total instead of each counting the same hour again.
+ */
+function minutesPerGroup(groups: { projectId: string; items: ActivityItem[] }[]): number[] {
+  const result: number[] = new Array(groups.length).fill(0);
+  const byProject = new Map<string, number[]>();
+  groups.forEach((g, i) => byProject.set(g.projectId, [...(byProject.get(g.projectId) ?? []), i]));
+
+  for (const indexes of byProject.values()) {
+    const unique = new Map<string, ActivityItem>();
+    for (const i of indexes) for (const it of groups[i].items) unique.set(it.id, it);
+    const clusters = clusterTimes([...unique.values()].map((it) => it.time));
+    const clusterOf = (iso: string) => {
+      const t = new Date(iso).getTime();
+      return clusters.findIndex((c) => t >= c.start && t <= c.end);
+    };
+    const itemsIn = clusters.map(() => 0);
+    for (const it of unique.values()) itemsIn[clusterOf(it.time)]++;
+
+    const share = indexes.map(() => 0);
+    indexes.forEach((gi, k) => {
+      for (const it of groups[gi].items) {
+        const c = clusterOf(it.time);
+        share[k] += clusters[c].minutes / itemsIn[c];
+      }
+    });
+
+    // Whole minutes that add up exactly to the project's total: the largest fractions get the leftovers.
+    const total = clusters.reduce((sum, c) => sum + c.minutes, 0);
+    const floors = share.map(Math.floor);
+    let leftover = total - floors.reduce((a, b) => a + b, 0);
+    const order = share.map((v, k) => k).sort((a, b) => share[b] - Math.floor(share[b]) - (share[a] - Math.floor(share[a])) || a - b);
+    for (const k of order) {
+      if (leftover <= 0) break;
+      floors[k]++;
+      leftover--;
+    }
+    indexes.forEach((gi, k) => (result[gi] = floors[k]));
+  }
+  return result;
 }
 
 /** The no-AI fallback: one task per folder, worded from commit subjects or the user's prompts. */

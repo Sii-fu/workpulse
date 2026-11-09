@@ -272,7 +272,10 @@ export async function scanActivity(
   opts: { claudeDir?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<ScanResponse> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(req.date)) throw new Error('Pick a valid date.');
+  // A malformed path is a bug in the request and is refused. A folder that is simply gone (deleted,
+  // drive unplugged) must not cost the user the other folders' suggestions: it is skipped and reported.
   const paths: string[] = [];
+  const skipped: string[] = [];
   for (const f of req.folders) {
     if (typeof f?.path !== 'string' || !path.isAbsolute(f.path)) {
       throw new Error(`Enter the full folder path, like E:\\projects\\app. (${String(f?.path)})`);
@@ -283,8 +286,8 @@ export async function scanActivity(
     } catch {
       isDir = false;
     }
-    if (!isDir) throw new Error(`Folder not found: ${f.path}`);
-    paths.push(f.path);
+    if (isDir) paths.push(f.path);
+    else skipped.push(f.path);
   }
 
   const range = localDayToUtcRange(req.date);
@@ -292,6 +295,14 @@ export async function scanActivity(
   const git = req.sources.git ? await readGitCommits(paths, range, { env: opts.env }) : { items: [], status: OFF };
 
   const status: Record<ActivitySource, SourceStatus> = { claude: claude.status, git: git.status };
+  if (skipped.length > 0) {
+    // Said once, on the first source that is switched on.
+    const carrier = req.sources.git ? 'git' : req.sources.claude ? 'claude' : null;
+    if (carrier) {
+      const note = `Folder not found, skipped: ${skipped.join(', ')}`;
+      status[carrier] = { ...status[carrier], note: [status[carrier].note, note].filter(Boolean).join('. ') };
+    }
+  }
   const items = [...claude.items, ...git.items].sort((a, b) => a.time.localeCompare(b.time));
   return { items, status };
 }

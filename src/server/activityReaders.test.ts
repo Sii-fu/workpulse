@@ -229,9 +229,30 @@ describe('scanActivity', () => {
   it('rejects a relative path with a plain message', async () => {
     await expect(scanActivity({ date: '2026-11-09', folders: [{ path: 'relative/path', projectId: 'p' }], sources })).rejects.toThrow(/full folder path/i);
   });
-  it('rejects a folder that does not exist', async () => {
+  it('skips a folder that no longer exists, still reads the others, and says so', async () => {
     const missing = path.join(tmp(), 'nope');
-    await expect(scanActivity({ date: '2026-11-09', folders: [{ path: missing, projectId: 'p' }], sources })).rejects.toThrow(/not found|does not exist/i);
+    const real = repo();
+    commit(real, 'kept work', '2026-11-09T10:00:00+06:00');
+    const r = await scanActivity(
+      { date: '2026-11-09', folders: [{ path: missing, projectId: 'p' }, { path: real, projectId: 'p' }], sources },
+      { claudeDir: tmp(), env: isolatedEnv() },
+    );
+    expect(r.items.map((i) => i.text)).toEqual(['kept work']);
+    expect(r.status.git.note).toContain('Folder not found, skipped');
+    expect(r.status.git.note).toContain(missing);
+  });
+  it('returns no items, with the reason, when every listed folder is gone', async () => {
+    const missing = path.join(tmp(), 'nope');
+    const r = await scanActivity({ date: '2026-11-09', folders: [{ path: missing, projectId: 'p' }], sources }, { claudeDir: tmp(), env: isolatedEnv() });
+    expect(r.items).toEqual([]);
+    expect(r.status.git.ok).toBe(true);
+    expect(r.status.git.note).toContain('Folder not found, skipped');
+  });
+  it('puts the skipped-folder note on Claude when git is switched off', async () => {
+    const missing = path.join(tmp(), 'nope');
+    const r = await scanActivity({ date: '2026-11-09', folders: [{ path: missing, projectId: 'p' }], sources: { claude: true, git: false } }, { claudeDir: tmp(), env: isolatedEnv() });
+    expect(r.status.claude.note).toContain('Folder not found, skipped');
+    expect(r.status.git.note).toBe('Turned off in Settings');
   });
   it('does not throw on an empty day', async () => {
     const r = await scanActivity({ date: '2026-11-09', folders: [{ path: tmp(), projectId: 'p' }], sources }, { claudeDir: tmp(), env: isolatedEnv() });

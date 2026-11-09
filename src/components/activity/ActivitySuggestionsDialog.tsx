@@ -4,7 +4,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { IconButton } from '../ui/IconButton';
 import { localDateStr } from '../../utils/dates';
 import { describeSources, loadSuggestions, noticeSignature, PipelineResult } from '../../utils/activity/pipeline';
-import { suggestionToLogData } from '../../utils/activity/suggestions';
+import { suggestionToLogData, trackedMinutesFor } from '../../utils/activity/suggestions';
 import { formatEstimate, formatMinutes } from '../../utils/activity/time';
 import type { BacklogTask, Project, WorkLog } from '../../types';
 import type { ActivityFolder, ActivitySources, Suggestion } from '../../utils/activity/types';
@@ -308,6 +308,8 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
                     {rows.map((r) => {
                       const s = r.suggestion;
                       const unchanged = Number(r.minutes) === s.minutes;
+                      // Live, not frozen at scan time: counts logs added from this dialog and a changed project.
+                      const tracked = trackedMinutesFor(date, r.projectId, logs, backlog);
                       return (
                         <li key={s.key} className="p-3 rounded-[var(--radius-card)] border border-[var(--border-control)] bg-[var(--bg-subtle)] space-y-2.5">
                           <div className="flex items-start gap-2.5">
@@ -354,9 +356,9 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
                             <span className="text-xs text-[var(--text-muted)]">{unchanged ? formatEstimate(s.minutes) : 'edited by you'}</span>
                           </div>
                           <p className="pl-6 text-xs text-[var(--text-muted)]">From: {s.evidence}</p>
-                          {s.trackedMinutes > 0 && (
+                          {tracked > 0 && (
                             <p className="pl-6 text-xs text-warning">
-                              You already have {formatMinutes(s.trackedMinutes)} tracked or logged for this project on this day.
+                              You already have {formatMinutes(tracked)} tracked or logged for this project on this day.
                             </p>
                           )}
                         </li>

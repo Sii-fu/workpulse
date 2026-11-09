@@ -160,3 +160,35 @@ describe('suggestionToLogData', () => {
     expect(s.itemIds).toEqual(['git:1', 'git:2']);
   });
 });
+
+describe('buildSuggestions: minutes are not counted twice', () => {
+  it('shares one project cluster between interleaved tasks instead of counting it per task', () => {
+    // six commits across one hour, 10 minutes apart, split by the AI into three interleaved tasks
+    const times = ['10:00', '10:10', '10:20', '10:30', '10:40', '10:50'];
+    const items = times.map((t, i) => item(`git:${i}`, at(t)));
+    const tasks = [
+      { text: 'A', itemIds: ['git:0', 'git:3'] },
+      { text: 'B', itemIds: ['git:1', 'git:4'] },
+      { text: 'C', itemIds: ['git:2', 'git:5'] },
+    ];
+    const s = buildSuggestions(tasks, items, ctx);
+    const total = s.reduce((sum, x) => sum + x.minutes, 0);
+    expect(total).toBe(50); // one cluster, 10:00 to 10:50: not 3 x 30
+    expect(s.map((x) => x.minutes)).toEqual([17, 17, 16]);
+  });
+  it('keeps a lone suggestion at its own estimate', () => {
+    const items = [item('git:1', at('10:00')), item('git:2', at('10:10'))];
+    expect(buildSuggestions([{ text: 'T', itemIds: ['git:1', 'git:2'] }], items, ctx)[0].minutes).toBe(10);
+  });
+  it('does not mix different projects', () => {
+    const items = [item('git:1', at('10:00')), item('git:2', at('10:20'), { folder: '/p/site' })];
+    const s = buildSuggestions([{ text: 'A', itemIds: ['git:1'] }, { text: 'B', itemIds: ['git:2'] }], items, ctx);
+    expect(s.map((x) => x.minutes)).toEqual([5, 5]);
+  });
+  it('keeps separate work sessions of the same project separate (a long gap is not filled in)', () => {
+    const items = [item('git:1', at('09:00')), item('git:2', at('09:10')), item('git:3', at('14:00')), item('git:4', at('14:20'))];
+    const tasks = [{ text: 'Morning', itemIds: ['git:1', 'git:2'] }, { text: 'Afternoon', itemIds: ['git:3', 'git:4'] }];
+    const s = buildSuggestions(tasks, items, ctx);
+    expect(s.map((x) => x.minutes)).toEqual([10, 20]);
+  });
+});
