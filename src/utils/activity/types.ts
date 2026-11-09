@@ -43,7 +43,10 @@ export interface ScanResponse {
 }
 
 export interface AiTask {
+  /** One or two sentences summarising the whole task: becomes the log text. */
   text: string;
+  /** Short steps done inside the task: become the log's underlying tasks. */
+  subtasks?: string[];
   itemIds: string[];
 }
 
@@ -60,6 +63,7 @@ export interface Suggestion {
   projectId: string;
   projectName: string;
   text: string;
+  subtasks: string[];
   minutes: number;
   itemIds: string[];
   /** e.g. "3 commits, 2 Claude sessions" */

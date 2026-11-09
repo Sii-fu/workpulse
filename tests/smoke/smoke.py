@@ -929,7 +929,7 @@ def activity_suggestions(s):
         sent = [i["id"] for i in body["items"]]
         calls["suggest"].append(sent)
         calls["providers"].append((body["provider"], body["customApiKey"]))
-        route.fulfill(json={"tasks": [{"text": "Stub task " + i.split(":")[1], "itemIds": [i]} for i in sent]})
+        route.fulfill(json={"tasks": [{"text": "Stub task " + i.split(":")[1], "subtasks": ["Did " + i.split(":")[1]], "itemIds": [i]} for i in sent]})
 
     p.route("**/api/activity/scan", scan)
     p.route("**/api/activity/suggest", suggest)
@@ -952,6 +952,7 @@ def activity_suggestions(s):
     rows = dlg.get_by_label("Log text")
     expect(rows).to_have_count(2, timeout=5000)
     expect(dlg).to_contain_text("(estimated)")
+    expect(dlg.get_by_label("Sub-tasks, one per line", exact=False)).to_have_count(2)
     # nothing is added until a row is ticked
     expect(btn(dlg, "Add selected")).to_be_disabled()
     # the demo data already has 1h 30m for this project today: the warning says so
@@ -964,6 +965,9 @@ def activity_suggestions(s):
     expect(dlg).to_contain_text("You already have 2h tracked or logged")
     saved = [l for l in s.ls("workpulse_logs") if l["description"] == "Stub task a"]
     assert len(saved) == 1 and saved[0]["sourceIds"] == ["git:a"], "ticked suggestion was not saved as a log"
+    # the steps the AI listed are kept under the log as its underlying tasks
+    assert [t["title"] for t in saved[0]["underlyingTasks"]] == ["Did a"], "sub-tasks were not saved with the log"
+    assert saved[0]["underlyingTasks"][0]["stage"] == "done" and saved[0]["underlyingTasks"][0]["elapsedSeconds"] == 0
     p.keyboard.press("Escape")
     expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
     expect(p.get_by_text("Stub task a").first).to_be_visible()

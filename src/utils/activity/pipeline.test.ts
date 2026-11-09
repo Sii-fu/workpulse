@@ -50,7 +50,8 @@ describe('loadSuggestions', () => {
     expect(suggest).not.toHaveBeenCalled();
     expect(r.notice).toBeUndefined();
     expect(r.suggestions).toHaveLength(1);
-    expect(r.suggestions[0].text).toContain('work git:1');
+    expect(r.suggestions[0].text).toBe('Worked on Alpha');
+    expect(r.suggestions[0].subtasks).toEqual(['work git:1', 'work git:2']);
   });
   it('drops activity already used by a saved log before asking the AI', async () => {
     const used = { id: 'log-1', date: DATE, time: '10:00', projectId: 'proj-a', projectName: 'Alpha', description: 'x', status: 'completed', tags: [], createdAt: 'c', sourceIds: ['git:1'] } as WorkLog;
@@ -70,7 +71,8 @@ describe('loadSuggestions', () => {
     const r = await loadSuggestions(base, { scan: vi.fn().mockResolvedValue(scanOf(items)), suggest });
     expect(r.notice).toBe('No Gemini key: using plain wording.');
     expect(r.suggestions).toHaveLength(1);
-    expect(r.suggestions[0].text).toContain('work git:1');
+    expect(r.suggestions[0].text).toBe('Worked on Alpha');
+    expect(r.suggestions[0].subtasks).toEqual(['work git:1', 'work git:2']);
   });
   it('falls back to plain wording with a plain sentence when the AI call itself fails', async () => {
     const suggest = vi.fn().mockRejectedValue(new Error('WorkPulse could not reach its server.'));

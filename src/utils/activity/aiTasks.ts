@@ -4,8 +4,9 @@ import type { ActivityItem, AiTask } from './types';
 const PER_FOLDER_CAP = 40;
 const ITEM_TEXT_MAX = 200;
 const OTHER_TEXT = 'Other activity';
+const MAX_SUBTASKS = 12;
 
-/** The shape the AI must answer with: { tasks: [{ text, itemIds[] }] }. */
+/** The shape the AI must answer with: { tasks: [{ text, subtasks[], itemIds[] }] }. */
 export const ACTIVITY_TASKS_SCHEMA = {
   type: 'object',
   properties: {
@@ -13,8 +14,12 @@ export const ACTIVITY_TASKS_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        properties: { text: { type: 'string' }, itemIds: { type: 'array', items: { type: 'string' } } },
-        required: ['text', 'itemIds'],
+        properties: {
+          text: { type: 'string' },
+          subtasks: { type: 'array', items: { type: 'string' } },
+          itemIds: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['text', 'subtasks', 'itemIds'],
       },
     },
   },
@@ -27,20 +32,25 @@ const cleanText = (text: string): string =>
 
 const baseName = (p: string): string => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 
-const SYSTEM_INSTRUCTION = `You turn a developer's raw activity for one day into short work-log entries.
+const SYSTEM_INSTRUCTION = `You turn a developer's raw activity for one day into work-log entries.
 
 You are given activity items, each with a short id in square brackets (like [i3]), grouped by project.
-Group related items into tasks. For each task write one or two plain sentences in the past tense
-(for example "Fixed the timer drift on the Tasks screen and added tests.").
+
+HOW TO GROUP:
+1. Write ONE task per project. Everything done in a project that is related (fixes, features, tests, docs, review, follow-up changes) belongs in that one task, however many commits or prompts it came from.
+2. Write a second task for the same project ONLY when some work is totally unrelated to the rest: a different feature or area with a different goal, which could not honestly share one log line. When in doubt, keep it together.
+3. "text": one or two plain sentences in the past tense that summarise the whole task.
+4. "subtasks": 2 to 8 short past-tense steps (at most 10 words each) saying what was done inside the task, for example "Fixed the timer drift on the Tasks screen". Merge near-duplicates. Do not copy prompts word for word.
+5. Prompts that are only confirmations or small talk ("yes", "go ahead", "ok", "continue", "thanks") are trivial: do not mention them and leave their ids out.
 
 RULES:
-1. Refer to items ONLY by their short ids, in "itemIds". Never invent ids. Every item should be in one task.
-2. Do NOT state any duration, time or number of minutes, and do NOT name or choose a project. The app works those out.
-3. No markdown, no bullet characters, no raw commit hashes, no file contents.
-4. Do not write the item ids in the text: ids belong only in "itemIds".
+6. Refer to items ONLY by their short ids, in "itemIds". Never invent ids.
+7. Do NOT state any duration, time or number of minutes, and do NOT name or choose a project. The app works those out.
+8. No markdown, no bullet characters, no raw commit hashes, no file contents.
+9. Do not write the item ids in the text or the subtasks: ids belong only in "itemIds".
 
 Respond with valid JSON only, in exactly this shape:
-{ "tasks": [ { "text": "string", "itemIds": ["i1", "i2"] } ] }`;
+{ "tasks": [ { "text": "string", "subtasks": ["string"], "itemIds": ["i1", "i2"] } ] }`;
 
 /**
  * The prompt sent to Gemini. Each item is given a short id (i1, i2, ...) so the model can group
@@ -84,13 +94,24 @@ export function buildActivityPrompt(
   };
 }
 
+// The steps the AI listed: cleaned, de-duplicated, at most 12. Undefined when there are none.
+function cleanSubtasks(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  for (const entry of raw) {
+    const text = typeof entry === 'string' ? cleanText(entry) : '';
+    if (text && !out.includes(text)) out.push(text);
+  }
+  return out.length > 0 ? out.slice(0, MAX_SUBTASKS) : undefined;
+}
+
 /**
  * Reads the model's answer defensively. Unknown ids are ignored, an id counts only in the first
  * task that cites it, tasks left without text or ids are dropped, and anything the model did not
  * place (or that was never sent) becomes one "Other activity" task, so nothing is silently lost.
  */
 export function parseAiTasks(raw: unknown, shortToId: Record<string, string>, items: ActivityItem[]): AiTask[] {
-  const known = new Set(items.map((i) => i.id));
+  const byId = new Map(items.map((i) => [i.id, i]));
   const used = new Set<string>();
   const tasks: AiTask[] = [];
 
@@ -102,16 +123,35 @@ export function parseAiTasks(raw: unknown, shortToId: Record<string, string>, it
       const ids: string[] = [];
       for (const short of t.itemIds) {
         const real = typeof short === 'string' ? shortToId[short] : undefined;
-        if (real && known.has(real) && !used.has(real)) {
+        if (real && byId.has(real) && !used.has(real)) {
           used.add(real);
           ids.push(real);
         }
       }
-      if (ids.length > 0) tasks.push({ text, itemIds: ids });
+      if (ids.length === 0) continue;
+      const subtasks = cleanSubtasks(t.subtasks);
+      tasks.push(subtasks ? { text, subtasks, itemIds: ids } : { text, itemIds: ids });
     }
   }
 
-  const leftover = items.filter((i) => !used.has(i.id)).map((i) => i.id);
-  if (leftover.length > 0) tasks.push({ text: OTHER_TEXT, itemIds: leftover });
+  // Items the AI did not place (trivial prompts, or items cut by the per-folder cap) are not shown as
+  // rows of their own: they join the task that holds most of their folder, so their time still counts
+  // and they are not suggested again. A folder with no task at all gets one "Other activity" task.
+  const otherByFolder = new Map<string, string[]>();
+  for (const item of items) {
+    if (used.has(item.id)) continue;
+    let best = -1;
+    let bestCount = 0;
+    tasks.forEach((task, index) => {
+      const count = task.itemIds.filter((id) => byId.get(id)?.folder === item.folder).length;
+      if (count > bestCount) {
+        best = index;
+        bestCount = count;
+      }
+    });
+    if (best >= 0) tasks[best].itemIds.push(item.id);
+    else otherByFolder.set(item.folder, [...(otherByFolder.get(item.folder) ?? []), item.id]);
+  }
+  for (const ids of otherByFolder.values()) tasks.push({ text: OTHER_TEXT, itemIds: ids });
   return tasks;
 }

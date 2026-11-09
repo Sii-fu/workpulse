@@ -112,28 +112,46 @@ describe('buildSuggestions', () => {
     const s = buildSuggestions([{ text: 'T', itemIds: ['git:1'] }], [item('git:1', at('04:00'))], { ...ctx, logs: [log({ durationMinutes: 45 })] });
     expect(s[0].trackedMinutes).toBe(45);
   });
+  it('carries the sub-tasks of the task', () => {
+    const s = buildSuggestions([{ text: 'T', subtasks: ['Step one', 'Step two'], itemIds: ['git:1'] }], [item('git:1', at('04:00'))], ctx);
+    expect(s[0].subtasks).toEqual(['Step one', 'Step two']);
+  });
+  it('has an empty sub-task list when the task has none', () => {
+    expect(buildSuggestions([{ text: 'T', itemIds: ['git:1'] }], [item('git:1', at('04:00'))], ctx)[0].subtasks).toEqual([]);
+  });
   it('skips tasks whose items cannot be found', () => {
     expect(buildSuggestions([{ text: 'T', itemIds: ['nope'] }], [], ctx)).toEqual([]);
   });
 });
 
 describe('templateTasks', () => {
-  it('makes one task per folder using commit subjects', () => {
+  it('makes one task per folder: a short summary, with the commit subjects as sub-tasks', () => {
     const items = [
       item('git:1', at('04:00'), { text: 'fix timer' }),
       item('git:2', at('04:05'), { text: 'add export' }),
       item('git:3', at('04:06'), { folder: '/p/site', text: 'tweak css' }),
     ];
-    const tasks = templateTasks(items);
+    const tasks = templateTasks(items, { '/p/app': 'Alpha' });
     expect(tasks).toHaveLength(2);
-    expect(tasks[0].text).toContain('fix timer');
-    expect(tasks[0].text).toContain('add export');
+    expect(tasks[0].text).toBe('Worked on Alpha');
+    expect(tasks[0].subtasks).toEqual(['fix timer', 'add export']);
     expect(tasks[0].itemIds).toEqual(['git:1', 'git:2']);
+    expect(tasks[1].text).toBe('Worked on site'); // no project name given: the folder's name
     expect(tasks[1].itemIds).toEqual(['git:3']);
   });
-  it('falls back to prompts when there are no commits', () => {
-    const items = [item('claude:s:u1', at('04:00'), { source: 'claude', text: 'Fix the login bug' })];
-    expect(templateTasks(items)[0].text).toContain('Fix the login bug');
+  it('uses the prompts as sub-tasks when there are no commits, and skips session titles and file edits', () => {
+    const items = [
+      item('claude:s:u1', at('04:00'), { source: 'claude', text: 'Fix the login bug' }),
+      item('claude:s:title', at('04:00'), { source: 'claude', text: 'Session: Login work' }),
+      item('claude:s:a1:0', at('04:01'), { source: 'claude', text: 'Edited Login.tsx' }),
+    ];
+    const [task] = templateTasks(items);
+    expect(task.subtasks).toEqual(['Fix the login bug']);
+    expect(task.itemIds).toHaveLength(3);
+  });
+  it('caps the sub-tasks at 12', () => {
+    const items = Array.from({ length: 20 }, (_, n) => item(`git:${n}`, at('04:00'), { text: `change ${n}` }));
+    expect(templateTasks(items)[0].subtasks).toHaveLength(12);
   });
   it('returns nothing for no items', () => expect(templateTasks([])).toEqual([]));
 });
@@ -141,10 +159,10 @@ describe('templateTasks', () => {
 describe('suggestionToLogData', () => {
   const s: Suggestion = {
     key: 'git:1', folder: '/p/app', projectId: 'proj-a', projectName: 'Alpha',
-    text: 'Suggested text', minutes: 25, itemIds: ['git:1', 'git:2'], evidence: '2 commits', trackedMinutes: 0,
+    text: 'Suggested text', subtasks: [], minutes: 25, itemIds: ['git:1', 'git:2'], evidence: '2 commits', trackedMinutes: 0,
   };
   it('uses the edited text, minutes and project and records the source ids', () => {
-    const d = suggestionToLogData(s, DATE, 40, 'Edited text', 'proj-b', 'Beta');
+    const d = suggestionToLogData(s, DATE, 40, 'Edited text', 'proj-b', 'Beta', []);
     expect(d).toMatchObject({
       date: DATE, projectId: 'proj-b', projectName: 'Beta', description: 'Edited text',
       durationMinutes: 40, status: 'completed', tags: [], sourceIds: ['git:1', 'git:2'],
@@ -152,10 +170,10 @@ describe('suggestionToLogData', () => {
     expect(d.time).toMatch(/^\d{2}:\d{2}$/);
   });
   it('leaves the duration out when minutes is 0', () => {
-    expect(suggestionToLogData(s, DATE, 0, 't', 'proj-a', 'Alpha').durationMinutes).toBeUndefined();
+    expect(suggestionToLogData(s, DATE, 0, 't', 'proj-a', 'Alpha', []).durationMinutes).toBeUndefined();
   });
   it('does not alias the suggestion\'s item id list', () => {
-    const d = suggestionToLogData(s, DATE, 5, 't', 'proj-a', 'Alpha');
+    const d = suggestionToLogData(s, DATE, 5, 't', 'proj-a', 'Alpha', []);
     d.sourceIds!.push('x');
     expect(s.itemIds).toEqual(['git:1', 'git:2']);
   });
@@ -190,5 +208,23 @@ describe('buildSuggestions: minutes are not counted twice', () => {
     const tasks = [{ text: 'Morning', itemIds: ['git:1', 'git:2'] }, { text: 'Afternoon', itemIds: ['git:3', 'git:4'] }];
     const s = buildSuggestions(tasks, items, ctx);
     expect(s.map((x) => x.minutes)).toEqual([10, 20]);
+  });
+});
+
+describe('suggestionToLogData: sub-tasks become the log\'s underlying tasks', () => {
+  const s: Suggestion = {
+    key: 'git:1', folder: '/p/app', projectId: 'proj-a', projectName: 'Alpha',
+    text: 'T', subtasks: ['ignored: the edited list wins'], minutes: 25, itemIds: ['git:1'], evidence: '1 commit', trackedMinutes: 0,
+  };
+  it('saves the edited sub-tasks as done tasks with no tracked time', () => {
+    const d = suggestionToLogData(s, DATE, 25, 'T', 'proj-a', 'Alpha', ['Fixed drift', 'Added tests']);
+    expect(d.underlyingTasks).toEqual([
+      { id: 'sub-git:1-0', title: 'Fixed drift', stage: 'done', elapsedSeconds: 0 },
+      { id: 'sub-git:1-1', title: 'Added tests', stage: 'done', elapsedSeconds: 0 },
+    ]);
+  });
+  it('ignores blank sub-tasks and leaves the field out when none are left', () => {
+    expect(suggestionToLogData(s, DATE, 25, 'T', 'proj-a', 'Alpha', ['  ', '']).underlyingTasks).toBeUndefined();
+    expect(suggestionToLogData(s, DATE, 25, 'T', 'proj-a', 'Alpha', ['  Kept  ']).underlyingTasks?.[0].title).toBe('Kept');
   });
 });

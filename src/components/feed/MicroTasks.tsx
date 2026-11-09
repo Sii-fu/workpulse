@@ -17,9 +17,9 @@ export const MicroTasks: React.FC<{ tasks: NonNullable<WorkLog['underlyingTasks'
               <span className="font-mono uppercase text-xs shrink-0">{t.stage}</span>
               <span className="truncate text-[var(--text-main)]">{t.title}</span>
             </span>
-            <span className="font-mono tabular-nums shrink-0">
-              {t.elapsedSeconds ? `${Math.floor(t.elapsedSeconds / 60)}m` : '0m'}
-            </span>
+            {t.elapsedSeconds > 0 && (
+              <span className="font-mono tabular-nums shrink-0">{Math.floor(t.elapsedSeconds / 60)}m</span>
+            )}
           </li>
         ))}
       </ul>

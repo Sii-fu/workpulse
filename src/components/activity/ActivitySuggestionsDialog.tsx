@@ -30,6 +30,8 @@ interface Row {
   text: string;
   projectId: string;
   minutes: string;
+  /** One sub-task per line. */
+  subtasks: string;
 }
 
 const NOTICE_KEY = 'workpulse_activity_notice';
@@ -114,7 +116,7 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
       if (seq !== scanSeq.current) return;
       setResult(r);
       setRows(
-        r.suggestions.map((s) => ({ suggestion: s, checked: false, text: s.text, projectId: s.projectId, minutes: String(s.minutes) })),
+        r.suggestions.map((s) => ({ suggestion: s, checked: false, text: s.text, projectId: s.projectId, minutes: String(s.minutes), subtasks: s.subtasks.join('\n') })),
       );
       setPhase('ready');
     } catch (err) {
@@ -146,7 +148,7 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
       chosen.map((r) => {
         const name = projects.find((p) => p.id === r.projectId)?.name ?? r.suggestion.projectName;
         const minutes = Math.max(0, Math.round(Number(r.minutes)) || 0);
-        return suggestionToLogData(r.suggestion, date, minutes, r.text.trim(), r.projectId, name);
+        return suggestionToLogData(r.suggestion, date, minutes, r.text.trim(), r.projectId, name, r.subtasks.split('\n'));
       }),
     );
     setAddedCount((n) => n + chosen.length);
@@ -334,6 +336,18 @@ export const ActivitySuggestionsDialog: React.FC<ActivitySuggestionsDialogProps>
                               aria-label="Log text"
                               rows={2}
                               className={`flex-1 resize-y ${FIELD}`}
+                            />
+                          </div>
+                          <div className="pl-6">
+                            <label className="block text-xs text-[var(--text-muted)] mb-1" htmlFor={`sub-${s.key}`}>
+                              Sub-tasks, one per line. They are listed under the log.
+                            </label>
+                            <textarea
+                              id={`sub-${s.key}`}
+                              value={r.subtasks}
+                              onChange={(e) => update(s.key, { subtasks: e.target.value })}
+                              rows={Math.min(8, Math.max(2, r.subtasks.split('\n').length))}
+                              className={`w-full resize-y ${FIELD}`}
                             />
                           </div>
                           <div className="flex flex-wrap items-center gap-2 pl-6">

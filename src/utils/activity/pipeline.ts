@@ -74,7 +74,7 @@ export async function loadSuggestions(args: PipelineArgs, deps: Deps = REAL): Pr
     }
   }
 
-  const suggestions = buildSuggestions(tasks ?? templateTasks(items), items, {
+  const suggestions = buildSuggestions(tasks ?? templateTasks(items, projectNameByFolder), items, {
     date: args.date,
     folders: args.folders,
     projects: args.projects,

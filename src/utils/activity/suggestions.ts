@@ -1,7 +1,6 @@
 import { localTimeStr } from '../dates';
 import { minutesFromSeconds } from '../duration';
 import { unloggedSeconds } from '../taskLogging';
-import { clip } from './sanitize';
 import { clusterTimes } from './time';
 import type { BacklogTask, Project, WorkLog } from '../../types';
 import type { ActivityFolder, ActivityItem, AiTask, Suggestion } from './types';
@@ -76,6 +75,7 @@ export function buildSuggestions(
     projectId: g.projectId,
     projectName: args.projects.find((p) => p.id === g.projectId)?.name ?? 'Unassigned',
     text: g.task.text,
+    subtasks: g.task.subtasks ?? [],
     minutes: minutes[i],
     itemIds: g.items.map((x) => x.id),
     evidence: evidenceOf(g.items),
@@ -128,8 +128,11 @@ function minutesPerGroup(groups: { projectId: string; items: ActivityItem[] }[])
   return result;
 }
 
-/** The no-AI fallback: one task per folder, worded from commit subjects or the user's prompts. */
-export function templateTasks(items: ActivityItem[]): AiTask[] {
+/**
+ * The no-AI fallback: one task per folder, "Worked on <project>", with the commit subjects (or, when
+ * there are no commits, the user's prompts) as its sub-tasks.
+ */
+export function templateTasks(items: ActivityItem[], projectNameByFolder: Record<string, string> = {}): AiTask[] {
   const byFolder = new Map<string, ActivityItem[]>();
   for (const it of items) byFolder.set(it.folder, [...(byFolder.get(it.folder) ?? []), it]);
 
@@ -138,13 +141,11 @@ export function templateTasks(items: ActivityItem[]): AiTask[] {
     const commits = distinct(list.filter((i) => i.source === 'git').map((i) => i.text));
     const prompts = distinct(
       list.filter((i) => i.source === 'claude' && !i.text.startsWith('Session: ') && !i.text.startsWith('Edited ')).map((i) => i.text),
-    ).slice(0, 3);
-    const text = commits.length > 0
-      ? `Committed: ${commits.join('; ')}`
-      : prompts.length > 0
-        ? `Worked on: ${prompts.join('; ')}`
-        : `Worked in ${baseName(folder)}`;
-    return { text: clip(text, 400), itemIds: list.map((i) => i.id) };
+    );
+    const subtasks = (commits.length > 0 ? commits : prompts).slice(0, 12);
+    const text = `Worked on ${projectNameByFolder[folder] || baseName(folder)}`;
+    const ids = list.map((i) => i.id);
+    return subtasks.length > 0 ? { text, subtasks, itemIds: ids } : { text, itemIds: ids };
   });
 }
 
@@ -156,7 +157,9 @@ export function suggestionToLogData(
   text: string,
   projectId: string,
   projectName: string,
+  subtasks: string[],
 ): Omit<WorkLog, 'id' | 'createdAt'> {
+  const steps = subtasks.map((t) => t.trim()).filter((t) => t.length > 0);
   return {
     date,
     time: localTimeStr(),
@@ -167,5 +170,9 @@ export function suggestionToLogData(
     tags: [],
     durationMinutes: minutes > 0 ? minutes : undefined,
     sourceIds: [...s.itemIds],
+    // The steps shown under the log as "View Underlying Micro-Tasks": done, with no tracked time.
+    ...(steps.length > 0
+      ? { underlyingTasks: steps.map((title, i) => ({ id: `sub-${s.key}-${i}`, title, stage: 'done' as const, elapsedSeconds: 0 })) }
+      : {}),
   };
 }
