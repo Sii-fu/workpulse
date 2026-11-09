@@ -63,3 +63,13 @@ describe('replaceAllData', () => {
     expect(localStorage.getItem('workpulse_tags')).toBe('["old-tags"]');
   });
 });
+
+describe('activity folders stay on the device', () => {
+  it('buildBackup never writes activityFolders and parseBackup never imports them', () => {
+    const withFolders = { ...data(), settings: { ...data().settings, activityFolders: [{ path: 'E:/secret/proj', projectId: 'p' }] } };
+    expect(buildBackup(withFolders)).not.toContain('activityFolders');
+    expect(buildBackup(withFolders)).not.toContain('secret');
+    const forged = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { activityFolders: [{ path: 'E:/x', projectId: 'p' }] } }));
+    expect(forged.ok && forged.data.settings.activityFolders).toBeUndefined();
+  });
+});

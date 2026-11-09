@@ -5,7 +5,7 @@ import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isS
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
 // lastBackupAt: that date belongs to this device, not to the data.
 export function buildBackup(d: BackupData): string {
-  const { geminiApiKey: _omit, lastBackupAt: _omitBackup, ...settings } = d.settings;
+  const { geminiApiKey: _omit, lastBackupAt: _omitBackup, activityFolders: _omitFolders, ...settings } = d.settings;
   return JSON.stringify(
     {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -47,6 +47,7 @@ export function parseBackup(text: string): ParseBackupResult {
     ...((o.settings as object) || {}),
     geminiApiKey: '',
     lastBackupAt: undefined,
+    activityFolders: undefined,
   };
   return { ok: true, data: { logs: o.logs, backlog: o.backlog, projects: o.projects, tags: o.tags, settings } };
 }

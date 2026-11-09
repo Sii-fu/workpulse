@@ -1,3 +1,5 @@
+import type { ActivityFolder } from './utils/activity/types';
+
 export type TaskStatus = 'completed' | 'in_progress' | 'blocked';
 
 export interface WorkLog {
@@ -19,6 +21,8 @@ export interface WorkLog {
   // When the user last edited this log; a log edited after its last sync needs sending again.
   editedAt?: string;
   isSynthesized?: boolean;
+  // Activity item ids this log was suggested from; they are not suggested again. Never sent to the Sheet.
+  sourceIds?: string[];
   underlyingTasks?: {
     id: string;
     title: string;
@@ -81,6 +85,11 @@ export interface AppSettings {
   // When a backup file was last downloaded from Settings or the reminder (ISO). Absent means never.
   // Device-specific: not written into backup files and not replaced by an import.
   lastBackupAt?: string;
+  // Folders scanned for activity suggestions, each linked to a project. Device-specific: not in backups.
+  activityFolders?: ActivityFolder[];
+  // Activity sources. Claude Code prompts are opt-in (absent = off); git commits are on unless set to false.
+  activityUseClaude?: boolean;
+  activityUseGit?: boolean;
 }
 
 export interface ToastMessage {

@@ -39,6 +39,13 @@ export async function testSheetConnection(scriptUrl: string): Promise<SyncResult
   }
 }
 
+// What is sent for one log: the image becomes a flag (keeps the sheet fast) and the activity
+// source ids stay on this device.
+export function toSheetLog(log: WorkLog) {
+  const { sourceIds: _omit, ...rest } = log;
+  return { ...rest, imageBase64: log.imageBase64 ? 'true' : '' };
+}
+
 export async function syncSingleLogToSheet(scriptUrl: string, log: WorkLog): Promise<SyncResult> {
   if (!scriptUrl || !scriptUrl.trim()) {
     // If not configured, we gracefully remain in local-storage mode
@@ -55,11 +62,7 @@ export async function syncSingleLogToSheet(scriptUrl: string, log: WorkLog): Pro
         method: 'POST',
         payload: {
           action: 'appendLog',
-          log: {
-            ...log,
-            // Keep base64 truncated or indicator to keep sheet performant
-            imageBase64: log.imageBase64 ? 'true' : '',
-          },
+          log: toSheetLog(log),
         },
       }),
     });
@@ -80,10 +83,7 @@ export async function syncBatchLogsToSheet(scriptUrl: string, logs: WorkLog[]): 
   }
 
   try {
-    const sanitizedLogs = logs.map((l) => ({
-      ...l,
-      imageBase64: l.imageBase64 ? 'true' : '',
-    }));
+    const sanitizedLogs = logs.map(toSheetLog);
 
     const res = await fetch('/api/sheets/proxy', {
       method: 'POST',
