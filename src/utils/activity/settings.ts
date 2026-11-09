@@ -1,0 +1,44 @@
+import type { AppSettings } from '../../types';
+import type { ActivityFolder, ActivitySources } from './types';
+
+/** A full path: a Windows drive path (E:\x or E:/x) or an absolute POSIX path. */
+export function isFullFolderPath(text: string): boolean {
+  const t = text.trim();
+  return /^[A-Za-z]:[\\/]/.test(t) || t.startsWith('/');
+}
+
+const sameFolderKey = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+
+// "E:\app\" -> "E:\app", but a drive root such as "E:\" stays as it is.
+const tidyPath = (p: string): string => {
+  const t = p.trim();
+  if (/^[A-Za-z]:[\\/]+$/.test(t) || /^\/+$/.test(t)) return t;
+  return t.replace(/[\\/]+$/, '');
+};
+
+export type AddFolderResult = { ok: true; folders: ActivityFolder[] } | { ok: false; error: string };
+
+export function addActivityFolder(folders: ActivityFolder[], rawPath: string, projectId: string): AddFolderResult {
+  if (!isFullFolderPath(rawPath)) return { ok: false, error: 'Enter the full folder path, like E:\\projects\\app.' };
+  if (!projectId) return { ok: false, error: 'Pick a project for this folder first.' };
+  const path = tidyPath(rawPath);
+  if (folders.some((f) => sameFolderKey(f.path) === sameFolderKey(path))) {
+    return { ok: false, error: 'That folder is already in the list.' };
+  }
+  return { ok: true, folders: [...folders, { path, projectId }] };
+}
+
+/** Git commits are on unless switched off; Claude Code prompts are off unless switched on. */
+export function sourcesFromSettings(s: Pick<AppSettings, 'activityUseClaude' | 'activityUseGit'>): ActivitySources {
+  return { claude: s.activityUseClaude === true, git: s.activityUseGit !== false };
+}
+
+/** The settings fields for these choices; only values that differ from the defaults are stored. */
+export function activityFieldsFromSources(
+  sources: ActivitySources,
+): Pick<AppSettings, 'activityUseClaude' | 'activityUseGit'> {
+  return {
+    activityUseClaude: sources.claude ? true : undefined,
+    activityUseGit: sources.git ? undefined : false,
+  };
+}

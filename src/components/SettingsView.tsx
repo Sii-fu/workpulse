@@ -12,12 +12,16 @@ import {
   ToastMessage,
 } from '../types';
 import { parseBackup } from '../utils/backup';
+import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
+import { activityFieldsFromSources, sourcesFromSettings } from '../utils/activity/settings';
+import type { ActivityFolder, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { toCsv } from '../utils/csv';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
+  Activity,
   Palette,
   Cloud,
   MessageSquareText,
@@ -58,7 +62,7 @@ interface SettingsViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
 }
 
-type SettingsSection = 'appearance' | 'sheets' | 'ai' | 'projects' | 'data';
+type SettingsSection = 'appearance' | 'sheets' | 'ai' | 'projects' | 'activity' | 'data';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
@@ -101,6 +105,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newProjectColor, setNewProjectColor] = useState<string>('#6366f1');
   const [newTagInput, setNewTagInput] = useState<string>('');
 
+  // Activity suggestions state
+  const [activityFolders, setActivityFolders] = useState<ActivityFolder[]>(settings.activityFolders ?? []);
+  const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
+
   const handleSaveAll = () => {
     const updated: AppSettings = {
       ...settings,
@@ -112,6 +120,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       geminiApiKey: geminiApiKey.trim(),
       defaultTone,
       defaultRecipientName: defaultRecipientName.trim() || undefined,
+      activityFolders: activityFolders.length > 0 ? activityFolders : undefined,
+      ...activityFieldsFromSources(activitySources),
     };
     onSaveSettings(updated);
     onNotify('All settings successfully saved!', 'success');
@@ -288,6 +298,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             { id: 'sheets' as SettingsSection, label: 'Google Sheets Sync', icon: <Cloud className="w-4 h-4" /> },
             { id: 'ai' as SettingsSection, label: 'Standup & AI', icon: <MessageSquareText className="w-4 h-4" /> },
             { id: 'projects' as SettingsSection, label: 'Projects & Tags', icon: <Layers className="w-4 h-4" /> },
+            { id: 'activity' as SettingsSection, label: 'Activity suggestions', icon: <Activity className="w-4 h-4" /> },
             { id: 'data' as SettingsSection, label: 'Data & Backup', icon: <Database className="w-4 h-4" /> },
           ].map((item) => (
             <button
@@ -790,7 +801,22 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           )}
 
           {/* =========================================================================
-              SECTION 5: DATA & BACKUP
+              SECTION 5: ACTIVITY SUGGESTIONS
+             ========================================================================= */}
+          {activeSection === 'activity' && (
+            <ActivityFoldersSettings
+              folders={activityFolders}
+              sources={activitySources}
+              projects={projects}
+              onChange={(folders, sources) => {
+                setActivityFolders(folders);
+                setActivitySources(sources);
+              }}
+            />
+          )}
+
+          {/* =========================================================================
+              SECTION 6: DATA & BACKUP
              ========================================================================= */}
           {activeSection === 'data' && (
             <div className="space-y-6">
