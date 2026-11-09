@@ -193,7 +193,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               type="button"
               onClick={onOpenActivity}
-              className={pairBtn}
+              // Phones have no room for a third report button (every control is 44 px wide there):
+              // the same dialog opens from "Suggest from my activity" inside End of day.
+              className={`${pairBtn} max-sm:hidden`}
               title="Suggest logs from your git commits and Claude Code history"
               aria-label="Suggest logs"
             >

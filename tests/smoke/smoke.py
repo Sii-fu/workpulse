@@ -21,6 +21,7 @@ Expected failures are listed in EXPECTED_FAIL with the phase that fixes them. Wh
 passing it is reported as XPASS: delete it from EXPECTED_FAIL so a regression is caught.
 """
 import argparse
+import datetime
 import io
 import json
 import os
@@ -902,6 +903,99 @@ def modal_escape_all_themes(s):
         s.tab("feed")
         _escape_closes(s, lambda: s.page.keyboard.press(SEL["palette_trigger_key"]),
                        s.page.locator(SEL["palette_input"]), f"search palette in {theme}")
+    s.no_errors()
+
+
+@check("activity_suggestions")
+def activity_suggestions(s):
+    """Suggest logs from activity: nothing is read before the notice is accepted, a ticked suggestion
+    becomes a log, and activity a log already used is not offered again. The server is stubbed."""
+    p = s.page
+    calls = {"scan": 0, "suggest": []}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    iso = lambda m: (now - datetime.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    items = [
+        {"id": "git:a", "source": "git", "folder": "E:\\demo", "time": iso(60), "text": "first commit"},
+        {"id": "git:b", "source": "git", "folder": "E:\\demo", "time": iso(10), "text": "second commit"},
+    ]
+
+    def scan(route):
+        calls["scan"] += 1
+        route.fulfill(json={"items": items, "status": {"claude": {"ok": True, "count": 0, "note": "Turned off in Settings"},
+                                                       "git": {"ok": True, "count": 2}}})
+
+    def suggest(route):
+        sent = [i["id"] for i in json.loads(route.request.post_data)["items"]]
+        calls["suggest"].append(sent)
+        route.fulfill(json={"tasks": [{"text": "Stub task " + i.split(":")[1], "itemIds": [i]} for i in sent]})
+
+    p.route("**/api/activity/scan", scan)
+    p.route("**/api/activity/suggest", suggest)
+
+    settings = s.ls("workpulse_settings")
+    settings["activityFolders"] = [{"path": "E:\\demo", "projectId": "proj-1"}]
+    p.evaluate("v => localStorage.setItem('workpulse_settings', v)", json.dumps(settings))
+    p.reload()
+    p.wait_for_load_state("networkidle")
+
+    def open_dialog():
+        btn(p, "Suggest logs").first.click()
+        return p.get_by_role("dialog", name="Suggest logs from my activity")
+
+    dlg = open_dialog()
+    expect(dlg).to_contain_text("Before the first scan")
+    p.wait_for_timeout(800)
+    assert calls["scan"] == 0 and calls["suggest"] == [], "activity was read before the notice was accepted"
+    btn(dlg, "Continue").click()
+    rows = dlg.get_by_label("Log text")
+    expect(rows).to_have_count(2, timeout=5000)
+    expect(dlg).to_contain_text("(estimated)")
+    # nothing is added until a row is ticked
+    expect(btn(dlg, "Add selected")).to_be_disabled()
+    dlg.get_by_label("Add: Stub task a").check()
+    btn(dlg, "Add 1 selected").click()
+    expect(rows).to_have_count(1)
+    saved = [l for l in s.ls("workpulse_logs") if l["description"] == "Stub task a"]
+    assert len(saved) == 1 and saved[0]["sourceIds"] == ["git:a"], "ticked suggestion was not saved as a log"
+    p.keyboard.press("Escape")
+    expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
+    expect(p.get_by_text("Stub task a").first).to_be_visible()
+
+    # reopening offers only what no log has used
+    dlg = open_dialog()
+    expect(dlg.get_by_label("Log text")).to_have_count(1, timeout=5000)
+    assert calls["suggest"][-1] == ["git:b"], f"used activity was offered again: {calls['suggest'][-1]}"
+    p.keyboard.press("Escape")
+    expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
+    s.no_errors()
+
+
+@check("activity_suggestions_phone")
+def activity_suggestions_phone(s):
+    """On a phone the top bar has no room for the Suggest button, so the dialog opens from End of day,
+    and the top bar still fits the screen."""
+    p = s.page
+    p.set_viewport_size({"width": 390, "height": 844})
+    p.route("**/api/activity/scan", lambda r: r.fulfill(json={"items": [], "status": {
+        "claude": {"ok": True, "count": 0, "note": "Turned off in Settings"}, "git": {"ok": True, "count": 0}}}))
+    settings = s.ls("workpulse_settings")
+    settings["activityFolders"] = [{"path": "E:\\demo", "projectId": "proj-1"}]
+    p.evaluate("v => localStorage.setItem('workpulse_settings', v)", json.dumps(settings))
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    expect(p.get_by_role("button", name="Suggest logs")).to_be_hidden()
+    overflow = p.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    assert not overflow, "the page scrolls sideways on a phone"
+    p.locator(SEL["eod_trigger"]).click()
+    eod = p.get_by_role("dialog", name=SEL["eod_heading"])
+    btn(eod, "Suggest from my activity").click()
+    dlg = p.get_by_role("dialog", name="Suggest logs from my activity")
+    expect(dlg).to_be_visible()
+    box = dlg.bounding_box()
+    assert box["x"] >= -1 and box["x"] + box["width"] <= 391, "the dialog does not fit the phone screen"
+    p.keyboard.press("Escape")
+    expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
+    expect(eod).to_be_visible()  # Escape closed only the top dialog
     s.no_errors()
 
 
