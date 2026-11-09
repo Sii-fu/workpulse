@@ -51,6 +51,8 @@ import { LogEditorDialog } from './components/feed/LogEditorDialog';
 import { RunningStrip } from './components/RunningStrip';
 import { SampleDataBanner } from './components/SampleDataBanner';
 import { OfflineNotice } from './components/OfflineNotice';
+import { BackupReminder } from './components/BackupReminder';
+import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
@@ -124,6 +126,8 @@ export default function App() {
 
   // Reminder banner dismissal
   const [reminderDismissed, setReminderDismissed] = useState(false);
+  // "Later" on the backup reminder: hidden until the next visit, not remembered.
+  const [backupReminderHidden, setBackupReminderHidden] = useState(false);
 
   // Pre-fill log state for "Log with Details"
   const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
@@ -486,8 +490,8 @@ export default function App() {
     if (!task) return;
 
     if (stage === 'done') {
-      // Mark task as done and convert to official work log with Google Sheets sync
-      handleConvertTaskToLog(task);
+      // Done only moves the task to Completed Today. It reaches the timesheet when the user picks it.
+      handleCompleteTask(task);
       return;
     }
 
@@ -557,8 +561,36 @@ export default function App() {
     if (task.completed || task.stage === 'done') {
       handleReopenTask(taskId, 'planned');
     } else {
-      handleConvertTaskToLog(task);
+      handleCompleteTask(task);
     }
+  };
+
+  // Marks a task done without writing a log. It waits in Completed Today until the user selects it
+  // for the timesheet (End of day); only then does it become a log and sync to the Sheet.
+  const handleCompleteTask = (task: BacklogTask) => {
+    // Reopened and finished again with no new tracked time: everything is already in a log.
+    const alreadyLogged = loggedSecondsOf(task) > 0 && unloggedSeconds(task) === 0;
+    const nowIso = new Date().toISOString();
+    const updated = backlog.map((t) =>
+      t.id === task.id
+        ? {
+            ...t,
+            completed: true,
+            stage: 'done' as TaskStage,
+            isRunning: false,
+            completedAt: nowIso,
+            isSynthesized: alreadyLogged,
+          }
+        : t,
+    );
+    setBacklog(updated);
+    saveBacklog(updated);
+    addToast(
+      alreadyLogged
+        ? 'Task completed (no new time to log)'
+        : 'Task done. Select it under Completed Today to add it to the timesheet.',
+      'success',
+    );
   };
 
   const handleConvertTaskToLog = (task: BacklogTask) => {
@@ -841,9 +873,24 @@ export default function App() {
     }
   };
 
+  // The manual backup (Settings, or "Back up now" in the reminder). It also starts the reminder's clock.
+  const handleBackupNow = () => {
+    downloadTextFile(
+      `workpulse-backup-${localDateStr()}.json`,
+      buildBackup({ logs, backlog, projects, tags, settings }),
+    );
+    const updated = { ...settings, lastBackupAt: new Date().toISOString() };
+    setSettings(updated);
+    saveSettings(updated);
+    addToast('Backup downloaded (the Gemini API key is not included)', 'success');
+  };
+
   const handleImportBackup = (data: BackupData) => {
-    // Keep this machine's API key; backups never contain one.
-    const result = replaceAllData({ ...data, settings: { ...data.settings, geminiApiKey: settings.geminiApiKey } });
+    // Keep this machine's API key and backup date; backups never contain them.
+    const result = replaceAllData({
+      ...data,
+      settings: { ...data.settings, geminiApiKey: settings.geminiApiKey, lastBackupAt: settings.lastBackupAt },
+    });
     if (!result.ok) {
       addToast('Import failed: browser storage is full. Nothing was changed.', 'error');
       return;
@@ -998,6 +1045,13 @@ export default function App() {
             onOpenSetup={() => setActiveTab('settings')}
           />
         )}
+
+        {(activeTab === 'feed' || activeTab === 'backlog') && !backupReminderHidden && (() => {
+          const status = backupStatus(settings.lastBackupAt, logs, backlog);
+          return status.due ? (
+            <BackupReminder days={status.days} onBackup={handleBackupNow} onLater={() => setBackupReminderHidden(true)} />
+          ) : null;
+        })()}
 
         {/* 5:00 PM End of Day Reminder Banner */}
         <ReminderBanner
@@ -1154,6 +1208,7 @@ export default function App() {
             backlog={backlog}
             onResetSeedData={handleResetSeedData}
             onImportBackup={handleImportBackup}
+            onBackupNow={handleBackupNow}
             onFixLogDates={handleFixLogDates}
             onStartFresh={handleStartFresh}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}

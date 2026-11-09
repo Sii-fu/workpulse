@@ -2,9 +2,10 @@ import { BackupData, AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seedData';
 import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isStringArray, isSettingsObject } from './storage';
 
-// JSON backup text. The Gemini API key is never written to a backup file (S4).
+// JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
+// lastBackupAt: that date belongs to this device, not to the data.
 export function buildBackup(d: BackupData): string {
-  const { geminiApiKey: _omit, ...settings } = d.settings;
+  const { geminiApiKey: _omit, lastBackupAt: _omitBackup, ...settings } = d.settings;
   return JSON.stringify(
     {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -41,7 +42,12 @@ export function parseBackup(text: string): ParseBackupResult {
   if (o.settings !== undefined && !isSettingsObject(o.settings)) {
     return { ok: false, error: 'Backup has invalid "settings".' };
   }
-  const settings: AppSettings = { ...DEFAULT_SETTINGS, ...((o.settings as object) || {}), geminiApiKey: '' };
+  const settings: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    ...((o.settings as object) || {}),
+    geminiApiKey: '',
+    lastBackupAt: undefined,
+  };
   return { ok: true, data: { logs: o.logs, backlog: o.backlog, projects: o.projects, tags: o.tags, settings } };
 }
 

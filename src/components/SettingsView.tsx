@@ -11,7 +11,8 @@ import {
   BackupData,
   ToastMessage,
 } from '../types';
-import { buildBackup, parseBackup, downloadTextFile } from '../utils/backup';
+import { parseBackup } from '../utils/backup';
+import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { toCsv } from '../utils/csv';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
@@ -51,6 +52,7 @@ interface SettingsViewProps {
   backlog: BacklogTask[];
   onResetSeedData: () => void;
   onImportBackup: (data: BackupData) => void;
+  onBackupNow: () => void;
   onFixLogDates: (fixes: DateFix[]) => void;
   onStartFresh: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
@@ -69,6 +71,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   backlog,
   onResetSeedData,
   onImportBackup,
+  onBackupNow,
   onFixLogDates,
   onStartFresh,
   onNotify,
@@ -181,14 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onUpdateTags(tags.filter((item) => item !== t));
   };
 
-  // Export JSON
-  const handleExportJSON = () => {
-    downloadTextFile(
-      `workpulse-backup-${localDateStr()}.json`,
-      buildBackup({ logs, backlog, projects, tags, settings }),
-    );
-    onNotify('Exported JSON backup (the Gemini API key is not included)', 'success');
-  };
+  const lastBackup = describeBackupAge(backupStatus(settings.lastBackupAt, logs, backlog).days);
 
   const misdatedLogs = React.useMemo(() => findMisdatedLogs(logs), [logs]);
 
@@ -815,8 +811,11 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                   <p className="text-xs text-[var(--text-muted)]">
                     Contains all work logs, tasks, projects, tags, and settings (never your Gemini API key). Importing replaces all current data.
                   </p>
+                  <p className="text-xs font-semibold text-[var(--text-main)]" data-testid="last-backup">
+                    {lastBackup}
+                  </p>
                   <button
-                    onClick={handleExportJSON}
+                    onClick={onBackupNow}
                     className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />

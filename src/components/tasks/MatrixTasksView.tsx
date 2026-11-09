@@ -72,7 +72,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
                                 className="w-3 h-3 rounded border-[var(--accent)] accent-[var(--accent)] cursor-pointer"
-                                title="Select process for EOD synthesis"
+                                aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                               />
                               <span className="font-bold">
                                 PID {2048 + idx} | [{stage.toUpperCase()}]
@@ -174,7 +175,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-3.5 h-3.5 rounded border-[var(--accent)] accent-[var(--accent)] cursor-pointer"
-                              title="Select process for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             <span className="font-bold">
                               PID {1024 + idx} | {proj?.name.toUpperCase() || 'GENERAL'}
@@ -243,7 +245,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           checked={selectedTaskIds.has(task.id)}
                           onChange={() => handleToggleSelectTask(task.id)}
                           className="w-3.5 h-3.5 rounded border-danger accent-danger cursor-pointer shrink-0"
-                          title="Select process for EOD synthesis"
+                          aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -301,7 +304,8 @@ export const MatrixTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                         checked={selectedTaskIds.has(task.id)}
                         onChange={() => handleToggleSelectTask(task.id)}
                         className="w-3 h-3 rounded border-[var(--accent)] accent-[var(--accent)] cursor-pointer shrink-0"
-                        title="Select process for EOD synthesis"
+                        aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                       />
                       <span className="truncate text-[var(--text-main)]">
                         [{idx + 1}] {task.title}

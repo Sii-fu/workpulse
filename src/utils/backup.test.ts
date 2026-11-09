@@ -33,6 +33,12 @@ describe('backup', () => {
       if (!r.ok) expect(r.error.length).toBeGreaterThan(5);
     }
   });
+  it('the last-backup date stays on the device: never written, never imported', () => {
+    const withDate = { ...data(), settings: { ...data().settings, lastBackupAt: '2026-11-01T00:00:00.000Z' } };
+    expect(buildBackup(withDate)).not.toContain('lastBackupAt');
+    const forged = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { lastBackupAt: '2030-01-01T00:00:00.000Z' } }));
+    expect(forged.ok && forged.data.settings.lastBackupAt).toBeUndefined();
+  });
   it('an imported API key in the file is ignored', () => {
     const r = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { geminiApiKey: 'EVIL' } }));
     expect(r.ok && r.data.settings.geminiApiKey).toBe('');

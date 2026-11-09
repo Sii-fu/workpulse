@@ -150,7 +150,8 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       checked={selectedTaskIds.has(task.id)}
                                       onChange={() => handleToggleSelectTask(task.id)}
                                       className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                                      title="Select task for EOD synthesis"
+                                      aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                                     />
                                     <span className={stage === 'done' ? 'line-through opacity-60' : ''}>
                                       {task.title}
@@ -442,7 +443,8 @@ export const CompactTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                       checked={selectedTaskIds.has(task.id)}
                                       onChange={() => handleToggleSelectTask(task.id)}
                                       className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                                      title="Select task for EOD synthesis"
+                                      aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                                     />
                                     <span className={stage === 'done' ? 'line-through opacity-60' : ''}>
                                       {task.title}

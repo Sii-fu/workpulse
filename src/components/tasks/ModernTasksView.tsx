@@ -130,7 +130,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                              title="Select task for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             <span
                               className={`text-xs font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
@@ -400,7 +401,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-4 h-4 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                              title="Select task for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             {project && (
                               <span
@@ -560,7 +562,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => handleToggleSelectTask(task.id)}
                             className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                            title="Select task for EOD synthesis"
+                            aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                           />
                           <span className="font-semibold truncate">{task.title}</span>
                           {task.isSynthesized && (
@@ -616,7 +619,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-3.5 h-3.5 rounded border-danger/40 accent-danger cursor-pointer shrink-0"
-                              title="Select task for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             <span className="font-bold truncate">{task.title}</span>
                             {task.isSynthesized && (
@@ -682,7 +686,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => handleToggleSelectTask(task.id)}
                             className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                            title="Select task for EOD synthesis"
+                            aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                           />
                           <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
                           {task.isSynthesized && (
@@ -780,7 +785,8 @@ export const ModernTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                             checked={selectedTaskIds.has(task.id)}
                             onChange={() => handleToggleSelectTask(task.id)}
                             className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                            title="Select task for EOD synthesis"
+                            aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                           />
                           {project && (
                             <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-main)]">

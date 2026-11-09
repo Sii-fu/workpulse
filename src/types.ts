@@ -78,6 +78,9 @@ export interface AppSettings {
   syncTrackingSince?: string;
   // Matrix theme only: draw the CRT scanline overlay. Absent means off.
   crtEffect?: boolean;
+  // When a backup file was last downloaded from Settings or the reminder (ISO). Absent means never.
+  // Device-specific: not written into backup files and not replaced by an import.
+  lastBackupAt?: string;
 }
 
 export interface ToastMessage {

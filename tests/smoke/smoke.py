@@ -279,7 +279,12 @@ def task_every_stage(s):
     press(SEL["unblock"], "in_progress")
     press(SEL["to_queue"], "planned")
     press(SEL["start"], "in_progress")
+    logs_before = len(s.ls("workpulse_logs") or [])
     press(SEL["complete"], "done")
+    # Done only parks the task in Completed Today; the timesheet gets it when the user picks it.
+    assert len(s.ls("workpulse_logs") or []) == logs_before, "marking a task done must not create a log"
+    done = [t for t in s.ls("workpulse_backlog") if t.get("title") == title][0]
+    assert done.get("completed") and not done.get("isSynthesized"), "done task should be waiting, not logged"
     s.no_errors()
 
 
@@ -765,6 +770,47 @@ def sample_data_flow(s):
     p.wait_for_timeout(400)
     assert p.locator(ROWS).count() == 7, "undo should restore the sample logs next to the real one"
     expect(banner).to_be_visible()
+    s.no_errors()
+
+
+@check("backup_reminder")
+def backup_reminder(s):
+    """Quiet for demo data, shown for real work with an old or missing backup, cleared by a backup."""
+    p = s.page
+    reminder = p.get_by_role("region", name="Backup reminder")
+    expect(reminder).to_have_count(0)  # a new colleague has nothing to lose yet
+    p.locator(SEL["log_textarea"]).first.fill("Real work to protect")
+    btn(p, SEL["commit_log"]).first.click()
+    p.wait_for_timeout(400)
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    expect(reminder).to_be_visible(timeout=3000)
+    expect(reminder).to_contain_text("No backup yet")
+    # "Later" hides it for this visit only
+    btn(reminder, "Later").click()
+    expect(reminder).to_have_count(0)
+    # an old backup date brings it back with the age in plain words
+    settings = s.ls("workpulse_settings")
+    settings["lastBackupAt"] = "2000-01-01T00:00:00.000Z"
+    p.evaluate("v => localStorage.setItem('workpulse_settings', v)", json.dumps(settings))
+    p.reload()
+    p.wait_for_load_state("networkidle")
+    expect(reminder).to_contain_text(re.compile(r"Last backup \d+ days ago"))
+    # backing up from the reminder downloads the file, records the date and hides the reminder
+    with p.expect_download() as dl:
+        btn(reminder, "Back up now").click()
+    name = dl.value.suggested_filename
+    assert re.fullmatch(r"workpulse-backup-\d{4}-\d{2}-\d{2}\.json", name), f"unexpected file name {name}"
+    expect(reminder).to_have_count(0)
+    saved = s.ls("workpulse_settings")
+    assert saved.get("lastBackupAt", "").startswith("20") and saved["lastBackupAt"] > "2026", "backup date not recorded"
+    backup = json.load(open(dl.value.path(), encoding="utf-8"))
+    assert "lastBackupAt" not in backup["settings"] and "geminiApiKey" not in backup["settings"], "device-only values leaked into the file"
+    assert any(l["description"] == "Real work to protect" for l in backup["logs"]), "backup is missing the real log"
+    # Settings shows the same fact
+    s.tab("settings")
+    btn(p, "Data & Backup").first.click()
+    expect(p.get_by_test_id("last-backup")).to_have_text("Last backup today")
     s.no_errors()
 
 

@@ -105,7 +105,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
                                 className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                                title="Select task for EOD synthesis"
+                                aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                               />
                               <span className={`text-xs font-mono px-1.5 py-0.2 rounded font-bold ${
                                 isWorking ? 'bg-warning/15 text-warning' :
@@ -284,7 +285,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => handleToggleSelectTask(task.id)}
                                 className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                                title="Select task for EOD synthesis"
+                                aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                               />
                               <span className="font-semibold text-[var(--text-main)]">{task.title}</span>
                               {proj && (
@@ -409,7 +411,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-3.5 h-3.5 rounded border-danger/40 accent-danger cursor-pointer shrink-0"
-                              title="Select task for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             <span className="font-semibold text-[var(--text-main)] truncate">{task.title}</span>
                             {proj && <span className="text-xs text-[var(--text-muted)]">· {proj.name}</span>}
@@ -485,7 +488,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           checked={selectedTaskIds.has(task.id)}
                           onChange={() => handleToggleSelectTask(task.id)}
                           className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                          title="Select task for EOD synthesis"
+                          aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                         />
                         <span className="truncate text-[var(--text-muted)]">{task.title}</span>
                         {task.isSynthesized && (
@@ -548,7 +552,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                               checked={selectedTaskIds.has(task.id)}
                               onChange={() => handleToggleSelectTask(task.id)}
                               className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                              title="Select task for EOD synthesis"
+                              aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                             />
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)] shrink-0" />
                             <span className="font-medium text-[var(--text-main)] truncate">{task.title}</span>
@@ -651,7 +656,8 @@ export const MinimalistTasksView: React.FC<{ m: TasksModel }> = ({ m }) => {
                           checked={selectedTaskIds.has(task.id)}
                           onChange={() => handleToggleSelectTask(task.id)}
                           className="w-3.5 h-3.5 rounded border-[var(--border-control)] accent-warning cursor-pointer shrink-0"
-                          title="Select task for EOD synthesis"
+                          aria-label={`Add "${task.title}" to the timesheet`}
+ title="Select for the timesheet"
                         />
                         <span className="line-through text-[var(--text-muted)] truncate">{task.title}</span>
                         {task.isSynthesized && (
