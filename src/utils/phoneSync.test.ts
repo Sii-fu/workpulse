@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { BacklogTask, Project, WorkLog } from '../types';
+import { defaultProject } from './projects';
 import { buildSnapshot, snapshotSignature, mergeInbox, type InboxItem } from './phoneSync';
 
 beforeAll(() => {
@@ -67,6 +68,14 @@ describe('buildSnapshot', () => {
     expect(snap.tasks[0].project).toBe('Alpha');
     expect(snap.tasks[1].completedAt).toBe(doneOn('2026-11-08'));
     expect(snap.tasks[0].fromPhone).toBe(false);
+  });
+
+  it('does not send the sample projects', () => {
+    const snap = buildSnapshot({
+      ...base,
+      projects: [{ id: 'proj-1', name: 'Core Platform & API', color: '#10b981', isArchived: false }, ...projects],
+    });
+    expect(snap.projects.map((p) => p.id)).toEqual([projects[0].id, projects[1].id]);
   });
 
   it('floors tracked seconds to whole minutes', () => {
@@ -170,6 +179,13 @@ describe('mergeInbox', () => {
     expect(first.added[0].projectId).toBe(projects[0].id);
     const archived = mergeInbox([], projects, [item({ projectId: projects[2].id, projectName: 'Old' })], TODAY);
     expect(archived.added[0].projectId).toBe(projects[0].id);
+  });
+
+  it('uses the same default project as Plan your day when every project is archived', () => {
+    const allArchived = projects.map((p) => ({ ...p, isArchived: true }));
+    const r = mergeInbox([], allArchived, [item({ projectId: 'proj-gone', projectName: 'Nope' })], TODAY);
+    expect(r.added[0].projectId).toBe(defaultProject(allArchived)!.id);
+    expect(r.added[0].projectId).toBe(allArchived[0].id);
   });
 
   it('skips blank titles but still lists them as taken', () => {

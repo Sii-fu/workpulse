@@ -1,6 +1,7 @@
 import type { BacklogTask, Project, TaskStage, WorkLog, Workdays } from '../types';
-import { isSampleLog, isSampleTask } from '../data/sampleData';
+import { isSampleLog, isSampleProject, isSampleTask } from '../data/sampleData';
 import { lastNDays, localDateOfIso } from './dates';
+import { defaultProject } from './projects';
 
 // What the desktop pushes to the script so the phone page and the evening email can show it.
 // The script reads these keys by name: do not rename them.
@@ -103,7 +104,7 @@ export function buildSnapshot(i: {
     tasks,
     logs,
     workdays,
-    projects: i.projects.filter((p) => !p.isArchived).map((p) => ({ id: p.id, name: p.name, color: p.color })),
+    projects: i.projects.filter((p) => !p.isArchived && !isSampleProject(p)).map((p) => ({ id: p.id, name: p.name, color: p.color })),
     workdayHours: i.workdayHours ?? DEFAULT_WORKDAY_HOURS,
     tz: i.tz,
     deviceId: i.deviceId,
@@ -154,7 +155,7 @@ export function mergeInbox(
     const project =
       active.find((p) => p.id === item.projectId) ||
       active.find((p) => p.name === item.projectName) ||
-      active[0];
+      defaultProject(projects);
     const dueDate = item.dueDate || today;
     known.add(item.id);
     added.push({
