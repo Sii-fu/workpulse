@@ -45,11 +45,6 @@ export function localDateOfIso(iso: string): string {
   return localDateStr(new Date(iso));
 }
 
-// Short label like "Sun, 11/8" for a stored date string.
-export function dayLabel(dateStr: string): string {
-  return parseLocalDate(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-}
-
 export type DateRange = 'all' | 'today' | 'week' | 'month';
 
 // Inclusive start date for a filter range, or null for no limit.

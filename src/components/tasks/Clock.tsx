@@ -10,9 +10,3 @@ export const TaskClock: React.FC<{ task: BacklogTask }> = ({ task }) => {
   const seconds = useSyncExternalStore(subscribeTimers, () => liveSecondsOf(task));
   return <>{formatDigitalTimer(seconds)}</>;
 };
-
-/** The total of several tasks' clocks, e.g. a project's time today. */
-export const GroupClock: React.FC<{ tasks: BacklogTask[] }> = ({ tasks }) => {
-  const seconds = useSyncExternalStore(subscribeTimers, () => tasks.reduce((sum, t) => sum + liveSecondsOf(t), 0));
-  return <>{formatDigitalTimer(seconds)}</>;
-};

@@ -13,10 +13,6 @@ export interface LogFilters {
 
 export const NO_FILTERS: LogFilters = { query: '', range: 'all', projectId: 'all', status: 'all', tag: 'all' };
 
-export function hasActiveFilters(f: LogFilters): boolean {
-  return f.query.trim() !== '' || f.range !== 'all' || f.projectId !== 'all' || f.status !== 'all' || f.tag !== 'all';
-}
-
 export function filterLogs(logs: WorkLog[], f: LogFilters, todayStr: string): WorkLog[] {
   const from = rangeStart(f.range, todayStr);
   const q = f.query.trim().toLowerCase();
@@ -34,11 +30,4 @@ export function filterLogs(logs: WorkLog[], f: LogFilters, todayStr: string): Wo
     if (f.range === 'today') return log.date === todayStr;
     return from === null || log.date >= from;
   });
-}
-
-/** Tags that appear on at least one log, in first-seen order. */
-export function tagsInUse(logs: WorkLog[]): string[] {
-  const seen = new Set<string>();
-  logs.forEach((l) => l.tags.forEach((t) => seen.add(t)));
-  return Array.from(seen);
 }

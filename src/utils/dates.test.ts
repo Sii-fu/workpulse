@@ -8,7 +8,6 @@ import {
   lastNDays,
   rangeStart,
   localDateOfIso,
-  dayLabel,
 } from './dates';
 
 // The user is in UTC+6. Between 00:00 and 06:00 local, the UTC date is still "yesterday".
@@ -53,8 +52,5 @@ describe('ranges (B6, B7)', () => {
   it('rangeStart: today / all', () => {
     expect(rangeStart('today', '2026-11-08')).toBe('2026-11-08');
     expect(rangeStart('all', '2026-11-08')).toBeNull();
-  });
-  it('dayLabel is built from the stored date, so it can never be off by one day', () => {
-    expect(dayLabel('2026-11-08')).toContain('11/8');
   });
 });

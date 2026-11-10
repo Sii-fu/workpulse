@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterLogs, hasActiveFilters, NO_FILTERS, tagsInUse } from './logFilter';
+import { filterLogs, NO_FILTERS } from './logFilter';
 import { WorkLog } from '../types';
 
 const log = (over: Partial<WorkLog>): WorkLog => ({
@@ -41,16 +41,5 @@ describe('filterLogs', () => {
   it('filters by local date range', () => {
     expect(ids(filterLogs(logs, { ...NO_FILTERS, range: 'today' }, TODAY))).toEqual(['a']);
     expect(ids(filterLogs(logs, { ...NO_FILTERS, range: 'month' }, TODAY))).toEqual(['a', 'b']);
-  });
-});
-
-describe('hasActiveFilters / tagsInUse', () => {
-  it('reports whether anything narrows the list', () => {
-    expect(hasActiveFilters(NO_FILTERS)).toBe(false);
-    expect(hasActiveFilters({ ...NO_FILTERS, query: '   ' })).toBe(false);
-    expect(hasActiveFilters({ ...NO_FILTERS, range: 'week' })).toBe(true);
-  });
-  it('lists each tag once, in first-seen order', () => {
-    expect(tagsInUse(logs)).toEqual(['#bugfix', '#design']);
   });
 });

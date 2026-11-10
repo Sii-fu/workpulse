@@ -188,7 +188,6 @@
   --on-accent: #1d1a0a;
   --radius-card: 8px;
   --radius-btn: 6px;
-  --shadow-card: none;
   --font-display: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-body: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-mono: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
@@ -248,7 +247,6 @@
   --on-accent: #efe6cf;
   --radius-card: 0px;
   --radius-btn: 0px;
-  --shadow-card: none;
   --font-display: 'Libre Franklin', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-body: 'Libre Franklin', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-mono: 'Courier Prime', 'Noto Sans Bengali', ui-monospace, monospace;
@@ -307,7 +305,6 @@
   --on-accent: #0d1a14;
   --radius-card: 6px;
   --radius-btn: 6px;
-  --shadow-card: none;
   --font-display: 'Geist', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-body: 'Geist', 'Noto Sans Bengali', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Noto Sans Bengali', ui-monospace, monospace;

@@ -12,20 +12,8 @@ const KEYS = {
   TAGS: 'workpulse_tags',
   SETTINGS: 'workpulse_settings',
   WORKDAYS: 'workpulse_workdays',
-  ACTIVE_DRAFT: 'workpulse_active_draft',
   SCHEMA_VERSION: 'workpulse_schema_version',
 };
-
-export interface ActiveDraft {
-  description: string;
-  projectId: string;
-  status: 'completed' | 'in_progress' | 'blocked';
-  tags: string[];
-  linkUrl: string;
-  durationMinutes: number;
-  energyRating: number;
-  date: string;
-}
 
 export const CURRENT_SCHEMA_VERSION = 1;
 
@@ -217,30 +205,5 @@ export function replaceAllData(d: BackupData): SaveResult {
       }
     }
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-export function saveActiveDraft(draft: ActiveDraft) {
-  try {
-    localStorage.setItem(KEYS.ACTIVE_DRAFT, JSON.stringify(draft));
-  } catch (e) {
-    console.error('Error saving draft:', e);
-  }
-}
-
-export function loadActiveDraft(): Partial<ActiveDraft> | null {
-  try {
-    const raw = localStorage.getItem(KEYS.ACTIVE_DRAFT);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-export function clearActiveDraft() {
-  try {
-    localStorage.removeItem(KEYS.ACTIVE_DRAFT);
-  } catch (e) {
-    console.error('Error clearing draft:', e);
   }
 }
