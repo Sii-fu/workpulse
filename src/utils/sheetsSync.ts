@@ -25,13 +25,16 @@ export async function testSheetConnection(scriptUrl: string): Promise<SyncResult
     const data = await res.json();
     // Only the script's own { status: 'ok' } counts: any other page that answers HTTP 200 does not.
     if (res.ok && data.status === 'ok') {
-      const outdated = typeof data.version === 'number' ? data.version < 2 : true;
-      return {
-        success: true,
-        message: outdated
-          ? 'Connected. Your script is an older version: re-paste the latest script below and redeploy it to stop duplicate rows.'
-          : data.message || 'Connection to Google Sheet verified successfully!',
-      };
+      const version = typeof data.version === 'number' ? data.version : 1;
+      // Version 2 still syncs logs; only the phone page and the evening email need version 3.
+      let message: string = data.message || 'Connection to Google Sheet verified successfully!';
+      if (version < 2) {
+        message = 'Connected. Your script is an older version: re-paste the latest script below and redeploy it to stop duplicate rows.';
+      } else if (version < 3) {
+        message =
+          'Connected. Log sync works, but the phone page and evening email need the latest script: re-paste it below, then update your existing deployment (Deploy, Manage deployments, edit, New version).';
+      }
+      return { success: true, message };
     }
     return { success: false, message: data.error || data.message || 'Unexpected response from Google Sheet script.' };
   } catch (err: any) {

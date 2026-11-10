@@ -1,5 +1,28 @@
-import { describe, it, expect } from 'vitest';
-import { toSheetLog } from './sheetsSync';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { testSheetConnection, toSheetLog } from './sheetsSync';
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('testSheetConnection', () => {
+  const answer = (body: unknown) =>
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => body })));
+  const URL_ = 'https://script.google.com/macros/s/AKfyc123/exec';
+
+  it('version 3 is current', async () => {
+    answer({ status: 'ok', version: 3, message: 'WorkPulse Google Sheets Sync is active and connected!' });
+    expect(await testSheetConnection(URL_)).toEqual({ success: true, message: 'WorkPulse Google Sheets Sync is active and connected!' });
+  });
+  it('version 2 still syncs logs but is old for the phone features', async () => {
+    answer({ status: 'ok', version: 2, message: 'active' });
+    const r = await testSheetConnection(URL_);
+    expect(r.success).toBe(true);
+    expect(r.message).toMatch(/Log sync works, but the phone page and evening email need the latest script/);
+  });
+  it('version 1 (no number) keeps the duplicate-rows message', async () => {
+    answer({ status: 'ok' });
+    expect((await testSheetConnection(URL_)).message).toMatch(/stop duplicate rows/);
+  });
+});
 import type { WorkLog } from '../types';
 
 const log = (over: Partial<WorkLog> = {}): WorkLog => ({

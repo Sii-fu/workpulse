@@ -1,9 +1,11 @@
-export const GOOGLE_APPS_SCRIPT_CODE = `/**
+import { SCRIPT_CORE } from './appsScript/core';
+
+const HEADER = `/**
  * =========================================================================
- * WorkPulse - Google Sheets Sync Backend
+ * WorkPulse - Google Sheets Sync Backend (version 3)
  * =========================================================================
- * 
- * INSTRUCTIONS TO DEPLOY:
+ *
+ * INSTRUCTIONS TO DEPLOY (first time):
  * 1. In your Google Sheet, click on "Extensions" > "Apps Script".
  * 2. Delete all existing code in the editor, and paste this entire script.
  * 3. Click the disk icon (Save).
@@ -15,130 +17,92 @@ export const GOOGLE_APPS_SCRIPT_CODE = `/**
  *    - Who has access: "Anyone" (crucial for WorkPulse to connect)
  * 7. Click "Deploy". Grant permissions if prompted by Google.
  * 8. Copy the "Web app URL" (ends in /exec) and paste it into WorkPulse Settings!
+ *
+ * UPDATING FROM AN OLDER VERSION (keeps your link working):
+ * 1. Paste this entire script over the old code and click Save.
+ * 2. Click "Deploy" > "Manage deployments", click the pencil (edit) icon on your
+ *    existing deployment, set "Version" to "New version" and click "Deploy".
+ *    Do NOT use "New deployment": it makes a new URL and breaks the link saved in WorkPulse.
+ * 3. Google asks for permissions again. This version can also send you an evening
+ *    email (to your own address) and run a daily timer for it; allow both.
+ * 4. In WorkPulse Settings, set the phone PIN.
  */
+`;
 
-function doGet(e) {
-  try {
-    var action = e.parameter.action || 'ping';
-    
-    if (action === 'ping') {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'ok',
-        message: 'WorkPulse Google Sheets Sync is active and connected!',
-        version: 2,
-        timestamp: new Date().toISOString()
-      })).setMimeType(ContentService.MimeType.JSON);
+// The log sync code of version 2, unchanged: appendLog / batchSync into the 12-column WorkPulse_Logs tab
+// with the Id upsert. doPost (in SCRIPT_CORE) hands every action it does not know to handleLogAction_.
+const LOGS_SCRIPT = `
+function handleLogAction_(action, contents) {
+  var sheet = getOrCreateLogsSheet();
+
+  if (action === 'appendLog') {
+    var log = contents.log;
+    if (!log) {
+      throw new Error('No log payload provided');
     }
-    
+
+    upsertRows(sheet, [[
+      log.createdAt || new Date().toISOString(),
+      log.date || '',
+      log.time || '',
+      log.projectName || '',
+      log.description || '',
+      log.status || 'completed',
+      (log.tags || []).join(', '),
+      log.linkUrl || '',
+      log.durationMinutes || 0,
+      log.energyRating || 0,
+      log.imageBase64 ? 'Yes (Image Attached)' : 'None',
+      log.id || ''
+    ]]);
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'ok',
-      message: 'Unknown action'
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error',
-      message: error.toString()
+      message: 'Log successfully saved to Google Sheet',
+      id: log.id
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
 
-function doPost(e) {
-  try {
-    var contents = {};
-    if (e.postData && e.postData.contents) {
-      try {
-        contents = JSON.parse(e.postData.contents);
-      } catch (err) {}
+  if (action === 'batchSync') {
+    var logs = contents.logs || [];
+    var rows = [];
+
+    for (var i = 0; i < logs.length; i++) {
+      var l = logs[i];
+      rows.push([
+        l.createdAt || new Date().toISOString(),
+        l.date || '',
+        l.time || '',
+        l.projectName || '',
+        l.description || '',
+        l.status || 'completed',
+        (l.tags || []).join(', '),
+        l.linkUrl || '',
+        l.durationMinutes || 0,
+        l.energyRating || 0,
+        l.imageBase64 ? 'Yes (Image Attached)' : 'None',
+        l.id || ''
+      ]);
     }
-    var action = contents.action || (e.parameter && e.parameter.action) || 'ping';
-    
-    if (action === 'ping') {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'ok',
-        message: 'WorkPulse Google Sheets Sync is active and connected!',
-        version: 2,
-        timestamp: new Date().toISOString()
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    var sheet = getOrCreateLogsSheet();
-    
-    if (action === 'appendLog') {
-      var log = contents.log;
-      if (!log) {
-        throw new Error('No log payload provided');
-      }
-      
-      upsertRows(sheet, [[
-        log.createdAt || new Date().toISOString(),
-        log.date || '',
-        log.time || '',
-        log.projectName || '',
-        log.description || '',
-        log.status || 'completed',
-        (log.tags || []).join(', '),
-        log.linkUrl || '',
-        log.durationMinutes || 0,
-        log.energyRating || 0,
-        log.imageBase64 ? 'Yes (Image Attached)' : 'None',
-        log.id || ''
-      ]]);
-      
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'ok',
-        message: 'Log successfully saved to Google Sheet',
-        id: log.id
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    if (action === 'batchSync') {
-      var logs = contents.logs || [];
-      var rows = [];
-      
-      for (var i = 0; i < logs.length; i++) {
-        var l = logs[i];
-        rows.push([
-          l.createdAt || new Date().toISOString(),
-          l.date || '',
-          l.time || '',
-          l.projectName || '',
-          l.description || '',
-          l.status || 'completed',
-          (l.tags || []).join(', '),
-          l.linkUrl || '',
-          l.durationMinutes || 0,
-          l.energyRating || 0,
-          l.imageBase64 ? 'Yes (Image Attached)' : 'None',
-          l.id || ''
-        ]);
-      }
-      
-      upsertRows(sheet, rows);
-      
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'ok',
-        syncedCount: rows.length
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
+
+    upsertRows(sheet, rows);
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'ok',
-      message: 'Action completed'
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error',
-      message: error.toString()
+      syncedCount: rows.length
     })).setMimeType(ContentService.MimeType.JSON);
   }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'ok',
+    message: 'Action completed'
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function getOrCreateLogsSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('WorkPulse_Logs');
-  
+
   if (!sheet) {
     sheet = ss.insertSheet('WorkPulse_Logs');
     var headers = [
@@ -162,7 +126,7 @@ function getOrCreateLogsSheet() {
     sheet.setFrozenRows(1);
     sheet.autoResizeColumns(1, headers.length);
   }
-  
+
   // Older sheets: make sure the Id column (12th) exists and has its header.
   if (sheet.getMaxColumns() < ID_COL) {
     sheet.insertColumnsAfter(sheet.getMaxColumns(), ID_COL - sheet.getMaxColumns());
@@ -202,3 +166,5 @@ function upsertRows(sheet, rows) {
   }
 }
 `;
+
+export const GOOGLE_APPS_SCRIPT_CODE = HEADER + LOGS_SCRIPT + SCRIPT_CORE;
