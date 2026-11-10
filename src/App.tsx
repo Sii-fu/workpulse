@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { localDateStr, localTimeStr } from './utils/dates';
+import { flushSync } from 'react-dom';
+import { localDateOfIso, localDateStr, localTimeStr } from './utils/dates';
 import {
   WorkLog,
   BacklogTask,
@@ -48,6 +49,9 @@ import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
+import { usePhoneSync } from './hooks/usePhoneSync';
+import { keepDeviceSettings } from './utils/phoneSettings';
+import { applyPlan, planCandidates } from './utils/planYourDay';
 import { publishTimers } from './utils/timerStore';
 import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
 import type { ActivityFolder } from './utils/activity/types';
@@ -64,6 +68,7 @@ import { HistoryScreen } from './components/v2/history/HistoryScreen';
 import { SettingsView } from './components/SettingsView';
 import { LogFormDialog, LogFormPrefill } from './components/v2/LogFormDialog';
 import { EndDayDialog } from './components/v2/endday/EndDayDialog';
+import { PlanYourDayDialog, PlanYourDayResult } from './components/v2/PlanYourDayDialog';
 import type { StepId } from './utils/endDaySteps';
 
 // Dialogs and notices kept from v1
@@ -102,6 +107,13 @@ export default function App() {
   const [isClockInOpen, setIsClockInOpen] = useState(false);
   // End my day: closed (null), or open on its first open step (undefined) or on a chosen step.
   const [endDay, setEndDay] = useState<{ step?: StepId } | null>(null);
+  // Tasks taken from the phone since the app opened, shown in the next morning's Plan your day.
+  const phoneArrivals = useRef<BacklogTask[]>([]);
+  // Plan your day: closed (null), or open with a frozen list of the tasks just taken from the phone
+  // and of the earlier pending tasks (so a timer tick does not redraw it).
+  const [plan, setPlan] = useState<{ phoneTasks: BacklogTask[]; candidates: BacklogTask[]; defaultCheckedIds: string[] } | null>(
+    null,
+  );
   // The log form: closed (null), a new log (editing null, maybe prefilled) or an edit.
   const [logForm, setLogForm] = useState<{ editing: WorkLog | null; prefill: LogFormPrefill | null } | null>(null);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
@@ -366,12 +378,54 @@ export default function App() {
   // The office clock. Functional updates, so two calls in a row both stick.
   const handleClockIn = (atIso?: string) => {
     const at = atIso ?? new Date().toISOString();
+    // The first clock-in of a date starts the day, so Plan your day follows (not after Resume, and
+    // not when that date already has a record).
+    const firstOfDate = !workdays[localDateOfIso(at)];
     setWorkdays((prev) => {
       const next = clockIn(prev, at);
       if (next !== prev) saveWorkdays(next);
       return next;
     });
     setIsClockInOpen(false);
+    if (firstOfDate) void openPlanAfterPull();
+  };
+
+  // Tries one phone inbox pull (up to 3 s; a failure or a timeout just means no phone tasks), then
+  // opens Plan your day with what that pull added.
+  const openPlanAfterPull = async () => {
+    const timeout = new Promise<BacklogTask[]>((resolve) => setTimeout(() => resolve([]), 3000));
+    await Promise.race([phone.pullNow().catch(() => [] as BacklogTask[]), timeout]);
+    // The pull at load usually takes the phone tasks before the clock-in, so show everything that
+    // arrived from the phone since the app opened (still pending), this pull included.
+    const arrived = new Set(phoneArrivals.current.map((t) => t.id));
+    phoneArrivals.current = [];
+    openPlan(backlogRef.current.filter((t) => arrived.has(t.id) && isPendingTask(t)));
+  };
+
+  const openPlan = (phoneTasks: BacklogTask[]) => {
+    const { carry, defaultCheckedIds } = planCandidates(backlogRef.current, localDateStr());
+    const carryIds = new Set(carry.map((t) => t.id));
+    // A phone task dated before today shows once, in the list to carry.
+    setPlan({ phoneTasks: phoneTasks.filter((t) => !carryIds.has(t.id)), candidates: carry, defaultCheckedIds });
+  };
+
+  // "Start the day": carries the ticked tasks and adds the new ones in one update and one save.
+  const handleStartDay = ({ carryIds, newTasks }: PlanYourDayResult) => {
+    setPlan(null);
+    const today = localDateStr();
+    const created = newTasks.map((t, i) => makeTask(t.title, t.projectId, 'planned', today, i + 1));
+    setBacklog((prev) => {
+      const moved = applyPlan(prev, carryIds, today);
+      if (created.length === 0 && moved === prev) return prev;
+      const next = [...created, ...moved];
+      saveBacklog(next);
+      return next;
+    });
+    const parts = [
+      carryIds.length > 0 ? `${carryIds.length} carried to today` : '',
+      created.length > 0 ? `${created.length} added` : '',
+    ].filter(Boolean);
+    addToast(parts.length > 0 ? `Day planned: ${parts.join(', ')}.` : 'Day started.');
   };
 
   const handleClockOut = (date: string) => {
@@ -498,10 +552,11 @@ export default function App() {
   };
 
   // Tasks
-  const handleAddBacklogTask = (title: string, projectId: string, stage: TaskStage = 'planned', dueDate?: string) => {
+  // `n` keeps ids apart when several tasks are made in the same millisecond.
+  const makeTask = (title: string, projectId: string, stage: TaskStage = 'planned', dueDate?: string, n = 0): BacklogTask => {
     const nowIso = new Date().toISOString();
     const created: BacklogTask = {
-      id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `task-${Date.now()}-${n > 0 ? `${n}-` : ''}${Math.random().toString(36).substring(2, 6)}`,
       title,
       projectId,
       // A task started on creation is worked on today, whatever date was asked for.
@@ -512,7 +567,11 @@ export default function App() {
       isRolledOver: false,
       startedAt: stage === 'in_progress' ? nowIso : undefined,
     };
-    const newTask = stage === 'in_progress' ? startSegment(created, nowIso) : created;
+    return stage === 'in_progress' ? startSegment(created, nowIso) : created;
+  };
+
+  const handleAddBacklogTask = (title: string, projectId: string, stage: TaskStage = 'planned', dueDate?: string) => {
+    const newTask = makeTask(title, projectId, stage, dueDate);
     const updated = [newTask, ...backlog];
     setBacklog(updated);
     saveBacklog(updated);
@@ -929,11 +988,11 @@ export default function App() {
   };
 
   const handleImportBackup = (data: BackupData) => {
-    // Keep this machine's API key and backup date; backups never contain them. Workdays travel
-    // with the backup (an older backup without them leaves the stored ones alone).
+    // Keep this machine's API key, backup date and phone link; backups never contain them. Workdays
+    // travel with the backup (an older backup without them leaves the stored ones alone).
     const result = replaceAllData({
       ...data,
-      settings: { ...data.settings, geminiApiKey: settings.geminiApiKey, lastBackupAt: settings.lastBackupAt },
+      settings: keepDeviceSettings(data.settings, settings),
       workdays: data.workdays,
     });
     if (!result.ok) {
@@ -1000,6 +1059,48 @@ export default function App() {
   // (calm → near the leave time) and the date rolls over at midnight. The band ticks on its own.
   const now = useNow(30_000);
   const todayStr = localDateStr(new Date(now));
+
+  // Phone tasks arrive here. Only the new ones are added, onto the newest backlog (the hook's copy can
+  // be a timer tick behind); true means they are in storage, so the phone inbox may be cleared.
+  const mergeAndSaveBacklog = (next: BacklogTask[]): boolean => {
+    let result: SaveResult = { ok: true };
+    flushSync(() =>
+      setBacklog((prev) => {
+        const have = new Set(prev.map((t) => t.id));
+        const added = next.filter((t) => !have.has(t.id));
+        if (added.length === 0) {
+          result = { ok: true };
+          return prev;
+        }
+        const merged = [...prev, ...added];
+        result = storeBacklog(merged);
+        if (!result.ok) return prev;
+        // Read right after this (Plan your day), before the effect that mirrors the backlog runs.
+        backlogRef.current = merged;
+        return merged;
+      }),
+    );
+    persist(result, 'tasks');
+    return result.ok;
+  };
+
+  const phone = usePhoneSync({
+    settings,
+    saveSettings: (next) => {
+      setSettings(next);
+      saveSettings(next);
+    },
+    backlog,
+    logs,
+    projects,
+    workdays,
+    today: todayStr,
+    mergeAndSaveBacklog,
+    onTasksAdded: (added) => {
+      phoneArrivals.current = [...phoneArrivals.current, ...added];
+      addToast(`${added.length} ${added.length === 1 ? 'task' : 'tasks'} added from your phone`, 'success');
+    },
+  });
   const hours = settings.workdayHours ?? DEFAULT_WORKDAY_HOURS;
   const todayRecord = workdays[todayStr];
   // Today's record, else an earlier day still open (working past midnight, or a forgotten clock-out).
@@ -1102,6 +1203,7 @@ export default function App() {
       if (openDay) handleClockOut(openDay.date);
     }),
     closeEndDay: useStableCallback(() => setEndDay(null)),
+    planDay: useStableCallback(() => openPlan([])),
   };
 
   const sourcesGit = sourcesFromSettings(settings).git;
@@ -1191,6 +1293,7 @@ export default function App() {
             onReopen={h.reopenToPlanned}
             onDeleteTask={h.deleteTask}
             onMoveToToday={h.moveToToday}
+            onPlanDay={h.planDay}
             onAddLog={h.addLog}
             onOpenLogForm={h.openLogForm}
             onEditLog={h.editLog}
@@ -1268,6 +1371,7 @@ export default function App() {
             onFixLogDates={handleFixLogDates}
             onStartFresh={handleStartFresh}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
+            phoneStatus={phone.status}
           />
         )}
       </main>
@@ -1275,6 +1379,17 @@ export default function App() {
       <BottomNav active={activeTab} onChange={setActiveTab} openTasks={openTasks} />
 
       <ClockInDialog isOpen={isClockInOpen} onClose={() => setIsClockInOpen(false)} onConfirm={handleClockIn} />
+
+      <PlanYourDayDialog
+        isOpen={plan !== null}
+        onClose={() => setPlan(null)}
+        today={todayStr}
+        phoneTasks={plan?.phoneTasks ?? []}
+        candidates={plan?.candidates ?? []}
+        defaultCheckedIds={plan?.defaultCheckedIds ?? []}
+        projects={projects}
+        onStart={handleStartDay}
+      />
 
       <EndDayDialog
         isOpen={endDay !== null}

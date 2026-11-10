@@ -51,6 +51,8 @@ SEL = {
     "resume_day": "Resume",
     "clock_in_dialog": "Clock in",                        # dialog name
     "came_in_at": re.compile(r"^I came in (yesterday )?at"),
+    "plan_day_dialog": "Plan your day",                   # dialog after a date's first clock-in
+    "plan_skip": "Skip",
     # Today
     "task_quick_add": "Add a task for today",             # textbox; Enter = planned
     "log_quick_add": "What did you just finish?",         # textbox; Enter = log
@@ -245,6 +247,14 @@ class Session:
         dlg = self.page.get_by_role("dialog", name=SEL["clock_in_dialog"])
         dlg.get_by_role("button", name=SEL["clock_in"], exact=True).click()
         expect(dlg).to_have_count(0)
+        self.skip_plan()
+
+    def skip_plan(self):
+        """A date's first clock-in opens Plan your day; Skip closes it without changes."""
+        plan = self.page.get_by_role("dialog", name=SEL["plan_day_dialog"])
+        expect(plan).to_be_visible(timeout=5000)
+        plan.get_by_role("button", name=SEL["plan_skip"], exact=True).click()
+        expect(plan).to_have_count(0)
 
     def no_overflow(self, label):
         over = self.page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
@@ -543,6 +553,8 @@ def office_clock(s):
     rec = s.ls("workpulse_workdays")[s.today()]
     assert not rec.get("clockOut"), "Resume did not clear the clock-out"
     expect(btn(band, SEL["clock_out"], exact=True)).to_be_visible()
+    p.wait_for_timeout(500)
+    expect(p.get_by_role("dialog", name=SEL["plan_day_dialog"])).to_have_count(0)
     s.no_errors()
 
 
@@ -562,6 +574,7 @@ def office_clock_came_in_at(s):
     field.fill(stamp)
     btn(dlg, SEL["came_in_at"]).click()
     expect(dlg).to_have_count(0)
+    s.skip_plan()
     rec = s.ls("workpulse_workdays")[s.today()]
     local = p.evaluate("iso => { const d = new Date(iso); return String(d.getHours()).padStart(2,'0') + ':' +"
                        " String(d.getMinutes()).padStart(2,'0'); }", rec["clockIn"])
@@ -1045,6 +1058,10 @@ def phone_pass(s):
             dlg = page.get_by_role("dialog", name=SEL["clock_in_dialog"])
             btn(dlg, SEL["clock_in"], exact=True).click()
             expect(dlg).to_have_count(0)
+            plan = page.get_by_role("dialog", name=SEL["plan_day_dialog"])
+            expect(plan).to_be_visible(timeout=5000)
+            btn(plan, SEL["plan_skip"], exact=True).click()
+            expect(plan).to_have_count(0)
             shown = band.inner_text()  # innerText skips the wide layout hidden under 768 px
             assert re.search(r"Worked", shown, re.I) and re.search(r"To go", shown, re.I), f"{theme}: band shows {shown!r}"
             band_h = band.bounding_box()["height"]

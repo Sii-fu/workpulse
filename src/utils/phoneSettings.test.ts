@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_EMAIL_TIME, parseEmailTime, ensureDeviceId, phoneLink } from './phoneSettings';
+import { DEFAULT_EMAIL_TIME, parseEmailTime, ensureDeviceId, phoneLink, keepDeviceSettings } from './phoneSettings';
 import { DEFAULT_SETTINGS } from '../data/seedData';
 
 describe('parseEmailTime', () => {
@@ -47,5 +47,38 @@ describe('phoneLink', () => {
     for (const bad of ['https://example.com', 'http://script.google.com/macros/s/ABC/exec', 'https://script.google.com/other', '', 'nope']) {
       expect(phoneLink(bad)).toBeNull();
     }
+  });
+});
+
+describe('keepDeviceSettings', () => {
+  const current = {
+    ...DEFAULT_SETTINGS,
+    geminiApiKey: 'KEY',
+    lastBackupAt: '2026-11-01T10:00:00.000Z',
+    phoneToken: 'TOKEN',
+    phoneDeviceId: 'dev-abc',
+    phoneSyncAt: '2026-11-11T11:40:00.000Z',
+    phoneLastError: 'Could not reach your Google Sheet.',
+  };
+
+  it("keeps this computer's key, backup date and phone link over an imported backup", () => {
+    const imported = { ...DEFAULT_SETTINGS, theme: 'timecard' as const, emailEnabled: true, emailTime: '19:30' };
+    const out = keepDeviceSettings(imported, current);
+    expect(out).toMatchObject({
+      theme: 'timecard',
+      emailEnabled: true,
+      emailTime: '19:30',
+      geminiApiKey: 'KEY',
+      lastBackupAt: '2026-11-01T10:00:00.000Z',
+      phoneToken: 'TOKEN',
+      phoneDeviceId: 'dev-abc',
+      phoneSyncAt: '2026-11-11T11:40:00.000Z',
+      phoneLastError: 'Could not reach your Google Sheet.',
+    });
+  });
+
+  it('a backup cannot bring in a phone token', () => {
+    const imported = { ...DEFAULT_SETTINGS, phoneToken: 'FROM-FILE' };
+    expect(keepDeviceSettings(imported, { ...DEFAULT_SETTINGS }).phoneToken).toBeUndefined();
   });
 });

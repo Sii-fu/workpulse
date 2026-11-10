@@ -13,6 +13,8 @@ import { parseBackup } from '../utils/backup';
 import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
 import { ThemePicker } from './v2/settings/ThemePicker';
 import { ProjectsSection } from './v2/settings/ProjectsSection';
+import { PhoneEmailSection } from './v2/settings/PhoneEmailSection';
+import type { PhoneSyncStatus } from '../hooks/usePhoneSync';
 import { IconButton } from './ui/IconButton';
 import { normalizeTheme, type ThemeId } from '../utils/theme';
 import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
@@ -41,6 +43,8 @@ interface SettingsViewProps {
   onFixLogDates: (fixes: DateFix[]) => void;
   onStartFresh: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
+  /** The phone sync's state for the Phone & evening email section. */
+  phoneStatus: PhoneSyncStatus;
 }
 
 const SECTIONS = [
@@ -48,6 +52,7 @@ const SECTIONS = [
   { id: 'office', label: 'Office day' },
   { id: 'projects', label: 'Projects & tags' },
   { id: 'sheet', label: 'Google Sheet' },
+  { id: 'phone', label: 'Phone & evening email' },
   { id: 'ai', label: 'AI' },
   { id: 'activity', label: 'Activity suggestions' },
   { id: 'data', label: 'Data & backup' },
@@ -107,6 +112,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onFixLogDates,
   onStartFresh,
   onNotify,
+  phoneStatus,
 }) => {
   const uid = useId();
   const [current, setCurrent] = useState<SectionId>('appearance');
@@ -428,6 +434,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 </pre>
               </div>
             </details>
+          </Section>
+
+          <Section id="phone" title="Phone & evening email">
+            <PhoneEmailSection settings={settings} onSaveSettings={onSaveSettings} status={phoneStatus} onNotify={onNotify} />
           </Section>
 
           <Section

@@ -30,3 +30,17 @@ export function phoneLink(scriptUrl: string): string | null {
   if (!/^https:\/\/script\.google\.com\/macros\/s\/[^?#\s]+/.test(scriptUrl)) return null;
   return scriptUrl + (scriptUrl.includes('?') ? '&' : '?') + 'page=phone';
 }
+
+// A backup import replaces settings, but some belong to this computer and are never in a backup:
+// the Gemini key, the backup date and the phone link (its token, device id and sync status).
+export function keepDeviceSettings(imported: AppSettings, current: AppSettings): AppSettings {
+  return {
+    ...imported,
+    geminiApiKey: current.geminiApiKey,
+    lastBackupAt: current.lastBackupAt,
+    phoneToken: current.phoneToken,
+    phoneDeviceId: current.phoneDeviceId,
+    phoneSyncAt: current.phoneSyncAt,
+    phoneLastError: current.phoneLastError,
+  };
+}

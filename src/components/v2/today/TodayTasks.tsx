@@ -20,12 +20,14 @@ export interface TodayTasksProps {
   onDeleteTask(id: string): void;
   /** Sets the due date of the given pending tasks to today. */
   onMoveToToday(ids: string[]): void;
+  /** Opens Plan your day (earlier tasks to carry, new tasks for today). */
+  onPlanDay(): void;
 }
 
 /** The "Earlier, still pending" block shows this many of the most recent days until the user asks for more. */
 const EARLIER_DAYS_SHOWN = 3;
 
-export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday }) => {
+export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
   const [allEarlier, setAllEarlier] = useState(false);
@@ -52,16 +54,25 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
 
   return (
     <section aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`} className="v2-head">
-        <span>Today's tasks</span>
-        <span className="v2-head-meta num">
-          {open} open
-          {/* Under 420px only the first part shows; screen readers still hear all of it. */}
-          <span className="sr-only min-[420px]:not-sr-only">
-            {' '}· {running} running · {done} done
+      <div className="v2-head v2-head-split">
+        <h2 id={`${id}-h`} className="v2-head-group">
+          <span>Today's tasks</span>
+          <span className="v2-head-meta num">
+            {open} open
+            {/* Under 420px only the first part shows; screen readers still hear all of it. */}
+            <span className="sr-only min-[420px]:not-sr-only">
+              {' '}· {running} running · {done} done
+            </span>
           </span>
-        </span>
-      </h2>
+        </h2>
+        <button
+          type="button"
+          onClick={onPlanDay}
+          className="shrink-0 min-h-8 pointer-coarse:min-h-11 px-1 normal-case tracking-normal text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 cursor-pointer"
+        >
+          Plan your day
+        </button>
+      </div>
       <div className="v2-panel">
         <div className="v2-row v2-inset">
           <label htmlFor={`${id}-add`} className="sr-only">
