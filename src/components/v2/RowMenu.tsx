@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import { IconButton } from '../ui/IconButton';
 
 export interface RowMenuItem {
@@ -13,11 +13,13 @@ interface RowMenuProps {
   /** What the menu belongs to, for screen readers: "Actions for Fix date filter". */
   label: string;
   items: RowMenuItem[];
+  /** Shows a text button ("Export") instead of the ⋯ icon; `label` stays the accessible name. */
+  buttonText?: string;
 }
 
 // The ⋯ menu at the end of a task or log row. Arrow keys move, Escape closes and returns focus
 // to the button, a click outside closes.
-export const RowMenu: React.FC<RowMenuProps> = ({ label, items }) => {
+export const RowMenu: React.FC<RowMenuProps> = ({ label, items, buttonText }) => {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -67,15 +69,30 @@ export const RowMenu: React.FC<RowMenuProps> = ({ label, items }) => {
 
   return (
     <div ref={wrapRef} className="relative shrink-0">
-      <IconButton
-        label={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
-      </IconButton>
+      {buttonText ? (
+        <button
+          type="button"
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          onClick={() => setOpen((o) => !o)}
+          className="v2-btn inline-flex items-center gap-1.5 min-h-11 px-3 cursor-pointer"
+        >
+          {buttonText}
+          <ChevronDown className="w-4 h-4" aria-hidden="true" />
+        </button>
+      ) : (
+        <IconButton
+          label={label}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+        </IconButton>
+      )}
       {open && (
         <div
           id={menuId}

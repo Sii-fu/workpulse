@@ -779,6 +779,20 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   .print-only {
     display: block !important;
   }
+  /* History's Print: only the day headings and log rows, without the app bars, ticks or menus. */
+  body:has(.v2-history) header.v2-band,
+  body:has(.v2-history) nav,
+  .v2-history input[type="checkbox"],
+  .v2-history [aria-haspopup="menu"] {
+    display: none !important;
+  }
+  /* Dark ink on white paper in every theme (browsers drop backgrounds when printing). */
+  .v2-history {
+    --text-main: #000;
+    --text-muted: #444;
+    --bg-surface: transparent;
+    --border-app: #bbb;
+  }
 }
 
 /* A log picked in the search palette: its row flashes once so the eye finds it. */

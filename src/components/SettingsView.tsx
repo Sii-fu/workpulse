@@ -17,7 +17,7 @@ import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings
 import type { ActivityAi, ActivityFolder, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
-import { toCsv } from '../utils/csv';
+import { logsToCsv } from '../utils/exportLogs';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
 import {
@@ -241,21 +241,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
 
   // Export CSV
   const handleExportCSV = () => {
-    const csv = toCsv([
-      ['ID', 'Date', 'Time', 'Project', 'Description', 'Status', 'Tags', 'Link', 'Duration_Mins', 'Energy_Rating'],
-      ...logs.map((l) => [
-        l.id,
-        l.date,
-        l.time,
-        l.projectName,
-        l.description,
-        l.status,
-        l.tags.join(' '),
-        l.linkUrl || '',
-        l.durationMinutes || 0,
-        l.energyRating || 0,
-      ]),
-    ]);
+    const csv = logsToCsv(logs);
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
