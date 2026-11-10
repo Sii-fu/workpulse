@@ -1,6 +1,6 @@
 process.env.TZ = 'Asia/Dhaka';
 import { describe, it, expect } from 'vitest';
-import { clockState, openWorkdayBefore, clockIn, clockOut, resumeWorkday, formatHm, isWorkdays } from './workday';
+import { clockState, openWorkdayBefore, currentWorkday, chosenClockIn, clockIn, clockOut, resumeWorkday, formatHm, isWorkdays } from './workday';
 
 // 09:48 in Dhaka (UTC+6) is 03:48Z.
 const IN = '2026-11-10T03:48:00.000Z';
@@ -99,5 +99,36 @@ describe('isWorkdays', () => {
     expect(isWorkdays({ '2026-11-10': {} })).toBe(false);
     expect(isWorkdays({ '2026-11-10': { clockIn: 5 } })).toBe(false);
     expect(isWorkdays({ '2026-11-10': { clockIn: IN, clockOut: 5 } })).toBe(false);
+  });
+});
+
+describe('currentWorkday', () => {
+  it("today's record wins, open or clocked out", () => {
+    const today = { clockIn: IN, clockOut: IN };
+    const w = { '2026-11-09': { clockIn: 'a' }, '2026-11-10': today };
+    expect(currentWorkday(w, '2026-11-10')).toEqual({ date: '2026-11-10', rec: today });
+  });
+  it('an earlier day still open when today has no record (past midnight)', () => {
+    const mon = { clockIn: '2026-11-09T03:00:00.000Z' };
+    expect(currentWorkday({ '2026-11-09': mon }, '2026-11-10')).toEqual({ date: '2026-11-09', rec: mon });
+  });
+  it('null when nothing is open and today has no record', () => {
+    expect(currentWorkday({ '2026-11-09': { clockIn: 'a', clockOut: 'b' } }, '2026-11-10')).toBeNull();
+  });
+});
+
+describe('chosenClockIn', () => {
+  // 00:30 on 11-10 in Dhaka is 11-09T18:30Z.
+  const now = Date.parse('2026-11-09T18:30:00.000Z');
+  it('a time later than now is yesterday', () => {
+    const c = chosenClockIn('22:00', now);
+    expect(c).toEqual({ atIso: '2026-11-09T16:00:00.000Z', yesterday: true });
+  });
+  it('a time earlier than now is today', () => {
+    expect(chosenClockIn('00:10', now)).toEqual({ atIso: '2026-11-09T18:10:00.000Z', yesterday: false });
+  });
+  it('null for an empty or bad time', () => {
+    expect(chosenClockIn('', now)).toBeNull();
+    expect(chosenClockIn('9:5', now)).toBeNull();
   });
 });

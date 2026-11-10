@@ -39,7 +39,7 @@ import {
   clockIn,
   clockOut,
   clockState,
-  openWorkdayBefore,
+  currentWorkday,
   resumeWorkday,
 } from './utils/workday';
 import { chooseNextAction } from './utils/nextAction';
@@ -973,8 +973,10 @@ export default function App() {
   const todayStr = localDateStr(new Date(now));
   const hours = settings.workdayHours ?? DEFAULT_WORKDAY_HOURS;
   const todayRecord = workdays[todayStr];
-  // A forgotten clock-out from an earlier day shows in the band only while today has no record.
-  const staleOpen = todayRecord ? null : openWorkdayBefore(workdays, todayStr);
+  // Today's record, else an earlier day still open (working past midnight, or a forgotten clock-out).
+  // End my day and the next action work on it; the band shows an earlier one as staleOpen.
+  const openDay = currentWorkday(workdays, todayStr);
+  const staleOpen = openDay && openDay.date !== todayStr ? openDay : null;
   const theme = normalizeTheme(settings.theme);
 
   const pendingSuggestions = useSyncExternalStore(subscribeActivitySession, () => pendingCount(todayStr));
@@ -982,7 +984,7 @@ export default function App() {
   const folders = settings.activityFolders && settings.activityFolders.length > 0 ? settings.activityFolders : NO_FOLDERS;
 
   const next = chooseNextAction({
-    clock: clockState(todayRecord, hours, Date.now()),
+    clock: clockState(openDay?.rec, hours, Date.now()),
     pendingSuggestions,
     doneUnloggedTasks: backlog.filter(isDoneUnlogged).length,
     checkedActivityToday,
@@ -1066,7 +1068,9 @@ export default function App() {
     confirmEod: useStableCallback(handleConfirmEodPush),
     syncForEndDay: useStableCallback(handleSyncForEndDay),
     pauseTask: useStableCallback(handlePauseTask),
-    clockOutToday: useStableCallback(() => handleClockOut(localDateStr())),
+    clockOutOpenDay: useStableCallback(() => {
+      if (openDay) handleClockOut(openDay.date);
+    }),
     closeEndDay: useStableCallback(() => setEndDay(null)),
   };
 
@@ -1249,14 +1253,15 @@ export default function App() {
         backlog={backlog}
         projects={projects}
         settings={settings}
-        workday={todayRecord}
+        workday={openDay?.rec}
+        workdayDate={openDay?.date}
         activityProps={activityProps}
         onConfirmEodPush={h.confirmEod}
         onEditLog={h.editLog}
         onDeleteLog={h.deleteLog}
         onSync={h.syncForEndDay}
         onPauseTask={h.pauseTask}
-        onClockOut={h.clockOutToday}
+        onClockOut={h.clockOutOpenDay}
         onOpenImage={h.openImage}
       />
 

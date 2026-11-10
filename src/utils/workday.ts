@@ -43,6 +43,28 @@ export function openWorkdayBefore(
   return date ? { date, rec: workdays[date] } : null;
 }
 
+// The workday End my day and the next action work on: today's record (open or clocked out), else an
+// earlier day still open (someone working past midnight, or a forgotten clock-out).
+export function currentWorkday(
+  workdays: Workdays,
+  today: string,
+): { date: string; rec: WorkdayRecord } | null {
+  const rec = workdays[today];
+  return rec ? { date: today, rec } : openWorkdayBefore(workdays, today);
+}
+
+// "I came in at HH:MM": today at that time, or yesterday when that time has not come yet today
+// (an entry made after midnight for a late start). Null when the text is not HH:MM.
+export function chosenClockIn(hhmm: string, nowMs: number): { atIso: string; yesterday: boolean } | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!match) return null;
+  const at = new Date(nowMs);
+  at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  const yesterday = at.getTime() > nowMs;
+  if (yesterday) at.setDate(at.getDate() - 1);
+  return { atIso: at.toISOString(), yesterday };
+}
+
 // Starts the day for the local date of `atIso`. An existing record for that date is kept as it is.
 export function clockIn(workdays: Workdays, atIso: string): Workdays {
   const date = localDateOfIso(atIso);

@@ -15,7 +15,7 @@ import { unsyncedLogs } from '../../../utils/syncStatus';
 import { isDoneUnlogged } from '../../../utils/taskLogging';
 import { isRunningTask, sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import { plainSheetMessage } from '../../../utils/aiErrors';
-import { localTimeStr } from '../../../utils/dates';
+import { localTimeStr, parseLocalDate } from '../../../utils/dates';
 import { StepEmpty, StepId, StepStatus, nextOpenStep, prevOpenStep, stepAfterDoneTasks, stepStatus } from '../../../utils/endDaySteps';
 
 export interface EndDayDialogProps {
@@ -29,8 +29,10 @@ export interface EndDayDialogProps {
   backlog: BacklogTask[];
   projects: Project[];
   settings: AppSettings;
-  /** Today's office-clock record; absent when not clocked in today. */
+  /** The office-clock record to end: today's, else an earlier day still open (past midnight). Absent when none. */
   workday?: WorkdayRecord;
+  /** Local YYYY-MM-DD of `workday`. */
+  workdayDate?: string;
   activityProps: TodayActivityProps;
   /** Step 2: adds the synthesized logs (and marks the tasks' time as logged). */
   onConfirmEodPush(items: SynthesizedLogItem[]): Promise<void>;
@@ -80,6 +82,7 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   projects,
   settings,
   workday,
+  workdayDate,
   activityProps,
   onConfirmEodPush,
   onEditLog,
@@ -265,7 +268,7 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
           </div>
         );
       case 'clock':
-        return <ClockOutStep workday={workday} hours={hours} running={running} byId={byId} />;
+        return <ClockOutStep workday={workday} earlierDate={workdayDate !== today ? workdayDate : undefined} hours={hours} running={running} byId={byId} />;
     }
   };
 
@@ -404,10 +407,12 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
 /** Step 5: worked time against the target, and the timers still running. */
 const ClockOutStep: React.FC<{
   workday?: WorkdayRecord;
+  /** Set when the workday began on an earlier date (still open past midnight). */
+  earlierDate?: string;
   hours: number;
   running: BacklogTask[];
   byId: Map<string, Project>;
-}> = ({ workday, hours, running, byId }) => {
+}> = ({ workday, earlierDate, hours, running, byId }) => {
   const now = useNow(30_000);
   if (!workday)
     return (
@@ -440,7 +445,8 @@ const ClockOutStep: React.FC<{
           </div>
         </dl>
         <p className={`mt-3 ${BODY}`}>
-          In at <span className="num">{localTimeStr(new Date(workday.clockIn))}</span>. {rest}
+          In at {earlierDate && `${parseLocalDate(earlierDate).toLocaleDateString('en-US', { weekday: 'short' })} `}
+          <span className="num">{localTimeStr(new Date(workday.clockIn))}</span>. {rest}
         </p>
       </div>
 

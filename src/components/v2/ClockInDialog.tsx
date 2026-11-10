@@ -1,11 +1,12 @@
 import React, { useId, useState } from 'react';
 import { ModalShell } from '../ui/ModalShell';
 import { localTimeStr } from '../../utils/dates';
+import { chosenClockIn } from '../../utils/workday';
 
 interface ClockInDialogProps {
   isOpen: boolean;
   onClose(): void;
-  /** ISO timestamp of the clock-in: now, or the chosen time today. */
+  /** ISO timestamp of the clock-in: now, or the chosen time (yesterday when it has not come yet today). */
   onConfirm(atIso: string): void;
 }
 
@@ -21,19 +22,15 @@ const ClockInPanel: React.FC<Omit<ClockInDialogProps, 'isOpen'>> = ({ onClose, o
   const [time, setTime] = useState(() => localTimeStr());
   const [error, setError] = useState('');
 
+  // A time later than now means yesterday (clocking in after midnight for a late start).
+  const chosen = chosenClockIn(time, Date.now());
+
   const confirmChosen = () => {
-    const match = /^(\d{2}):(\d{2})$/.exec(time);
-    if (!match) {
+    if (!chosen) {
       setError('Enter the time you came in, for example 09:15.');
       return;
     }
-    const at = new Date();
-    at.setHours(Number(match[1]), Number(match[2]), 0, 0);
-    if (at.getTime() > Date.now()) {
-      setError(`${time} has not come yet. Pick a time before ${localTimeStr()}.`);
-      return;
-    }
-    onConfirm(at.toISOString());
+    onConfirm(chosen.atIso);
   };
 
   return (
@@ -84,7 +81,7 @@ const ClockInPanel: React.FC<Omit<ClockInDialogProps, 'isOpen'>> = ({ onClose, o
             onClick={confirmChosen}
             className="shrink-0 h-10 px-4 rounded-[var(--radius-btn)] border border-[var(--border-control)] hover:bg-[var(--bg-subtle)] text-[length:var(--fs-small)] font-semibold whitespace-nowrap cursor-pointer transition-colors"
           >
-            I came in at <span className="num">{time || '--:--'}</span>
+            I came in {chosen?.yesterday ? 'yesterday ' : ''}at <span className="num">{time || '--:--'}</span>
           </button>
         </div>
         {error && (
