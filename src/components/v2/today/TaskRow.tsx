@@ -38,7 +38,8 @@ const hm = (seconds: number) => {
 };
 const timeOf = (iso?: string) => (iso ? localTimeStr(new Date(iso)) : '');
 
-function metaFor(task: BacklogTask, stage: TaskStage): string {
+/** The default meta line after the project name: started 14:02, paused · 1:10 tracked, blocked: reason… */
+export function metaFor(task: BacklogTask, stage: TaskStage): string {
   const tracked = task.elapsedSeconds || 0;
   switch (stage) {
     case 'in_progress':
