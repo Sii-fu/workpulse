@@ -1,37 +1,242 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-10T00:00:00Z",
+  "generatedAt": "2026-11-11T00:00:00Z",
   "title": "Design System: WorkPulse",
   "extensions": {
     "colorMeta": {
-      "chase-pitch": { "role": "primary", "displayName": "Pitch Green", "canonical": "#0f3d2e", "tonalRamp": ["#071f17", "#0a2a1f", "#0f3d2e", "#2a5c4a", "#4f7d6b", "#7fa391", "#b3cabf", "#e0ebe5"] },
-      "chase-gold": { "role": "primary", "displayName": "Scoreboard Gold", "canonical": "#f2b705", "tonalRamp": ["#4a3700", "#7a5c00", "#b08700", "#dba603", "#f2b705", "#f6cb4a", "#f9de8a", "#fcf0c9"] },
-      "chase-chalk": { "role": "neutral", "displayName": "Chalk", "canonical": "#f4f1e8", "tonalRamp": ["#5d6b63", "#83806f", "#b3af9f", "#dcd8cb", "#ebe7db", "#efebe1", "#f4f1e8", "#fbfaf5"] },
-      "timecard-manila": { "role": "neutral", "displayName": "Manila", "canonical": "#efe6cf", "tonalRamp": ["#665d4e", "#8a7d62", "#c9bc9c", "#e6dbbf", "#efe6cf", "#f7f1e1", "#fffdf6", "#ffffff"] },
-      "timecard-stamp-red": { "role": "secondary", "displayName": "Leave-mark Red", "canonical": "#c4302b", "tonalRamp": ["#4a0f0d", "#7a1d1a", "#8f221e", "#b02a25", "#c4302b", "#d9605b", "#e89995", "#f5d0ce"] },
-      "console-graphite": { "role": "neutral", "displayName": "Graphite", "canonical": "#16181d", "tonalRamp": ["#16181d", "#1c1f25", "#22262d", "#2c3038", "#6c737e", "#8b929c", "#e6e8eb", "#ffffff"] },
-      "console-mint": { "role": "primary", "displayName": "Console Mint", "canonical": "#7cc4a4", "tonalRamp": ["#0d1a14", "#1f3d30", "#3a6b55", "#5a9b7d", "#7cc4a4", "#95d3b7", "#bde5d3", "#e3f4ec"] }
+      "chase-pitch": {
+        "role": "primary",
+        "displayName": "Pitch Green",
+        "canonical": "#0f3d2e",
+        "tonalRamp": [
+          "#071f17",
+          "#0a2a1f",
+          "#0f3d2e",
+          "#2a5c4a",
+          "#4f7d6b",
+          "#7fa391",
+          "#b3cabf",
+          "#e0ebe5"
+        ]
+      },
+      "chase-gold": {
+        "role": "primary",
+        "displayName": "Scoreboard Gold",
+        "canonical": "#f2b705",
+        "tonalRamp": [
+          "#4a3700",
+          "#7a5c00",
+          "#b08700",
+          "#dba603",
+          "#f2b705",
+          "#f6cb4a",
+          "#f9de8a",
+          "#fcf0c9"
+        ]
+      },
+      "chase-chalk": {
+        "role": "neutral",
+        "displayName": "Chalk",
+        "canonical": "#f4f1e8",
+        "tonalRamp": [
+          "#5d6b63",
+          "#83806f",
+          "#b3af9f",
+          "#dcd8cb",
+          "#ebe7db",
+          "#efebe1",
+          "#f4f1e8",
+          "#fbfaf5"
+        ]
+      },
+      "timecard-manila": {
+        "role": "neutral",
+        "displayName": "Manila",
+        "canonical": "#efe6cf",
+        "tonalRamp": [
+          "#665d4e",
+          "#8a7d62",
+          "#c9bc9c",
+          "#e6dbbf",
+          "#efe6cf",
+          "#f7f1e1",
+          "#fffdf6",
+          "#ffffff"
+        ]
+      },
+      "timecard-stamp-red": {
+        "role": "secondary",
+        "displayName": "Leave-mark Red",
+        "canonical": "#c4302b",
+        "tonalRamp": [
+          "#4a0f0d",
+          "#7a1d1a",
+          "#8f221e",
+          "#b02a25",
+          "#c4302b",
+          "#d9605b",
+          "#e89995",
+          "#f5d0ce"
+        ]
+      },
+      "console-graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#16181d",
+        "tonalRamp": [
+          "#16181d",
+          "#1c1f25",
+          "#22262d",
+          "#2c3038",
+          "#6c737e",
+          "#8b929c",
+          "#e6e8eb",
+          "#ffffff"
+        ]
+      },
+      "console-mint": {
+        "role": "primary",
+        "displayName": "Console Mint",
+        "canonical": "#7cc4a4",
+        "tonalRamp": [
+          "#0d1a14",
+          "#1f3d30",
+          "#3a6b55",
+          "#5a9b7d",
+          "#7cc4a4",
+          "#95d3b7",
+          "#bde5d3",
+          "#e3f4ec"
+        ]
+      },
+      "phone-wait": {
+        "role": "secondary",
+        "displayName": "Waiting Ochre",
+        "canonical": "#7a5a00",
+        "tonalRamp": [
+          "#2e2200",
+          "#4a3700",
+          "#7a5a00",
+          "#a67c00",
+          "#c99a10",
+          "#e0b84a",
+          "#f0d58f",
+          "#faedc7"
+        ]
+      },
+      "phone-danger": {
+        "role": "secondary",
+        "displayName": "Phone Error Red",
+        "canonical": "#a1281f",
+        "tonalRamp": [
+          "#3d0f0b",
+          "#6b1812",
+          "#8a2019",
+          "#a1281f",
+          "#c0453c",
+          "#d8776f",
+          "#ebaaa5",
+          "#f7dddb"
+        ]
+      },
+      "email-page": {
+        "role": "neutral",
+        "displayName": "Mail Ground",
+        "canonical": "#e7e3d6",
+        "tonalRamp": [
+          "#5d6b63",
+          "#83806f",
+          "#b3af9f",
+          "#dcd8cb",
+          "#e7e3d6",
+          "#efebe1",
+          "#f4f1e8",
+          "#fbfaf5"
+        ]
+      }
     },
     "typographyMeta": {
-      "chase-figure": { "displayName": "Scoreboard Figure", "purpose": "WORKED and TO GO numerals in the band; Archivo 72% width, tabular. 64px desktop, 40px phone." },
-      "timecard-figure": { "displayName": "Stamped Figure", "purpose": "Courier Prime figures in Time Card cells; 40px desktop, 28px phone." },
-      "console-figure": { "displayName": "Console Figure", "purpose": "Geist Mono at body size in Console's single band line." },
-      "body": { "displayName": "Body", "purpose": "Task titles, band statements, primary buttons. 15px." },
-      "small": { "displayName": "Small", "purpose": "Row buttons, metas, labels. 13px, 600." },
-      "section-head": { "displayName": "Section Head", "purpose": "Uppercase tracked card headings; rank by case and weight, not size." }
+      "chase-figure": {
+        "displayName": "Scoreboard Figure",
+        "purpose": "WORKED and TO GO numerals in the band; Archivo 72% width, tabular. 64px desktop, 40px phone."
+      },
+      "timecard-figure": {
+        "displayName": "Stamped Figure",
+        "purpose": "Courier Prime figures in Time Card cells; 40px desktop, 28px phone."
+      },
+      "console-figure": {
+        "displayName": "Console Figure",
+        "purpose": "Geist Mono at body size in Console's single band line."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Task titles, band statements, primary buttons. 15px."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Row buttons, metas, labels. 13px, 600."
+      },
+      "section-head": {
+        "displayName": "Section Head",
+        "purpose": "Uppercase tracked card headings; rank by case and weight, not size."
+      },
+      "phone-figure": {
+        "displayName": "Phone Figure",
+        "purpose": "WORKED and TO GO on the phone band, 40px, narrow tabular numerals from the system condensed face."
+      },
+      "email-figure": {
+        "displayName": "Email Figure",
+        "purpose": "Worked time in the email band, 38px bold Arial (mail clients cannot load Archivo)."
+      }
     },
     "shadows": [],
     "motion": [
-      { "name": "ball-pulse", "value": "1.6s ease-in-out infinite, opacity 1 to 0.4", "purpose": "The current ball in the overs strip." },
-      { "name": "rise-in", "value": "160ms cubic-bezier(0.22, 1, 0.36, 1), 8px", "purpose": "Dialogs and toasts answering an action." },
-      { "name": "fade-in", "value": "120ms ease-out", "purpose": "Overlays." },
-      { "name": "log-flash", "value": "1.6s ease-out", "purpose": "History row picked from search flashes once." }
+      {
+        "name": "ball-pulse",
+        "value": "1.6s ease-in-out infinite, opacity 1 to 0.4",
+        "purpose": "The current ball in the overs strip."
+      },
+      {
+        "name": "rise-in",
+        "value": "160ms cubic-bezier(0.22, 1, 0.36, 1), 8px",
+        "purpose": "Dialogs and toasts answering an action."
+      },
+      {
+        "name": "fade-in",
+        "value": "120ms ease-out",
+        "purpose": "Overlays."
+      },
+      {
+        "name": "log-flash",
+        "value": "1.6s ease-out",
+        "purpose": "History row picked from search flashes once."
+      }
     ],
     "breakpoints": [
-      { "name": "phone", "value": "639px (band numerals step down)" },
-      { "name": "xs", "value": "420px (section metas show in full)" },
-      { "name": "md", "value": "768px (full band replaces compact band)" },
-      { "name": "lg", "value": "1024px (12-column Today grid, overs strip)" }
+      {
+        "name": "phone",
+        "value": "639px (band numerals step down)"
+      },
+      {
+        "name": "xs",
+        "value": "420px (section metas show in full)"
+      },
+      {
+        "name": "md",
+        "value": "768px (full band replaces compact band)"
+      },
+      {
+        "name": "lg",
+        "value": "1024px (12-column Today grid, overs strip)"
+      },
+      {
+        "name": "phone-design",
+        "value": "390px (phone page design width, 560px max column)"
+      },
+      {
+        "name": "email",
+        "value": "620px (evening email table width)"
+      }
     ]
   },
   "components": [
@@ -106,6 +311,54 @@
       "description": "Time Card's progress bar: 2px punches every 9px in the clock colour, red tick at the target.",
       "html": "<div class=\"ds-bar\"><div class=\"ds-punch\"></div><div class=\"ds-tick\"></div></div>",
       "css": ".ds-bar{position:relative;width:260px;height:26px;border:1.5px solid #1c1a17;background:#efe6cf}.ds-punch{position:absolute;inset:0 auto 0 0;width:62%;background:repeating-linear-gradient(90deg,#1c1a17 0 2px,transparent 2px 9px)}.ds-tick{position:absolute;top:-8px;bottom:-8px;left:84%;border-right:2px solid #c4302b}"
+    },
+    {
+      "name": "Day Group Heading",
+      "kind": "custom",
+      "refersTo": "section-head",
+      "description": "Earlier-day heading in pending tasks: day, count, and a Move all to today text action on one line.",
+      "html": "<div class=\"ds-dh\"><h3 class=\"ds-grp\"><span>Yesterday</span><span class=\"ds-meta\">3 tasks</span></h3><button class=\"ds-move\">Move all to today</button></div>",
+      "css": ".ds-dh{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1d2b24}.ds-grp{display:flex;align-items:baseline;gap:10px;flex:1 1 auto;min-width:0;margin:0;font:inherit;letter-spacing:inherit}.ds-meta{font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:#5d6b63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-move{flex:none;min-height:32px;padding:0 4px;border:0;background:none;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:#0f3d2e;text-decoration:underline;text-underline-offset:4px;cursor:pointer}.ds-move:focus-visible{outline:2px solid #0f3d2e;outline-offset:2px}"
+    },
+    {
+      "name": "Dialog Section Head",
+      "kind": "custom",
+      "refersTo": "section-head",
+      "description": "Plan your day section head: label scale so the dialog title outranks it.",
+      "html": "<h3 class=\"ds-dlg-head\"><span>Still pending from earlier days</span><span class=\"ds-dlg-meta\">3 to carry</span></h3>",
+      "css": ".ds-dlg-head{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#5d6b63}.ds-dlg-meta{font-weight:500;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Phone Page Band and Tabs",
+      "kind": "nav",
+      "refersTo": "phone-figure",
+      "description": "Off-app phone page: pitch band with 40px figures, then a paper tab strip with a 3px pitch underline.",
+      "html": "<div class=\"ds-pband\"><div class=\"ds-pbrand\"><i></i>WorkPulse</div><div class=\"ds-plab\">Worked today</div><div class=\"ds-pfig\">5:42</div></div><div class=\"ds-ptabs\"><button class=\"ds-ptab ds-on\">Tasks <b>4</b></button><button class=\"ds-ptab\">Log</button><button class=\"ds-ptab\">Add</button></div>",
+      "css": ".ds-pband{background:#0f3d2e;color:#f4f1e8;padding:8px 16px 16px;max-width:390px}.ds-pbrand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;min-height:40px}.ds-pbrand i{width:12px;height:12px;border-radius:50%;background:#f2b705}.ds-plab{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(244,241,232,.74);margin-bottom:4px}.ds-pfig{font-size:40px;line-height:.95;font-weight:700;font-stretch:72%;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:#f2b705}.ds-ptabs{display:flex;max-width:390px;background:#fbfaf5;border-bottom:1px solid #dcd8cb}.ds-ptab{flex:1;min-height:50px;border:0;background:none;font-size:15px;font-weight:600;color:#5d6b63;cursor:pointer}.ds-ptab b{color:#0f3d2e;font-stretch:72%}.ds-on{color:#1d2b24;box-shadow:inset 0 -3px 0 #0f3d2e}.ds-ptab:focus-visible{outline:3px solid #0f3d2e;outline-offset:-3px}"
+    },
+    {
+      "name": "Phone Keypad",
+      "kind": "button",
+      "refersTo": "phone-key",
+      "description": "PIN entry on the phone page: paper keys, 60px high, 28px narrow numerals.",
+      "html": "<div class=\"ds-keys\"><button class=\"ds-key\">1</button><button class=\"ds-key\">2</button><button class=\"ds-key\">3</button></div>",
+      "css": ".ds-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:390px}.ds-key{min-height:60px;background:#fbfaf5;border:1px solid #dcd8cb;border-radius:8px;font-size:28px;font-weight:700;font-stretch:72%;color:#1d2b24;cursor:pointer}.ds-key:active{background:#efebe1}.ds-key:focus-visible{outline:3px solid #0f3d2e;outline-offset:2px}"
+    },
+    {
+      "name": "Phone Add Button",
+      "kind": "button",
+      "refersTo": "phone-go",
+      "description": "The one gold primary on the phone page, 52px high.",
+      "html": "<button class=\"ds-go\">Add task</button>",
+      "css": ".ds-go{width:100%;max-width:358px;min-height:52px;border:0;border-radius:6px;background:#f2b705;color:#1d1a0a;font-size:15px;font-weight:700;cursor:pointer}.ds-go:hover{background:#dba603}.ds-go:focus-visible{outline:3px solid #0f3d2e;outline-offset:2px}"
+    },
+    {
+      "name": "Evening Email Band",
+      "kind": "card",
+      "refersTo": "email-figure",
+      "description": "Off-app evening email: pitch band, gold worked figure, then ruled sections with project swatches.",
+      "html": "<div class=\"ds-em\"><div class=\"ds-emband\"><div class=\"ds-emday\">Wednesday 11 November</div><div class=\"ds-emfig\">5h 42m <span>worked of 8h</span></div></div><div class=\"ds-emsec\">Logged</div><div class=\"ds-emrow\"><i></i>Project <b>2h 10m</b></div></div>",
+      "css": ".ds-em{max-width:620px;background:#fbfaf5;border:1px solid #dcd8cb;font-family:Arial,Helvetica,sans-serif;color:#1d2b24}.ds-emband{background:#0f3d2e;color:#f4f1e8;padding:18px 24px}.ds-emday{font-size:12px;font-weight:bold;letter-spacing:.12em;text-transform:uppercase;color:#afbbb0}.ds-emfig{font-size:38px;font-weight:bold;line-height:1;color:#f2b705;margin-top:6px}.ds-emfig span{font-size:15px;font-weight:normal;color:#f4f1e8}.ds-emsec{margin:14px 24px 0;padding-top:8px;border-top:2px solid #1d2b24;font-size:13px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase}.ds-emrow{margin:0 24px;padding:6px 0;font-size:14px;display:flex;align-items:center;gap:8px}.ds-emrow i{width:10px;height:10px;background:#10b981}.ds-emrow b{margin-left:auto}"
     }
   ],
   "narrative": {
@@ -116,30 +369,72 @@
       "Three type sizes only for text: body 15, small 13, and the figure size (64 / 40 / 15 by theme).",
       "Project colour is data: a 6px ribbon on every task and log row and the colour of each ball in the overs strip.",
       "Flat and opaque. Depth comes from 1px lines, tonal steps and the band, not shadows.",
-      "Each theme sets every token itself, status colours included."
+      "Each theme sets every token itself, status colours included.",
+      "Two off-app surfaces, the phone page and the evening email, copy the Chase tokens literally (no theme switch, no app CSS) and keep the band, ribbon and ruled-book vocabulary."
     ],
     "rules": [
-      { "name": "The Band Ink Rule", "body": "Inside the band, text, hover and focus tokens are remapped to the band's own ink, muted, line and focus colour. Pitch-green accent text would vanish on the Chase band, so controls there focus in gold.", "section": "colors" },
-      { "name": "The Large Figures Rule", "body": "Clock phase colours near, due and over pass 3:1 only. They colour big numerals, balls, dots and meter fills, never small text; small red text uses --danger.", "section": "colors" },
-      { "name": "The One Accent Rule", "body": "Each theme has a single accent. Colour beyond it is a project colour (data) or a status (state), never decoration.", "section": "colors" },
-      { "name": "The Three Sizes Rule", "body": "Figure, body, small. Rank is made with case, weight and tracking, not with a fourth size.", "section": "typography" },
-      { "name": "The Even Digits Rule", "body": "Every figure is tabular so ticking clocks do not jitter.", "section": "typography" },
-      { "name": "The One Layout Rule", "body": "Themes restyle; they do not restructure. A new screen is built once with panel, row, section head and the ribbon, and all three themes dress it.", "section": "layout" },
-      { "name": "The Flat Rule", "body": "Hierarchy comes from lines, tone and the band, never from a shadow.", "section": "elevation" }
+      {
+        "name": "The Band Ink Rule",
+        "body": "Inside the band, text, hover and focus tokens are remapped to the band's own ink, muted, line and focus colour. Pitch-green accent text would vanish on the Chase band, so controls there focus in gold.",
+        "section": "colors"
+      },
+      {
+        "name": "The Large Figures Rule",
+        "body": "Clock phase colours near, due and over pass 3:1 only. They colour big numerals, balls, dots and meter fills, never small text; small red text uses --danger.",
+        "section": "colors"
+      },
+      {
+        "name": "The Inherited Tokens Rule",
+        "body": "An off-app surface (phone page, email) copies the Chase values literally and does not follow the app theme. A colour it adds (`phone-wait`, `phone-danger`, `email-page`, `email-band-muted`) is a local status or ground, named in the frontmatter, never a new accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Accent Rule",
+        "body": "Each theme has a single accent. Colour beyond it is a project colour (data) or a status (state), never decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Sizes Rule",
+        "body": "Figure, body, small. Rank is made with case, weight and tracking, not with a fourth size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Even Digits Rule",
+        "body": "Every figure is tabular so ticking clocks do not jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Heading Dialect Rule",
+        "body": "Every section heading is `v2-head`: title, then a sentence-case `v2-head-meta`. A heading with an action beside it is `v2-head-split` with the title and meta wrapped in `v2-head-group`, and heading and action stay on one line. Inside a dialog, headings are `v2-head-label` (13px, 600, 0.1em, muted) so the dialog title outranks them.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Layout Rule",
+        "body": "Themes restyle; they do not restructure. A new screen is built once with panel, row, section head and the ribbon, and all three themes dress it.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Rule",
+        "body": "Hierarchy comes from lines, tone and the band, never from a shadow.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do use .num for every figure and keep the three text sizes (15, 13, figure).",
       "Do carry a project's ribbon colour on every task and log row, ball and bar.",
       "Do keep one accent per theme and one gold (or ink, or mint) primary action in the header.",
       "Do set any new token in all three theme blocks, status colours included, and check AA (4.5:1 text, 3:1 large figures and control outlines).",
-      "Do make dialogs with ModalShell and icon buttons with IconButton."
+      "Do make dialogs with ModalShell and icon buttons with IconButton.",
+      "Do build any heading, in a screen or a dialog, from `v2-head` (`v2-head-group` and `v2-head-split` when an action sits beside it, `v2-head-label` inside dialogs).",
+      "Do give a new off-app surface the Chase values literally: pitch band, chalk ground, paper card, 6px ribbon, one gold primary."
     ],
     "donts": [
       "Don't add a sidebar of navigation or a grid of stat cards; the band is the dashboard.",
       "Don't put clock phase colours (near, due, over) on small text.",
       "Don't use shadows, glass, glow or gradients for depth.",
       "Don't change layout per theme; change only type, palette, density, radius and the signature move.",
-      "Don't use text-[10px] or any text under 12px."
+      "Don't use text-[10px] or any text under 12px.",
+      "Don't let an off-app surface follow the app theme or invent a second accent."
     ]
   }
 }

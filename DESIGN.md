@@ -42,6 +42,10 @@ colors:
   console-orange: "#f08a4b"
   console-red: "#e2685f"
   console-running-row: "#1e2a25"
+  phone-wait: "#7a5a00"
+  phone-danger: "#a1281f"
+  email-page: "#e7e3d6"
+  email-band-muted: "#afbbb0"
 typography:
   chase-figure:
     fontFamily: "Archivo, Noto Sans Bengali, system-ui, sans-serif"
@@ -73,6 +77,18 @@ typography:
     fontFamily: "Geist Mono, Noto Sans Bengali, ui-monospace, monospace"
     fontSize: "15px"
     fontWeight: 400
+  phone-figure:
+    fontFamily: "Archivo, Roboto Condensed, sans-serif-condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "40px"
+    fontWeight: 700
+    lineHeight: 0.95
+    letterSpacing: "-0.01em"
+    fontFeature: "font-stretch 72%, tabular-nums"
+  email-figure:
+    fontFamily: "Arial, Helvetica, sans-serif"
+    fontSize: "38px"
+    fontWeight: 700
+    lineHeight: 1
 rounded:
   chase-card: "8px"
   chase-button: "6px"
@@ -85,6 +101,9 @@ spacing:
   row-pad-console: "13px"
   inset: "16px"
   header-row: "60px"
+  phone-width: "390px"
+  phone-max: "560px"
+  email-width: "620px"
 components:
   action-primary:
     backgroundColor: "{colors.chase-gold}"
@@ -117,6 +136,16 @@ components:
     backgroundColor: "{colors.chase-white}"
     textColor: "{colors.chase-ink}"
     rounded: "{rounded.chase-button}"
+  phone-go:
+    backgroundColor: "{colors.chase-gold}"
+    textColor: "{colors.chase-on-gold}"
+    rounded: "{rounded.chase-button}"
+    height: "52px"
+  phone-key:
+    backgroundColor: "{colors.chase-paper}"
+    textColor: "{colors.chase-ink}"
+    rounded: "{rounded.chase-card}"
+    height: "60px"
 ---
 
 # Design System: WorkPulse
@@ -137,6 +166,7 @@ The user is one developer, at a desk most of the day, glancing at the band betwe
 - Project colour is data: a 6px ribbon on every task and log row and the colour of each ball in the overs strip.
 - Flat and opaque. Depth comes from 1px lines, tonal steps and the band, not shadows.
 - Each theme sets every token itself, status colours included.
+- Two off-app surfaces, the phone page and the evening email, copy the Chase tokens literally (no theme switch, no app CSS) and keep the band, ribbon and ruled-book vocabulary.
 
 ## Colors
 
@@ -164,6 +194,7 @@ Large figures, the current ball, the dot and meter fills take `--clock`, which C
 ### Named Rules
 **The Band Ink Rule.** Inside the band, text, hover and focus tokens are remapped to the band's own ink, muted, line and focus colour. Pitch-green accent text would vanish on the Chase band, so controls there focus in gold.
 **The Large Figures Rule.** Clock phase colours near, due and over pass 3:1 only. They colour big numerals, balls, dots and meter fills, never small text; small red text uses `--danger`. In Console figures are body size, so they stay ink.
+**The Inherited Tokens Rule.** An off-app surface (phone page, email) copies the Chase values literally and does not follow the app theme. A colour it adds (`phone-wait`, `phone-danger`, `email-page`, `email-band-muted`) is a local status or ground, named in the frontmatter, never a new accent.
 **The One Accent Rule.** Each theme has a single accent. Colour beyond it is a project colour (data) or a status (state), never decoration.
 
 ## Typography
@@ -197,8 +228,11 @@ Rows use `--row-pad` (14 / 13 / 13px) with a 1px line between, and a 16px inset 
 - **Time Card:** ruled cells divided by 1px rules (In, Worked, To go, Out at) then a punched bar with a red leave tick, ending in Clock out.
 - **Console:** a single dense line: "in" chip, worked, a 180px meter, left or over, Clock out.
 
+Pending tasks are grouped by due date on Tasks and Today: today's group first, then one group per earlier day (Yesterday, Mon 9 Nov). On Tasks each earlier day is its own section (heading, then a `v2-panel`); on Today each is a block inside the Today's tasks card with the same heading, inset 16px. Dialogs such as Plan your day stack their sections in one scrolling column with 24px between sections, full-screen on phones and `max-w-xl` from sm up.
+
 ### Named Rules
 **The One Layout Rule.** Themes restyle; they do not restructure. A new screen is built once with `v2-panel`, `v2-row`, `v2-head` and the ribbon, and all three themes dress it.
+**The Heading Dialect Rule.** Every section heading is `v2-head`: title, then a sentence-case `v2-head-meta`. A heading with an action beside it is `v2-head-split` with the title and meta wrapped in `v2-head-group`, and heading and action stay on one line. Inside a dialog, headings are `v2-head-label` (13px, 600, 0.1em, muted) so the dialog title outranks them.
 
 ## Elevation & Depth
 
@@ -227,6 +261,21 @@ Panel: paper surface, 1px line, 8px radius (Time Card: no fill, no border). Row:
 ### Inputs
 Quick-add and fields: elevated surface, 1px control line, 6px radius, muted placeholder, border shifts to the focus colour (pitch green, black, mint). Global focus ring reads `--accent-text`.
 
+### Day group heading
+Used for each earlier date in pending tasks (Tasks and Today). A `v2-head-split` row: a `v2-head-group` holding the day ("Yesterday", "Mon 9 Nov") and a meta ("3 tasks" on Tasks; "3 still pending" on Today, shortened to "3 pending" under 420px), then a text-link action "Move all to today" at the end (13px, 600, sentence case, accent text, underlined, 32px high, 44px on coarse pointers). The action never wraps to its own line; the count gives way first. Each action carries a screen-reader suffix naming its day.
+
+### Plan your day dialog
+A ModalShell with a 15px extra-bold title and a muted 13px sentence. Sections ("From your phone", "Still pending from earlier days", "Add today's tasks") use `v2-head-label`, with a numeric meta ("2 added", "3 to carry") where there is one. Each list is a `v2-panel` of rows with the project ribbon; earlier tasks carry a checkbox in the accent colour, a stage note ("blocked" in `--danger`) and "from phone" in the meta line. The task box is a standard `v2-input`; the footer is a bordered action row.
+
+### Settings: Phone and evening email
+Two sub-blocks under 15px bold sub-heads (not uppercase), separated by a 1px line. Fields are `v2-input`, 44px high; PIN fields are 128px wide with digits in `.num`; the phone link sits in a wrapped, select-all `v2-input` in mono beside Copy and Open row buttons. Secondary actions are accent text links; Set PIN is the one `v2-btn-strong`. Results are 13px lines in `--success` or `--danger`, not toasts.
+
+### Phone page (off-app surface)
+Served by the user's Apps Script (`PHONE_PAGE_HTML`), self-contained, light only, 390px design width inside a 560px maximum centred column. It is Chase by value: the pitch band (gold brand ball, date, Lock link, WORKED and TO GO figures at 40px in the narrow numeral face over 13px tracked band labels), chalk ground, paper card with 1px line and 8px radius, 6px project ribbon, running tint, uppercase 13px section head with a sentence-case meta, outlined 6px-radius controls on the control line, and one gold primary (`phone-go`, 52px). Tabs (Tasks with a count, Log, Add) are a paper strip with a 3px pitch underline on the active tab. The PIN screen is four entry boxes and a 3-column keypad of paper keys (`phone-key`, 60px, 28px numerals). Fonts are the system stack: Archivo is named first but never loaded, so the face is the phone's own sans with a condensed numeral fallback. Phone-only values: inputs are 16px (stops iOS zooming on focus), tap targets are 44-52px, and two status inks are set locally (`phone-wait`, `phone-danger`). Hover applies only under `(hover: hover)`; motion is a 1.6s gold arrival fade and a 90ms key press, both off under reduced motion.
+
+### Evening email (off-app surface)
+Inline-styled table HTML at 620px, for mail clients that ignore stylesheets and web fonts. Chase by value: an `email-page` ground, a paper card with a 1px line, a pitch band with a 12px tracked day label in `email-band-muted` and the worked figure in gold (38px bold, "worked of 8h" beside it), a muted data line, then sections headed by 13px bold uppercase tracked labels over a 2px ink rule. Logs group by project under a 10px square swatch in the project colour (the ribbon's email form; grey `#9aa59f` when the colour is invalid), minutes right-aligned and bold; the pending line is bold in `phone-wait`. Text is Arial, so figures are bold but not condensed. No images, gradients or shadows.
+
 ### Overs strip (signature)
 The workday as overs of six 10-minute balls, coloured by the project tracked in each. Untracked balls are an outline at 35% band ink; the current ball is gold and pulses. It has an accessible summary ("N of M hours, X of Y slots tracked").
 
@@ -241,6 +290,8 @@ A 26px bordered bar filled with 2px punches every 9px in the clock colour, with 
 - **Do** keep one accent per theme and one gold (or ink, or mint) primary action in the header.
 - **Do** set any new token in all three theme blocks, status colours included, and check AA (4.5:1 text, 3:1 large figures and control outlines).
 - **Do** make dialogs with ModalShell and icon buttons with IconButton.
+- **Do** build any heading, in a screen or a dialog, from `v2-head` (`v2-head-group` and `v2-head-split` when an action sits beside it, `v2-head-label` inside dialogs).
+- **Do** give a new off-app surface the Chase values literally: pitch band, chalk ground, paper card, 6px ribbon, one gold primary.
 
 ### Don't:
 - **Don't** add a sidebar of navigation or a grid of stat cards; the band is the dashboard.
@@ -248,7 +299,8 @@ A 26px bordered bar filled with 2px punches every 9px in the clock colour, with 
 - **Don't** use shadows, glass, glow or gradients for depth.
 - **Don't** change layout per theme; change only type, palette, density, radius and the signature move.
 - **Don't** use `text-[10px]` or any text under 12px.
+- **Don't** let an off-app surface follow the app theme or invent a second accent.
 
 ## Not canonized
 
-None of the observed build is carried as a defect in this record. Pre-existing drift noted: `.v2-running` base tint (#fff8e1) is a hardcoded value rather than a per-theme token, and project colours in seed data are generic palette values (#10b981, #6366f1, #f59e0b, #06b6d4) with no project-colour rule in code.
+No craft-floor refusal is canonized. Drift and medium limits noted, not repaired: `.v2-running` base tint (#fff8e1) is a hardcoded value rather than a per-theme token, the phone page sets its own `--danger` (#a1281f) where the Chase theme uses #a8252c, and its stack names Archivo without loading it; the email uses 14px body and 12px small text (a fourth size) and Arial because mail clients cannot load the app fonts, so neither is a rule for new surfaces; and project colours in seed data are generic palette values (#10b981, #6366f1, #f59e0b, #06b6d4) with no project-colour rule in code.
