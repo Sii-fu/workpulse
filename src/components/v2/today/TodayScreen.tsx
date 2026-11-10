@@ -24,6 +24,8 @@ export interface TodayScreenProps {
   /** Reopens a done task into planned ("Back to planned"). */
   onReopen(id: string): void;
   onDeleteTask(id: string): void;
+  /** Sets the due date of the given pending tasks to today. */
+  onMoveToToday(ids: string[]): void;
   onAddLog(data: Omit<WorkLog, 'id' | 'createdAt'>): void;
   /** Opens LogFormDialog for a new log, with the quick-log text as a starting point (or empty). */
   onOpenLogForm(prefill: LogFormPrefill | null): void;
@@ -51,6 +53,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
   onLogTask,
   onReopen,
   onDeleteTask,
+  onMoveToToday,
   onAddLog,
   onOpenLogForm,
   onEditLog,
@@ -78,6 +81,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onLogTask={onLogTask}
         onReopen={onReopen}
         onDeleteTask={onDeleteTask}
+        onMoveToToday={onMoveToToday}
       />
     </div>
     <div className="order-3 lg:order-none lg:col-span-5 min-w-0">

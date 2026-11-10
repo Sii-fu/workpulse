@@ -8,7 +8,7 @@ import { SampleBadge } from '../../ui/SampleBadge';
 import { isSampleTask } from '../../../data/sampleData';
 import { isRunningTask } from '../../../utils/timerStore';
 import { loggedSecondsOf, unloggedSeconds } from '../../../utils/taskLogging';
-import { localTimeStr } from '../../../utils/dates';
+import { localDateStr, localTimeStr } from '../../../utils/dates';
 
 export interface TaskRowProps {
   task: BacklogTask;
@@ -28,6 +28,8 @@ export interface TaskRowProps {
   /** Shows a selection checkbox when given. */
   selected?: boolean;
   onToggleSelect?(id: string): void;
+  /** Adds "Move to today" to the menu (not for done tasks or tasks already due today). */
+  onMoveToToday?(id: string): void;
   /** Added after the standard menu items (Done, Block, Back to planned), before Delete. */
   extraMenuItems?: RowMenuItem[];
 }
@@ -68,6 +70,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   meta,
   selected,
   onToggleSelect,
+  onMoveToToday,
   extraMenuItems = [],
 }) => {
   const id = useId();
@@ -93,6 +96,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   if (!done && stage !== 'blocked') items.push({ label: 'Block', onSelect: () => setBlocking(true) });
   if (stage !== 'planned')
     items.push({ label: 'Back to planned', onSelect: () => (done ? onReopen(task.id) : onStage(task.id, 'planned')) });
+  if (onMoveToToday && !done && task.dueDate !== localDateStr())
+    items.push({ label: 'Move to today', onSelect: () => onMoveToToday(task.id) });
   items.push(...extraMenuItems);
   items.push({ label: 'Delete', danger: true, onSelect: () => onDeleteTask(task.id) });
 
@@ -129,6 +134,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--fs-small)] text-[var(--text-muted)]">
               <span className="break-words">
                 {project?.name ?? 'No project'} · {meta ?? metaFor(task, stage)}
+                {task.fromPhone ? ' · from phone' : ''}
               </span>
               <SampleBadge show={isSampleTask(task)} />
             </p>

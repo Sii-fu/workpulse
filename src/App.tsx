@@ -1190,6 +1190,7 @@ export default function App() {
             onLogTask={h.logTask}
             onReopen={h.reopenToPlanned}
             onDeleteTask={h.deleteTask}
+            onMoveToToday={h.moveToToday}
             onAddLog={h.addLog}
             onOpenLogForm={h.openLogForm}
             onEditLog={h.editLog}
@@ -1217,6 +1218,7 @@ export default function App() {
             onReopen={h.reopenToPlanned}
             onDeleteTask={h.deleteTask}
             onLogSelected={h.logSelectedTasks}
+            onMoveToToday={h.moveToToday}
           />
         )}
 

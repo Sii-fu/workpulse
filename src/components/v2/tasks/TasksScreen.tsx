@@ -1,11 +1,12 @@
 import React, { useCallback, useId, useMemo, useState } from 'react';
 import type { BacklogTask, Project, TaskStage } from '../../../types';
-import { TaskRow, metaFor } from '../today/TaskRow';
-import { getTaskStage } from '../../tasks/helpers';
+import { TaskRow } from '../today/TaskRow';
+import { EarlierSection, plural } from './EarlierGroup';
 import { sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
-import { addDays, localDateOfIso, localTimeStr } from '../../../utils/dates';
+import { localDateOfIso, localTimeStr } from '../../../utils/dates';
 import { defaultProject } from '../../../utils/projects';
 import { dayLabelLong, filterByProject, groupTasks, sectionProjectIds } from '../../../utils/taskSections';
+import { dayHeading } from '../../../utils/taskDates';
 
 export interface TasksScreenProps {
   backlog: BacklogTask[];
@@ -22,14 +23,14 @@ export interface TasksScreenProps {
   onDeleteTask(id: string): void;
   /** "Write timesheet from N tasks": the ids of the selected done tasks. */
   onLogSelected(ids: string[]): void;
+  /** Sets the due date of the given pending tasks to today ("Move to today", "Move all to today"). */
+  onMoveToToday(ids: string[]): void;
 }
 
 const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
 const FIELD = 'v2-input w-full h-11 px-3 text-[length:var(--fs-body)]';
 const TEXT_BTN =
   'min-h-8 pointer-coarse:min-h-11 px-1 text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 cursor-pointer';
-
-const plural = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`;
 
 /** A section: the same heading as Today, a panel under it. */
 const Section: React.FC<{ title: string; count: number; children: React.ReactNode }> = ({ title, count, children }) => {
@@ -56,6 +57,7 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
   onReopen,
   onDeleteTask,
   onLogSelected,
+  onMoveToToday,
 }) => {
   const id = useId();
   const [title, setTitle] = useState('');
@@ -110,9 +112,7 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
 
   const anyTasks = projectIds.length > 0;
   const upcomingCount = sections.upcoming.reduce((n, d) => n + d.tasks.length, 0);
-  const earlierCount = sections.earlier.reduce((n, d) => n + d.tasks.length, 0);
-  const tomorrow = addDays(today, 1);
-  const yesterday = addDays(today, -1);
+  const moveOne = useCallback((taskId: string) => onMoveToToday([taskId]), [onMoveToToday]);
 
   return (
     <div className="mx-auto max-w-[960px] px-4 sm:px-8 py-6 sm:py-7 flex flex-col gap-7">
@@ -187,19 +187,6 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
         </div>
       )}
 
-      {earlierCount > 0 && (
-        <Section title="Earlier" count={earlierCount}>
-          {sections.earlier.map((d) => (
-            <React.Fragment key={d.date}>
-              <h3 className="v2-inset pt-3 pb-1 text-[length:var(--fs-small)] font-bold text-[var(--text-muted)] border-t border-[var(--border-app)] first:border-t-0">
-                {d.date === yesterday ? `Yesterday · ${dayLabelLong(d.date)}` : dayLabelLong(d.date)}
-              </h3>
-              <ul>{d.tasks.map((t) => row(t))}</ul>
-            </React.Fragment>
-          ))}
-        </Section>
-      )}
-
       <Section title="Today" count={sections.today.length}>
         {sections.today.length === 0 ? (
           <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
@@ -210,14 +197,20 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
         )}
       </Section>
 
+      {sections.earlier.map((d) => (
+        <EarlierSection key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks} onMoveAll={onMoveToToday}>
+          <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
+        </EarlierSection>
+      ))}
+
       {upcomingCount > 0 && (
         <Section title="Upcoming" count={upcomingCount}>
           {sections.upcoming.map((d) => (
             <React.Fragment key={d.date}>
               <h3 className="v2-inset pt-3 pb-1 text-[length:var(--fs-small)] font-bold text-[var(--text-muted)] border-t border-[var(--border-app)] first:border-t-0">
-                {d.date === tomorrow ? `Tomorrow · ${dayLabelLong(d.date)}` : dayLabelLong(d.date)}
+                {dayHeading(d.date, today)}
               </h3>
-              <ul>{d.tasks.map((t) => row(t))}</ul>
+              <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
             </React.Fragment>
           ))}
         </Section>
