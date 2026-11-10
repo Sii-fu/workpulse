@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#16181d;--pn:#1c1f25;--seam:#2c3038;--tx:#e6e8eb;--mu:#8b929c;--ok:#7cc4a4;--warn:#e5a84b;--err:#e2685f;
+--p1:#6aa8f0;--p2:#e5a84b;--p3:#b18cf0;--p4:#7cc4a4}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:Geist,sans-serif;font-size:14px;color:var(--tx);background:var(--bg)}
+.m{font-family:"Geist Mono",monospace;font-variant-numeric:tabular-nums}
+header{height:56px;display:flex;align-items:center;gap:28px;padding:0 24px;border-bottom:1px solid var(--seam)}
+.brand{font-weight:700}
+nav{display:flex;gap:2px}
+nav a{padding:7px 12px;border-radius:6px;color:var(--mu);font-weight:500}
+nav a.on{background:var(--pn);color:var(--tx);box-shadow:inset 0 0 0 1px var(--seam)}
+.clock{margin-left:auto;display:flex;align-items:center;gap:18px}
+.clock .m{font-size:15px}
+.pill{display:flex;gap:8px;align-items:center;padding:6px 12px;border:1px solid var(--seam);border-radius:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.meter{width:180px;height:6px;background:var(--seam);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;width:70%;background:var(--ok)}
+.btn{padding:7px 12px;border:1px solid var(--seam);border-radius:6px;font-weight:500;font-size:13px}
+.pri{background:var(--ok);color:#0d1a14;border-color:var(--ok);font-weight:600}
+.grid{display:grid;grid-template-columns:1.3fr 1fr;height:844px}
+.pane{border-right:1px solid var(--seam);display:flex;flex-direction:column}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--seam);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);font-weight:600}
+.add{padding:12px 20px;border-bottom:1px solid var(--seam)}
+.add div{border:1px solid var(--seam);border-radius:6px;padding:9px 12px;color:var(--mu);background:var(--pn)}
+.t{display:grid;grid-template-columns:8px 1fr auto auto;gap:14px;align-items:center;padding:13px 20px;border-bottom:1px solid var(--seam)}
+.sw{width:8px;height:8px;border-radius:2px}
+.pr{font-size:12px;color:var(--mu);margin-top:3px}
+.run{background:#1e2a25}
+.done .ti{color:var(--mu);text-decoration:line-through}
+.sg{display:grid;grid-template-columns:18px 1fr;gap:12px;padding:13px 20px;border-bottom:1px solid var(--seam)}
+.cb{width:16px;height:16px;border-radius:4px;background:var(--ok);margin-top:2px}
+.lg{display:grid;grid-template-columns:48px 8px 1fr 40px;gap:12px;padding:11px 20px;border-bottom:1px solid var(--seam);align-items:center}
+.mu{color:var(--mu)}
+</style></head><body>
+<header><div class="brand">workpulse</div>
+ <nav><a class="on">Today</a><a>Tasks</a><a>History</a><a>Settings</a></nav>
+ <div class="clock"><div class="pill"><span class="dot"></span><span class="m">in 09:48</span></div><span class="m">5:38 worked</span><div class="meter"><i></i></div><span class="m mu">2:22 left</span><span class="btn">Clock out</span><span class="btn pri">Log 3 suggestions</span></div>
+</header>
+<div class="grid">
+ <div class="pane">
+  <div class="ph"><span>Today's tasks</span><span class="m">3 open · 1 running</span></div>
+  <div class="add"><div>Add a task…</div></div>
+  <div class="t run"><span class="sw" style="background:var(--p1)"></span><div><div class="ti">Fix date filter on attendance report</div><div class="pr">BGB Portal · started 14:02</div></div><span class="m" style="color:var(--ok)">00:21:46</span><span class="btn">Pause</span></div>
+  <div class="t"><span class="sw" style="background:var(--p2)"></span><div><div class="ti">Write migration for leave balance table</div><div class="pr">HR Dashboard · 1:10 tracked</div></div><span class="m mu">01:10:00</span><span class="btn">Start</span></div>
+  <div class="t"><span class="sw" style="background:var(--p3)"></span><div><div class="ti">Monthly progress meeting with section head</div><div class="pr">Meetings · planned</div></div><span class="m mu">--:--</span><span class="btn">Start</span></div>
+  <div class="t done"><span class="sw" style="background:var(--p4)"></span><div><div class="ti">Deploy WorkPulse suggestions build</div><div class="pr">WorkPulse · done 13:40</div></div><span class="m mu">00:52:10</span><span class="btn">Log it</span></div>
+ </div>
+ <div class="pane" style="border:0">
+  <div class="ph"><span>Suggested from activity</span><span class="m">3 new</span></div>
+  <div class="sg"><span class="cb"></span><div><div>Built attendance report filters and fixed the timezone bug</div><div class="pr">BGB Portal · 4 commits, 2 sessions · ~1h 35m est.</div></div></div>
+  <div class="sg"><span class="cb"></span><div><div>Added sub-tasks to activity suggestions</div><div class="pr">WorkPulse · 2 commits · ~45m est.</div></div></div>
+  <div class="ph"><span>Today's log</span><span class="m">1:26</span></div>
+  <div class="lg"><span class="m mu">11:58</span><span class="sw" style="background:var(--p1)"></span><span>Reviewed search PR #212</span><span class="m">0:34</span></div>
+  <div class="lg"><span class="m mu">10:40</span><span class="sw" style="background:var(--p2)"></span><span>Leave balance: schema review</span><span class="m">0:52</span></div>
+ </div>
+</div>
+</body></html>

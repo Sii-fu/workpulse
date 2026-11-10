@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--card:#efe6cf;--card2:#f7f1e1;--ink:#1c1a17;--mute:#6b6253;--rule:#c9bc9c;--red:#c4302b;--blue:#2f5d8a;
+--p1:#2f5d8a;--p2:#b5651d;--p3:#6a4c93;--p4:#3c7a4a}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:"Libre Franklin",sans-serif;font-size:15px;color:var(--ink);background:var(--card2)}
+.st{font-family:"Courier Prime",monospace;font-weight:700}
+header{background:var(--card);border-bottom:2px solid var(--ink)}
+.row1{height:58px;display:flex;align-items:center;padding:0 32px;gap:32px;border-bottom:1px solid var(--rule)}
+.brand{font-weight:800;font-size:17px;text-transform:uppercase;letter-spacing:.14em}
+nav{display:flex;gap:2px}
+nav a{padding:8px 14px;font-weight:600;color:var(--mute)}
+nav a.on{color:var(--ink);box-shadow:inset 0 -3px 0 var(--red)}
+.next{margin-left:auto;background:var(--ink);color:var(--card);font-weight:700;padding:10px 18px}
+.strip{display:grid;grid-template-columns:repeat(4,auto) 1fr auto;gap:0;align-items:stretch;padding:0 32px}
+.cell{padding:14px 28px 16px 0;margin-right:28px;border-right:1px solid var(--rule)}
+.lab{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--mute);font-weight:700;margin-bottom:4px}
+.v{font-size:40px;line-height:1}
+.red{color:var(--red)}
+.bar{align-self:center;height:26px;border:1.5px solid var(--ink);position:relative;margin-right:28px}
+.bar i{position:absolute;top:0;bottom:0;left:0;width:70%;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 9px)}
+.bar b{position:absolute;right:-1px;top:-8px;bottom:-8px;border-right:2px solid var(--red)}
+.out{align-self:center;border:2px solid var(--red);color:var(--red);font-weight:800;padding:9px 16px;text-transform:uppercase;letter-spacing:.1em;font-size:13px}
+main{display:grid;grid-template-columns:7fr 5fr;gap:32px;padding:26px 32px}
+h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;border-bottom:2px solid var(--ink);padding-bottom:8px;display:flex;justify-content:space-between}
+h2 span{font-weight:500;letter-spacing:.04em;text-transform:none;color:var(--mute)}
+.add{padding:12px 0;border-bottom:1px solid var(--rule);color:var(--mute)}
+.add div{border:1px solid var(--rule);padding:10px 12px;background:#fffdf6}
+.t{display:grid;grid-template-columns:4px 1fr 110px 80px;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--rule)}
+.rib{width:4px;height:32px}
+.ti{font-weight:600}.pr{font-size:13px;color:var(--mute);margin-top:3px}
+.tm{font-size:19px;text-align:right}
+.btn{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;text-align:center;padding:7px 0;border:1.5px solid var(--ink)}
+.run{background:#fff7dc}
+.run .btn{background:var(--ink);color:var(--card)}
+.done .ti{color:var(--mute);text-decoration:line-through}
+.sg{display:grid;grid-template-columns:20px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--rule)}
+.box{width:16px;height:16px;border:2px solid var(--ink);margin-top:2px;background:var(--ink)}
+.foot{display:flex;justify-content:space-between;align-items:center;padding:12px 0}
+.go{background:var(--blue);color:#fff;font-weight:700;padding:9px 16px}
+.lg{display:grid;grid-template-columns:60px 4px 1fr 50px;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule);align-items:center}
+.mute{color:var(--mute)}
+</style></head><body>
+<header>
+ <div class="row1"><div class="brand">WorkPulse</div>
+  <nav><a class="on">Today</a><a>Tasks · 6</a><a>History</a><a>Settings</a></nav>
+  <div class="next">Log 3 suggestions</div></div>
+ <div class="strip">
+  <div class="cell"><div class="lab">In</div><div class="v st">09:48</div></div>
+  <div class="cell"><div class="lab">Worked</div><div class="v st">5:38</div></div>
+  <div class="cell"><div class="lab">To go</div><div class="v st">2:22</div></div>
+  <div class="cell"><div class="lab">Out at</div><div class="v st red">17:48</div></div>
+  <div class="bar"><i></i><b></b></div>
+  <div class="out">Clock out</div>
+ </div>
+</header>
+<main>
+ <section>
+  <h2>Today's tasks <span>3 open · 1 running · 2 done</span></h2>
+  <div class="add"><div>Add a task for today…</div></div>
+  <div class="t run"><div class="rib" style="background:var(--p1)"></div><div><div class="ti">Fix date filter on attendance report</div><div class="pr">BGB Portal · started 14:02</div></div><div class="tm st">0:21:46</div><div class="btn">Pause</div></div>
+  <div class="t"><div class="rib" style="background:var(--p2)"></div><div><div class="ti">Write migration for leave balance table</div><div class="pr">HR Dashboard · 1:10 tracked</div></div><div class="tm st mute">1:10:00</div><div class="btn">Start</div></div>
+  <div class="t"><div class="rib" style="background:var(--p3)"></div><div><div class="ti">Monthly progress meeting with section head</div><div class="pr">Meetings · planned</div></div><div class="tm st mute">—</div><div class="btn">Start</div></div>
+  <div class="t done"><div class="rib" style="background:var(--p4)"></div><div><div class="ti">Deploy WorkPulse suggestions build</div><div class="pr">WorkPulse · done 13:40</div></div><div class="tm st mute">0:52:10</div><div class="btn">Log it</div></div>
+  <div class="t done"><div class="rib" style="background:var(--p1)"></div><div><div class="ti">Review pull request #212 (search)</div><div class="pr">BGB Portal · done 11:58</div></div><div class="tm st mute">0:34:05</div><div class="btn">Logged</div></div>
+ </section>
+ <section>
+  <h2>Suggested from activity <span>git + Claude · 3 new</span></h2>
+  <div class="sg"><div class="box"></div><div><div class="ti">Built attendance report filters and fixed the timezone bug in date ranges</div><div class="pr">BGB Portal · 4 commits, 2 Claude sessions · ~1h 35m est.</div></div></div>
+  <div class="sg"><div class="box"></div><div><div class="ti">Added sub-tasks to activity suggestions</div><div class="pr">WorkPulse · 2 commits · ~45m est.</div></div></div>
+  <div class="foot"><span class="mute">2 of 3 selected</span><span class="go">Add 2 logs</span></div>
+  <h2 style="margin-top:18px">Today's log <span>2 entries · 1:26</span></h2>
+  <div class="lg"><span class="st mute">11:58</span><div class="rib" style="background:var(--p1);height:20px"></div><div>Reviewed search PR #212, requested index change</div><span class="st">0:34</span></div>
+  <div class="lg"><span class="st mute">10:40</span><div class="rib" style="background:var(--p2);height:20px"></div><div>Leave balance: schema review with Rafiq</div><span class="st">0:52</span></div>
+ </section>
+</main>
+</body></html>
