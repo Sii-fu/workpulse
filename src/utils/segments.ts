@@ -37,6 +37,7 @@ export type Ball =
 
 export interface Over {
   label: string; // local hour of the over's first slot, e.g. "09"
+  startMs: number; // epoch ms of the over's first slot; ball i covers startMs + i * 10 min
   balls: Ball[]; // always 6, one per 10 minutes
 }
 
@@ -51,9 +52,10 @@ export function buildOvers(
 ): Over[] {
   const startMs = Date.parse(rec.clockIn);
   const endMs = Math.max(startMs + hours * 3600_000, nowMs);
-  const slotCount = Math.max(1, Math.ceil((endMs - startMs) / SLOT_MS));
-  const overCount = Math.ceil(slotCount / BALLS_PER_OVER);
   const nowSlot = Math.floor((nowMs - startMs) / SLOT_MS);
+  // nowSlot + 1 keeps the now ball when now sits exactly on a slot boundary at the end (e.g. 17:00).
+  const slotCount = Math.max(1, Math.ceil((endMs - startMs) / SLOT_MS), nowSlot + 1);
+  const overCount = Math.ceil(slotCount / BALLS_PER_OVER);
 
   const spans: { projectId: string; from: number; to: number }[] = [];
   for (const t of tasks) {
@@ -94,8 +96,9 @@ export function buildOvers(
   const overs: Over[] = [];
   for (let o = 0; o < overCount; o++) {
     const first = o * BALLS_PER_OVER;
-    const label = String(new Date(startMs + first * SLOT_MS).getHours()).padStart(2, '0');
-    overs.push({ label, balls: Array.from({ length: BALLS_PER_OVER }, (_, i) => slotBall(first + i)) });
+    const overStart = startMs + first * SLOT_MS;
+    const label = String(new Date(overStart).getHours()).padStart(2, '0');
+    overs.push({ label, startMs: overStart, balls: Array.from({ length: BALLS_PER_OVER }, (_, i) => slotBall(first + i)) });
   }
   return overs;
 }

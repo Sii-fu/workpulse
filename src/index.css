@@ -458,6 +458,7 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   --band-muted: rgb(244 241 232 / 0.7);
   --band-line: rgb(255 255 255 / 0.1);
   --band-edge: 1px solid var(--band-line);
+  --band-focus: #f2b705;
   --clock-calm: #f2b705;
   --clock-near: #ffb347;
   --clock-due: #ff8a3d;
@@ -517,6 +518,7 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   --band-muted: #665d4e;
   --band-line: #c9bc9c;
   --band-edge: 2px solid #1c1a17;
+  --band-focus: #1c1a17;
   --clock-calm: #1c1a17;
   --clock-near: #9a5b00;
   --clock-due: #c4302b;
@@ -575,6 +577,7 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   --band-muted: #8b929c;
   --band-line: #2c3038;
   --band-edge: 1px solid #2c3038;
+  --band-focus: #7cc4a4;
   --clock-calm: #7cc4a4;
   --clock-near: #e5a84b;
   --clock-due: #f08a4b;
@@ -604,6 +607,60 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   [data-theme="timecard"] { --fs-num: 28px; }
   [data-theme="console"] { --fs-num: 15px; }
 }
+
+/* Numerals: the theme's figure face, at its stretch, with even-width digits. */
+.num {
+  font-family: var(--font-num);
+  font-stretch: var(--num-stretch);
+  font-variant-numeric: tabular-nums;
+}
+
+/* V2 shell (src/components/v2/). The band is its own surface: inside it the text and hover tokens
+   point at the band colours, and focus uses --band-focus (pitch-green --accent-text would vanish on
+   the Chase band). The global ring reads --accent-text, inputs read --border-focus, so both move. */
+.v2-band {
+  --text-main: var(--band-ink);
+  --text-muted: var(--band-muted);
+  --text-subtle: var(--band-muted);
+  --bg-subtle: var(--band-line);
+  --bg-subtle-hover: var(--band-line);
+  --accent-text: var(--band-focus);
+  --border-focus: var(--band-focus);
+}
+
+/* ClockBand sets data-phase; --clock is the colour for big numerals, the ball, the dot and meter
+   fills only (near/due/over pass 3:1, not 4.5:1, so never on small text). */
+.v2-clock { --clock: var(--clock-calm); }
+.v2-clock[data-phase="near"] { --clock: var(--clock-near); }
+.v2-clock[data-phase="due"] { --clock: var(--clock-due); }
+.v2-clock[data-phase="over"] { --clock: var(--clock-over); }
+
+/* Time Card punched bar: one 2px punch every 9px, in the clock colour. */
+.v2-punch {
+  background: repeating-linear-gradient(90deg, var(--clock) 0 2px, transparent 2px 9px);
+}
+
+/* The overs strip's current ball breathes; the reduced-motion rule above stops it. */
+@keyframes ball-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.v2-ball-now {
+  animation: ball-pulse 1.6s ease-in-out infinite;
+}
+
+/* Top nav tabs, per theme (mocks: chase pill, timecard red underline, console panel). */
+.v2-tab { color: var(--band-muted); }
+.v2-tab:hover,
+.v2-tab[aria-current="page"] { color: var(--band-ink); }
+[data-theme="chase"] .v2-tab[aria-current="page"] { background: rgb(255 255 255 / 0.08); }
+[data-theme="timecard"] .v2-tab[aria-current="page"] { box-shadow: inset 0 -3px 0 var(--clock-over); }
+[data-theme="console"] .v2-tab[aria-current="page"] {
+  background: var(--bg-surface);
+  box-shadow: inset 0 0 0 1px var(--band-line);
+}
+[data-theme="timecard"] .v2-brand { text-transform: uppercase; letter-spacing: 0.14em; }
+[data-theme="console"] .v2-brand { text-transform: lowercase; }
 
 /* Print Styles */
 @media print {

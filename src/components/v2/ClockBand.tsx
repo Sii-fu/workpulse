@@ -1,0 +1,277 @@
+import React from 'react';
+import type { BacklogTask, Project, WorkdayRecord } from '../../types';
+import { clockState, formatHm, type ClockState } from '../../utils/workday';
+import { buildOvers } from '../../utils/segments';
+import { localTimeStr, parseLocalDate } from '../../utils/dates';
+import type { V2ThemeId } from '../../utils/theme';
+import { OversStrip } from './OversStrip';
+import { useNow } from './useNow';
+
+interface ClockBandProps {
+  theme: V2ThemeId;
+  /** Local YYYY-MM-DD. */
+  today: string;
+  /** Today's workday record, if clocked in today. */
+  record?: WorkdayRecord;
+  /** An earlier day still clocked in (openWorkdayBefore). Shown instead of today's clock. */
+  staleOpen: { date: string; rec: WorkdayRecord } | null;
+  /** Workday length in hours. */
+  hours: number;
+  tasks: BacklogTask[];
+  projects: Project[];
+  onClockIn(): void;
+  onClockOut(date: string): void;
+  onResume(date: string): void;
+}
+
+const hhmm = (ms: number) => localTimeStr(new Date(ms));
+// Worked rounds down and "to go" rounds up, so the two always add up to the workday.
+const toGo = (sec: number) => formatHm(Math.ceil(sec / 60) * 60);
+
+const PAD: Record<V2ThemeId, string> = {
+  chase: 'px-4 md:px-6 lg:px-8 py-4',
+  timecard: 'px-4 md:px-6 lg:px-8 py-3.5',
+  console: 'px-4 md:px-6 py-2.5',
+};
+
+const SMALL = 'text-[length:var(--fs-small)]';
+const BODY = 'text-[length:var(--fs-body)]';
+const BIG = 'num font-bold leading-[0.9] tracking-[-0.01em] text-[length:var(--fs-num)]';
+
+const BandButton: React.FC<{
+  theme: V2ThemeId;
+  tone?: 'plain' | 'out';
+  onClick(): void;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ theme, tone = 'plain', onClick, className = '', children }) => {
+  const look =
+    theme === 'chase'
+      ? `${BODY} font-semibold px-4 rounded-[var(--radius-btn)] border-[1.5px] border-[var(--band-ink)] hover:bg-[var(--band-line)]`
+      : theme === 'timecard'
+        ? `${SMALL} font-extrabold uppercase tracking-[0.1em] px-4 border-2 hover:bg-[var(--band-line)] ${
+            // Small red text uses --danger (5.27:1 on the manila band); the --clock reds are for big figures.
+            tone === 'out' ? 'border-[var(--danger)] text-[var(--danger)]' : 'border-[var(--band-ink)]'
+          }`
+        : `${SMALL} font-medium px-3 rounded-[var(--radius-btn)] border border-[var(--band-line)] hover:bg-[var(--bg-surface-elevated)]`;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 inline-flex items-center justify-center whitespace-nowrap min-h-10 max-sm:min-h-11 cursor-pointer transition-colors ${look} ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Meter: React.FC<{ pct: number; className?: string }> = ({ pct, className = '' }) => (
+  <div aria-hidden="true" className={`overflow-hidden rounded-[calc(var(--radius-btn)/2)] bg-[var(--band-line)] ${className}`}>
+    <div className="h-full bg-[var(--clock)]" style={{ width: `${pct}%` }} />
+  </div>
+);
+
+/** "+0:12 over" while past the leave time, otherwise the time left. */
+const RemainingValue: React.FC<{ s: ClockState; tone: string }> = ({ s, tone }) =>
+  s.phase === 'over' ? (
+    <>
+      <span className={tone}>+{formatHm(s.overSec)}</span>
+      <span className={`${SMALL} ml-1 font-semibold tracking-normal text-[var(--band-ink)]`}>over</span>
+    </>
+  ) : (
+    <>{toGo(s.leftSec)}</>
+  );
+
+export const ClockBand: React.FC<ClockBandProps> = ({
+  theme,
+  today,
+  record,
+  staleOpen,
+  hours,
+  tasks,
+  projects,
+  onClockIn,
+  onClockOut,
+  onResume,
+}) => {
+  const now = useNow(1000);
+  const s = clockState(record, hours, now);
+  const pad = PAD[theme];
+  // --clock colours pass AA only as large figures; Console's figures are body size, so they stay ink there.
+  const tone = theme === 'console' ? '' : 'text-[var(--clock)]';
+
+  let body: React.ReactNode;
+
+  if (staleOpen) {
+    const day = parseLocalDate(staleOpen.date).toLocaleDateString('en-US', { weekday: 'short' });
+    body = (
+      <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 ${pad}`}>
+        <p className={`${BODY} font-semibold`}>
+          Clocked in since {day} <span className="num">{hhmm(Date.parse(staleOpen.rec.clockIn))}</span>
+        </p>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <BandButton theme={theme} tone="out" onClick={() => onClockOut(staleOpen.date)}>
+            Clock out
+          </BandButton>
+          {!record && (
+            <BandButton theme={theme} onClick={onClockIn}>
+              Clock in for today
+            </BandButton>
+          )}
+        </div>
+      </div>
+    );
+  } else if (s.phase === 'off') {
+    body = (
+      <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 ${pad}`}>
+        <p className={`${BODY} font-semibold`}>Not clocked in</p>
+        <BandButton theme={theme} onClick={onClockIn} className="ml-auto">
+          Clock in
+        </BandButton>
+      </div>
+    );
+  } else if (s.phase === 'out') {
+    body = (
+      <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 ${pad}`}>
+        <p className={`${BODY} font-semibold`}>
+          Out at <span className="num">{record?.clockOut ? hhmm(Date.parse(record.clockOut)) : ''}</span>
+          <span className="text-[var(--band-muted)]"> · </span>
+          worked <span className="num">{formatHm(s.workedSec)}</span>
+        </p>
+        <BandButton theme={theme} onClick={() => onResume(today)} className="ml-auto">
+          Resume
+        </BandButton>
+      </div>
+    );
+  } else {
+    const target = hours * 3600;
+    const scale = Math.max(target, s.workedSec, 1);
+    const pct = Math.min(100, (s.workedSec / scale) * 100);
+    const leaveAt = s.leaveAtMs ?? now;
+    const clockOut = (
+      <BandButton theme={theme} tone="out" onClick={() => onClockOut(today)}>
+        Clock out
+      </BandButton>
+    );
+
+    // Under md every theme shows worked / to go and a thin meter.
+    const compact = (
+      <div className="md:hidden px-4 py-3">
+        <div className="flex items-end gap-6">
+          <div>
+            <div className={`${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1`}>Worked</div>
+            <div className={`${BIG} ${tone}`}>{formatHm(s.workedSec)}</div>
+          </div>
+          <div>
+            <div className={`${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1`}>
+              To go · <span className="num">{hhmm(leaveAt)}</span>
+            </div>
+            <div className={BIG}>
+              <RemainingValue s={s} tone={tone} />
+            </div>
+          </div>
+          <div className="ml-auto">{clockOut}</div>
+        </div>
+        <Meter pct={pct} className="mt-3 h-1" />
+      </div>
+    );
+
+    let wide: React.ReactNode;
+    if (theme === 'chase') {
+      const overs = record ? buildOvers(record, hours, tasks, projects, now) : [];
+      const label = `${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1.5`;
+      wide = (
+        <div className="hidden md:grid grid-cols-[auto_auto_1fr_auto] items-center gap-8 lg:gap-12 px-6 lg:px-8 pt-[18px] pb-[22px]">
+          <div>
+            <div className={label}>Worked today</div>
+            <div className={`${BIG} ${tone}`}>{formatHm(s.workedSec)}</div>
+          </div>
+          <div>
+            <div className={label}>
+              To go · leave <span className="num">{hhmm(leaveAt)}</span>
+            </div>
+            <div className={BIG}>
+              <RemainingValue s={s} tone={tone} />
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="hidden lg:block">
+              <OversStrip overs={overs} />
+            </div>
+            <Meter pct={pct} className="lg:hidden h-1.5" />
+          </div>
+          {clockOut}
+        </div>
+      );
+    } else if (theme === 'timecard') {
+      const tick = (target / scale) * 100;
+      const cell = 'pt-3.5 pb-4 pr-5 mr-5 lg:pr-7 lg:mr-7 border-r border-[var(--band-line)]';
+      const label = `${SMALL} font-bold uppercase tracking-[0.14em] text-[var(--band-muted)] mb-1`;
+      const value = 'num font-bold leading-none text-[length:var(--fs-num)]';
+      wide = (
+        <div className="hidden md:flex items-stretch px-6 lg:px-8">
+          <div className={`${cell} hidden lg:block`}>
+            <div className={label}>In</div>
+            <div className={value}>{hhmm(s.clockInMs ?? now)}</div>
+          </div>
+          <div className={cell}>
+            <div className={label}>Worked</div>
+            <div className={`${value} ${tone}`}>{formatHm(s.workedSec)}</div>
+          </div>
+          <div className={cell}>
+            <div className={label}>To go</div>
+            <div className={value}>
+              <RemainingValue s={s} tone={tone} />
+            </div>
+          </div>
+          <div className={cell}>
+            <div className={label}>Out at</div>
+            <div className={`${value} text-[var(--clock-over)]`}>{hhmm(leaveAt)}</div>
+          </div>
+          <div aria-hidden="true" className="relative self-center flex-1 min-w-16 h-[26px] mr-5 lg:mr-7 border-[1.5px] border-[var(--band-ink)]">
+            <div className="v2-punch absolute inset-y-0 left-0" style={{ width: `${pct}%` }} />
+            <div
+              className="absolute -top-2 -bottom-2 border-r-2 border-[var(--clock-over)]"
+              style={{ left: `calc(${tick}% - 1px)` }}
+            />
+          </div>
+          <div className="self-center">{clockOut}</div>
+        </div>
+      );
+    } else {
+      wide = (
+        <div className="hidden md:flex items-center gap-[18px] px-6 py-2.5 num text-[length:var(--fs-num)]">
+          <span className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-btn)] border border-[var(--band-line)]">
+            <span aria-hidden="true" className="size-2 rounded-full bg-[var(--clock)]" />
+            in {hhmm(s.clockInMs ?? now)}
+          </span>
+          <span>{formatHm(s.workedSec)} worked</span>
+          <Meter pct={pct} className="w-[180px] h-1.5" />
+          {s.phase === 'over' ? (
+            <span className="font-semibold">+{formatHm(s.overSec)} over</span>
+          ) : (
+            <span className="text-[var(--band-muted)]">{toGo(s.leftSec)} left</span>
+          )}
+          <div className="ml-auto font-[family-name:var(--font-body)]">{clockOut}</div>
+        </div>
+      );
+    }
+
+    body = (
+      <>
+        {compact}
+        {wide}
+      </>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Workday clock"
+      data-phase={s.phase}
+      className="v2-band v2-clock bg-[var(--band-bg)] text-[var(--band-ink)]"
+    >
+      {body}
+    </section>
+  );
+};

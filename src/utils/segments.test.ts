@@ -60,6 +60,7 @@ describe('buildOvers', () => {
     expect(overs.every((o) => o.balls.length === 6)).toBe(true);
     expect(overs[0].label).toBe('09');
     expect(overs[1].label).toBe('10');
+    expect(overs[1].startMs).toBe(ms('10:00'));
   });
 
   it('a 09:00-09:40 segment fills balls 0-3 of over 0; the now slot is now; later is empty', () => {
@@ -102,6 +103,14 @@ describe('buildOvers', () => {
 
   it('70 minutes past leave gives 10 overs', () => {
     expect(buildOvers(rec, 8, [], projects, ms('18:10'))).toHaveLength(10);
+  });
+
+  it('now exactly at the leave time still has a now ball (in a ninth over)', () => {
+    const overs = buildOvers(rec, 8, [], projects, ms('17:00'));
+    expect(overs).toHaveLength(9);
+    expect(overs[8].label).toBe('17');
+    expect(overs[8].balls[0]).toEqual({ kind: 'now' });
+    expect(overs.flatMap((o) => o.balls).filter((b) => b.kind === 'now')).toHaveLength(1);
   });
 
   it('no segments: everything empty except now', () => {
