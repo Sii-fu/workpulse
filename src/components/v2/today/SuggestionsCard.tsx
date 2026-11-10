@@ -23,8 +23,11 @@ export const SuggestionsCard: React.FC<SuggestionsCardProps> = (props) => {
         <span>Suggested from your activity</span>
         {folders.length > 0 && (sourceNames || pending !== null) && (
           <span className="v2-head-meta">
-            {sourceNames}
-            {sourceNames && pending !== null && ' · '}
+            {/* Under 420px the source names hide (screen readers still hear them) and the count stays. */}
+            <span className={pending !== null ? 'sr-only min-[420px]:not-sr-only' : undefined}>
+              {sourceNames}
+              {sourceNames && pending !== null && ' · '}
+            </span>
             {pending !== null && <span className="num">{pending} new</span>}
           </span>
         )}

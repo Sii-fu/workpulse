@@ -44,7 +44,11 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
       <h2 id={`${id}-h`} className="v2-head">
         <span>Today's tasks</span>
         <span className="v2-head-meta num">
-          {open} open · {running} running · {done} done
+          {open} open
+          {/* Under 420px only the first part shows; screen readers still hear all of it. */}
+          <span className="sr-only min-[420px]:not-sr-only">
+            {' '}· {running} running · {done} done
+          </span>
         </span>
       </h2>
       <div className="v2-panel">

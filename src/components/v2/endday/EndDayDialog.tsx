@@ -276,8 +276,11 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
     if (s === 'activity' && !empty.activity)
       return (
         <>
-          {sourceNames}
-          {sourceNames && checked && ' · '}
+          {/* Under 420px the source names hide (screen readers still hear them) and the count stays. */}
+          <span className={checked ? 'sr-only min-[420px]:not-sr-only' : undefined}>
+            {sourceNames}
+            {sourceNames && checked && ' · '}
+          </span>
           {checked && <span className="num">{pending} new</span>}
         </>
       );

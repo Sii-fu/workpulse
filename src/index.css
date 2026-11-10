@@ -441,7 +441,8 @@
   text-transform: none;
   color: var(--text-muted);
 }
-/* One line on every width: the title never wraps, the meta gives way first and ends in "…". */
+/* One line on every width: the title never wraps. Long metas show only their first part under 420px
+   (sr-only min-[420px]:not-sr-only on the rest); the ellipsis is only a last resort. */
 .v2-head > span,
 .v2-head-group > span {
   min-width: 0;
