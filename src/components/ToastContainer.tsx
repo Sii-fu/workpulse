@@ -67,7 +67,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
       role="region"
       aria-label="Notifications"
       aria-live="polite"
-      className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+      className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-auto sm:bottom-5 sm:right-5 z-50 flex flex-col gap-2 sm:max-w-sm sm:w-full pointer-events-none"
     >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />

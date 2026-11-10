@@ -1,11 +1,11 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import type { Project, WorkLog, Workdays } from '../../../types';
 import { addDays, localDateStr, localTimeStr } from '../../../utils/dates';
 import { filterLogs, NO_FILTERS } from '../../../utils/logFilter';
 import { weekDays, weekTotals } from '../../../utils/weekTotals';
 import { dayLabelLong } from '../../../utils/taskSections';
 import { logsToCsv, logsToMarkdown } from '../../../utils/exportLogs';
-import { LogRow, formatHm as formatHmMin } from '../today/LogRow';
+import { LogRow, formatMinutes } from '../today/LogRow';
 import { RowMenu } from '../RowMenu';
 import { WeekStrip } from './WeekStrip';
 
@@ -28,6 +28,11 @@ export interface HistoryScreenProps {
   onStandup(): void;
   /** Open the timesheet for the selected logs. */
   onTimesheet(): void;
+  /** A log to show (picked in the search palette): the strip jumps to its day and the row is scrolled to. */
+  focusDate?: string;
+  focusLogId?: string;
+  /** Called once the focus request was taken, so App can clear it. */
+  onFocusHandled?(): void;
 }
 
 const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
@@ -69,6 +74,9 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
   onClearSelection,
   onStandup,
   onTimesheet,
+  focusDate,
+  focusLogId,
+  onFocusHandled,
 }) => {
   const id = useId();
   const today = localDateStr();
@@ -76,6 +84,18 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
   const [day, setDay] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [projectId, setProjectId] = useState('all');
+
+  // A log picked in the search palette: show its day with no search or project filter, then scroll to it.
+  const [scrollTo, setScrollTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusDate || !focusLogId) return;
+    setAnchor(focusDate);
+    setDay(focusDate);
+    setQuery('');
+    setProjectId('all');
+    setScrollTo(focusLogId);
+    onFocusHandled?.();
+  }, [focusDate, focusLogId, onFocusHandled]);
 
   const days = useMemo(() => weekDays(anchor), [anchor]);
   const totals = useMemo(() => weekTotals(logs, days), [logs, days]);
@@ -106,6 +126,19 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
     return [...map];
   }, [shown]);
 
+  // After the list shows the picked log: bring its row into view, flash it once and focus its menu.
+  useEffect(() => {
+    if (!scrollTo) return;
+    setScrollTo(null);
+    const row = document.querySelector<HTMLElement>(`.v2-history [data-log-id="${CSS.escape(scrollTo)}"]`);
+    if (!row) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    row.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.focus({ preventScroll: true });
+    row.classList.add('log-flash');
+    setTimeout(() => row.classList.remove('log-flash'), 1700);
+  }, [scrollTo, groups]);
+
   const shownIds = shown.map((l) => l.id);
   const allPicked = shownIds.length > 0 && shownIds.every((i) => selectedIds.includes(i));
   const selectedLogs = useMemo(() => logs.filter((l) => selectedIds.includes(l.id)), [logs, selectedIds]);
@@ -121,7 +154,7 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
     const rec = workdays[date];
     return (
       <>
-        <span>· {n(formatHmMin(list.reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0)))} logged</span>
+        <span>· {n(formatMinutes(list.reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0)))} logged</span>
         {rec && <span>· in {n(localTimeStr(new Date(rec.clockIn)))}</span>}
         {rec?.clockOut && <span>· out {n(localTimeStr(new Date(rec.clockOut)))}</span>}
         {rec && !rec.clockOut && date < today && <span>· no clock-out</span>}

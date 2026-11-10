@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { localDateStr, localTimeStr } from './utils/dates';
 import {
   WorkLog,
@@ -6,12 +6,11 @@ import {
   Project,
   AppSettings,
   ThemeId,
-  ColorMode,
   AppNavTab,
   ToastMessage,
-  TaskStatus,
   TaskStage,
   BackupData,
+  Workdays,
 } from './types';
 import {
   loadStoredData,
@@ -20,54 +19,69 @@ import {
   saveProjects as storeProjects,
   saveTags as storeTags,
   saveSettings as storeSettings,
+  saveWorkdays as storeWorkdays,
   replaceAllData,
   rollOverTasks,
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
-import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
+import { loggedSecondsOf, unloggedSeconds, isPendingTask } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
 import { startSegment, endSegment } from './utils/segments';
 import { minutesFromSeconds } from './utils/duration';
 import { unsyncedLogs } from './utils/syncStatus';
 import { applyDateFixes, DateFix } from './utils/logDates';
-import { getInitialSeedData } from './data/seedData';
+import { getInitialSeedData, DEFAULT_SETTINGS } from './data/seedData';
 import { syncSingleLogToSheet, syncBatchLogsToSheet } from './utils/sheetsSync';
-
-// Common Components
-import { TopBar } from './components/TopBar';
-import { MobileNav } from './components/MobileNav';
-import { DailyLogger } from './components/DailyLogger';
-import { CommandSidebar } from './components/CommandSidebar';
-import { BacklogSection } from './components/BacklogSection';
-import { TimelineFeed } from './components/TimelineFeed';
-import { AnalyticsView } from './components/AnalyticsView';
-import { SettingsView } from './components/SettingsView';
-import { AiStandupModal } from './components/AiStandupModal';
-import { SearchPaletteModal } from './components/SearchPaletteModal';
-import { LightboxModal } from './components/LightboxModal';
-import { ReminderBanner } from './components/ReminderBanner';
-import { ToastContainer } from './components/ToastContainer';
-import { LogEditorDialog } from './components/feed/LogEditorDialog';
-import { RunningStrip } from './components/RunningStrip';
-import { SampleDataBanner } from './components/SampleDataBanner';
-import { OfflineNotice } from './components/OfflineNotice';
-import { BackupReminder } from './components/BackupReminder';
+import { normalizeTheme } from './utils/theme';
+import {
+  DEFAULT_WORKDAY_HOURS,
+  clockIn,
+  clockOut,
+  clockState,
+  openWorkdayBefore,
+  resumeWorkday,
+} from './utils/workday';
+import { chooseNextAction } from './utils/nextAction';
+import { checkedToday, pendingCount, subscribeActivitySession } from './utils/activity/sessionStore';
 import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
 import { publishTimers } from './utils/timerStore';
-import { LogListProps, QuickLogProps } from './components/feed/types';
-import { isPendingTask } from './utils/taskLogging';
+import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
+import type { ActivityFolder } from './utils/activity/types';
+
+// Shell and screens
+import { AppHeader } from './components/v2/AppHeader';
+import { ClockBand } from './components/v2/ClockBand';
+import { BottomNav } from './components/v2/BottomNav';
+import { ClockInDialog } from './components/v2/ClockInDialog';
+import { useNow } from './components/v2/useNow';
+import { TodayScreen, TodayActivityProps } from './components/v2/today/TodayScreen';
+import { TasksScreen } from './components/v2/tasks/TasksScreen';
+import { HistoryScreen } from './components/v2/history/HistoryScreen';
+import { SettingsView } from './components/SettingsView';
+import { LogFormDialog, LogFormPrefill } from './components/v2/LogFormDialog';
+import { EndDayDialog } from './components/v2/endday/EndDayDialog';
+import type { StepId } from './utils/endDaySteps';
+
+// Dialogs and notices kept from v1
+import { AiStandupModal } from './components/AiStandupModal';
+import { SearchPaletteModal } from './components/SearchPaletteModal';
+import { LightboxModal } from './components/LightboxModal';
+import { ToastContainer } from './components/ToastContainer';
+import { SampleDataBanner } from './components/SampleDataBanner';
+import { OfflineNotice } from './components/OfflineNotice';
+import { BackupReminder } from './components/BackupReminder';
 import { EodSynthesizerModal, SynthesizedLogItem } from './components/EodSynthesizerModal';
 import { ActivitySuggestionsDialog } from './components/activity/ActivitySuggestionsDialog';
-import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
 
-// Distinct Sub-Layouts Per Theme
-import { MinimalistZenLayout } from './components/themes/MinimalistZenLayout';
-import { CompactConsoleLayout } from './components/themes/CompactConsoleLayout';
-import { MatrixTuiLayout } from './components/themes/MatrixTuiLayout';
+const NO_FOLDERS: ActivityFolder[] = [];
+const noop = () => {};
+
+/** A done task whose tracked time is not in a log yet. */
+const isDoneUnlogged = (t: BacklogTask) => (t.completed || t.stage === 'done') && unloggedSeconds(t) > 0;
 
 export default function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -75,34 +89,31 @@ export default function App() {
   const [backlog, setBacklog] = useState<BacklogTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [settings, setSettings] = useState<AppSettings>({
-    theme: 'modern',
-    colorMode: 'dark',
-    googleScriptUrl: '',
-    geminiApiKey: '',
-    defaultTone: 'casual',
-    crtEffect: false,
-  });
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [workdays, setWorkdays] = useState<Workdays>({});
 
-  // Active top navigation tab (now includes 'settings' as dedicated view)
-  const [activeTab, setActiveTab] = useState<AppNavTab>('feed');
+  const [activeTab, setActiveTab] = useState<AppNavTab>('today');
 
-  // Modals
+  // Dialogs
   const [isAiStandupOpen, setIsAiStandupOpen] = useState(false);
   const [isEodSynthesizerOpen, setIsEodSynthesizerOpen] = useState(false);
   const [eodTasksSnapshot, setEodTasksSnapshot] = useState<BacklogTask[]>([]);
   const [isEodCustomSelection, setIsEodCustomSelection] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
+  const [isClockInOpen, setIsClockInOpen] = useState(false);
+  // End my day: closed (null), or open on its first open step (undefined) or on a chosen step.
+  const [endDay, setEndDay] = useState<{ step?: StepId } | null>(null);
+  // The log form: closed (null), a new log (editing null, maybe prefilled) or an edit.
+  const [logForm, setLogForm] = useState<{ editing: WorkLog | null; prefill: LogFormPrefill | null } | null>(null);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
 
-  // Opens EOD modal with a frozen snapshot of backlog tasks to decouple from 1-second live timer ticks
-  // Supports optional specific selectedTaskIds for granular synthesis
+  // Opens the EOD synthesizer with a frozen snapshot of tasks, so live timer ticks do not re-run it.
+  // With ids, only those tasks (a selection on the Tasks screen).
   const handleOpenEodSynthesizer = (selectedTaskIds?: string[]) => {
     if (selectedTaskIds && selectedTaskIds.length > 0) {
       const selectedSet = new Set(selectedTaskIds);
-      const filtered = backlog.filter((t) => selectedSet.has(t.id));
-      setEodTasksSnapshot(filtered);
+      setEodTasksSnapshot(backlog.filter((t) => selectedSet.has(t.id)));
       setIsEodCustomSelection(true);
     } else {
       setEodTasksSnapshot([...backlog]);
@@ -111,39 +122,15 @@ export default function App() {
     setIsEodSynthesizerOpen(true);
   };
 
-  // Selected logs for AI standup
+  // Logs selected on History (standup, export)
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
-  // Log picked in the search palette; the timeline scrolls to it and clears this.
-  const [focusLogId, setFocusLogId] = useState<string | null>(null);
-  // The log just written, so its row can settle into the list once.
-  const [justAddedLogId, setJustAddedLogId] = useState<string | null>(null);
-  const markJustAdded = (id: string) => {
-    setJustAddedLogId(id);
-    setTimeout(() => setJustAddedLogId((cur) => (cur === id ? null : cur)), 1500);
-  };
+  // A log picked in the search palette: History opens on its day and scrolls to it.
+  const [historyFocus, setHistoryFocus] = useState<{ date: string; id: string } | null>(null);
 
-  // Sync state
-  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
-
-  // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  // Reminder banner dismissal
-  const [reminderDismissed, setReminderDismissed] = useState(false);
   // "Later" on the backup reminder: hidden until the next visit, not remembered.
   const [backupReminderHidden, setBackupReminderHidden] = useState(false);
 
-  // Pre-fill log state for "Log with Details"
-  const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
-  const [prefillLog, setPrefillLog] = useState<{
-    description: string;
-    projectId: string;
-    status?: TaskStatus;
-  } | null>(null);
-
-  const loggerRef = useRef<HTMLDivElement>(null);
-
-  // Helper to add toast
   const addToast = (
     message: string,
     type: 'success' | 'error' | 'info' = 'success',
@@ -173,6 +160,7 @@ export default function App() {
   const saveProjects = (v: Project[]) => persist(storeProjects(v), 'projects');
   const saveTags = (v: string[]) => persist(storeTags(v), 'tags');
   const saveSettings = (v: AppSettings) => persist(storeSettings(v), 'settings');
+  const saveWorkdays = (v: Workdays) => persist(storeWorkdays(v), 'the office clock');
 
   // Records that these logs reached the Google Sheet, so they are never sent twice (B2).
   const markLogsSynced = (ids: string[]) => {
@@ -198,19 +186,17 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // 1. Initial Load from LocalStorage
+  // 1. Initial load from localStorage (the loader maps old theme ids and rolls tasks over).
   useEffect(() => {
     const loaded = loadStoredData();
     setLogs(loaded.logs);
     setBacklog(loaded.backlog);
     setProjects(loaded.projects);
     setTags(loaded.tags);
+    setWorkdays(loaded.workdays);
     if (loaded.warnings.length > 0) {
       addToast(loaded.warnings.join(' '), 'error');
     }
-
-    const activeTheme = loaded.settings?.theme || 'modern';
-    const activeMode = loaded.settings?.colorMode || (activeTheme === 'minimalist' ? 'light' : 'dark');
 
     // Sync tracking starts now for users who already have a sheet: older logs are not re-sent.
     const syncTrackingSince =
@@ -220,47 +206,21 @@ export default function App() {
     if (syncTrackingSince !== loaded.settings.syncTrackingSince) {
       storeSettings({ ...loaded.settings, syncTrackingSince });
     }
-
-    setSettings({
-      ...loaded.settings,
-      syncTrackingSince,
-      theme: activeTheme,
-      colorMode: activeMode,
-    });
-
-    const todayStr = localDateStr();
-    if (loaded.settings?.lastDismissedReminderDate === todayStr) {
-      setReminderDismissed(true);
-    }
-
+    setSettings({ ...loaded.settings, syncTrackingSince });
     setDataLoaded(true);
   }, []);
 
-  // 2. Sync theme & colorMode attributes to HTML root
-  // Wait for the saved settings: index.html already applied them before first paint, and the
-  // initial state here is only the default, which would flash the wrong theme.
+  // 2. The theme lives on <html>. Wait for the saved settings: index.html already applied them
+  // before first paint, and the initial state here is only the default.
   useEffect(() => {
     if (!dataLoaded) return;
-    document.documentElement.setAttribute('data-theme', settings.theme);
-    document.documentElement.setAttribute(
-      'data-mode',
-      settings.theme === 'matrix' ? 'dark' : settings.colorMode
-    );
-    if (settings.theme === 'matrix' && settings.crtEffect) {
-      document.documentElement.setAttribute('data-crt', 'on');
-    } else {
-      document.documentElement.removeAttribute('data-crt');
-    }
-  }, [dataLoaded, settings.theme, settings.colorMode, settings.crtEffect]);
+    const theme = normalizeTheme(settings.theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-mode', theme === 'console' ? 'dark' : 'light');
+    document.documentElement.removeAttribute('data-crt');
+  }, [dataLoaded, settings.theme]);
 
-  // A half-done edit or pre-filled log belongs to the layout it was started in: Modern edits inline,
-  // the others in a dialog, so switching theme must not pop the old one open.
-  useEffect(() => {
-    setEditingLog(null);
-    setPrefillLog(null);
-  }, [settings.theme]);
-
-  // 3. Global Keyboard Shortcuts
+  // 3. Ctrl/Cmd+K opens the search palette.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -272,7 +232,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 4. Live Automatic Task Timer Engine.
+  // 4. Live task timer.
   // Each tick adds the REAL seconds since the last tick (hidden tabs are throttled by the browser),
   // and the backlog is saved every 30 s and when the tab is hidden or closed, not every second.
   const timerDirty = useRef(false);
@@ -302,6 +262,20 @@ export default function App() {
         timerLastSaveAt.current = Date.now();
       }
     };
+    // The page is going away: the saved copy closes every open timer segment, so the overs strip never
+    // shows time while the app was closed. On the next load rollOverTasks reopens them for running tasks.
+    // State keeps the open segment, in case the page comes back from the back/forward cache.
+    // Writes only when there is something to write (before the data has loaded the ref is empty,
+    // and saving it would wipe the stored tasks).
+    const onPageHide = () => {
+      const nowIso = new Date().toISOString();
+      const closed = backlogRef.current.map((t) => endSegment(t, nowIso));
+      const segmentsClosed = closed.some((t, i) => t !== backlogRef.current[i]);
+      if (!segmentsClosed && !timerDirty.current) return;
+      saveBacklog(closed);
+      timerDirty.current = false;
+      timerLastSaveAt.current = Date.now();
+    };
     const timerInterval = setInterval(() => {
       const { seconds, nextMs } = advanceClock(lastTickMs, Date.now());
       lastTickMs = nextMs;
@@ -326,12 +300,12 @@ export default function App() {
       if (document.visibilityState === 'hidden') flush();
     };
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', onPageHide);
 
     return () => {
       clearInterval(timerInterval);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
@@ -353,20 +327,12 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  // 4. Persistence Handlers
-  const handleColorModeChange = (newMode: ColorMode) => {
-    if (settings.theme === 'matrix') return;
-    const updated = { ...settings, colorMode: newMode };
-    setSettings(updated);
-    saveSettings(updated);
-    addToast(`Mode: ${newMode.toUpperCase()}`, 'info');
-  };
-
-  // The theme switch in the top bar applies at once and is remembered. The mode is left alone, so
-  // a person who leaves Matrix (always dark) gets their own light or dark choice back.
+  // Persistence handlers
+  // The theme picker applies at once and is remembered.
   const handleThemeChange = (theme: ThemeId) => {
-    if (theme === settings.theme) return;
-    const updated = { ...settings, theme };
+    const next = normalizeTheme(theme);
+    if (next === settings.theme) return;
+    const updated = { ...settings, theme: next };
     setSettings(updated);
     saveSettings(updated);
   };
@@ -374,12 +340,41 @@ export default function App() {
   const handleSaveSettings = (incoming: AppSettings) => {
     // Connecting (or switching) a sheet: only logs created from now on are sent to it.
     const urlChanged = incoming.googleScriptUrl !== settings.googleScriptUrl;
-    const newSettings =
+    const withTracking =
       incoming.googleScriptUrl && (urlChanged || !incoming.syncTrackingSince)
         ? { ...incoming, syncTrackingSince: new Date().toISOString() }
         : incoming;
+    const newSettings = { ...withTracking, theme: normalizeTheme(withTracking.theme) };
     setSettings(newSettings);
     saveSettings(newSettings);
+  };
+
+  // The office clock. Functional updates, so two calls in a row both stick.
+  const handleClockIn = (atIso?: string) => {
+    const at = atIso ?? new Date().toISOString();
+    setWorkdays((prev) => {
+      const next = clockIn(prev, at);
+      if (next !== prev) saveWorkdays(next);
+      return next;
+    });
+    setIsClockInOpen(false);
+  };
+
+  const handleClockOut = (date: string) => {
+    const at = new Date().toISOString();
+    setWorkdays((prev) => {
+      const next = clockOut(prev, date, at);
+      if (next !== prev) saveWorkdays(next);
+      return next;
+    });
+  };
+
+  const handleResume = (date: string) => {
+    setWorkdays((prev) => {
+      const next = resumeWorkday(prev, date);
+      if (next !== prev) saveWorkdays(next);
+      return next;
+    });
   };
 
   const handleAddLog = async (newLogData: Omit<WorkLog, 'id' | 'createdAt'>) => {
@@ -391,8 +386,7 @@ export default function App() {
 
     const updated = [newLog, ...logs];
     setLogs(updated);
-    markJustAdded(newLog.id);
-    if (saveLogs(updated).ok) addToast('Work log recorded successfully!');
+    if (saveLogs(updated).ok) addToast('Log added');
 
     if (settings.googleScriptUrl) {
       syncSingleLogToSheet(settings.googleScriptUrl, newLog).then((res) => {
@@ -418,9 +412,8 @@ export default function App() {
     }));
     const updated = [...created, ...logs];
     setLogs(updated);
-    markJustAdded(created[0].id);
     if (saveLogs(updated).ok) {
-      addToast(created.length === 1 ? 'Work log recorded successfully!' : `${created.length} work logs recorded.`);
+      addToast(created.length === 1 ? 'Log added' : `${created.length} logs added`);
     }
 
     if (settings.googleScriptUrl) {
@@ -435,18 +428,19 @@ export default function App() {
     }
   };
 
-  const handleEditLog = (log: WorkLog) => {
-    setEditingLog(log);
-    setPrefillLog(null);
-    setActiveTab('feed');
-    setTimeout(() => loggerRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  };
+  const handleEditLog = (log: WorkLog) => setLogForm({ editing: log, prefill: null });
+  const handleOpenLogForm = (prefill: LogFormPrefill | null) => setLogForm({ editing: null, prefill });
 
   const handleUpdateLog = (id: string, data: Omit<WorkLog, 'id' | 'createdAt'>) => {
     // editedAt makes the Sync button send the changed log to the sheet again.
     const updated = logs.map((l) => (l.id === id ? { ...l, ...data, editedAt: new Date().toISOString() } : l));
     setLogs(updated);
     if (saveLogs(updated).ok) addToast('Log updated', 'success');
+  };
+
+  const handleSaveLogForm = (data: Omit<WorkLog, 'id' | 'createdAt'>, id?: string) => {
+    if (id) handleUpdateLog(id, data);
+    else handleAddLog(data);
   };
 
   const handleDeleteLog = (id: string) => {
@@ -457,7 +451,7 @@ export default function App() {
     setLogs(updated);
     saveLogs(updated);
     setSelectedLogIds((prev) => prev.filter((i) => i !== id));
-    addToast('Work log removed', 'info', {
+    addToast('Log deleted', 'info', {
       label: 'Undo',
       onClick: () =>
         setLogs((prev) => {
@@ -486,22 +480,17 @@ export default function App() {
     };
     const updated = [duplicated, ...logs];
     setLogs(updated);
-    markJustAdded(duplicated.id);
-    if (saveLogs(updated).ok) addToast('Log duplicated for today', 'success');
+    if (saveLogs(updated).ok) addToast('Log copied to today', 'success');
   };
 
-  // Backlog & Focus Workspace handlers
-  const handleAddBacklogTask = (
-    title: string,
-    projectId: string,
-    stage: TaskStage = 'planned'
-  ) => {
+  // Tasks
+  const handleAddBacklogTask = (title: string, projectId: string, stage: TaskStage = 'planned', dueDate?: string) => {
     const nowIso = new Date().toISOString();
     const created: BacklogTask = {
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       projectId,
-      dueDate: localDateStr(),
+      dueDate: dueDate ?? localDateStr(),
       completed: stage === 'done',
       stage,
       originalDate: localDateStr(),
@@ -512,23 +501,15 @@ export default function App() {
     const updated = [newTask, ...backlog];
     setBacklog(updated);
     saveBacklog(updated);
-    addToast(
-      stage === 'in_progress'
-        ? 'Task added and started'
-        : 'Task added to Planned Queue'
-    );
+    addToast(stage === 'in_progress' ? 'Task added and started' : 'Task added');
   };
 
-  const handleUpdateTaskStage = (
-    taskId: string,
-    stage: TaskStage,
-    blockReason?: string
-  ) => {
+  const handleUpdateTaskStage = (taskId: string, stage: TaskStage, blockReason?: string) => {
     const task = backlog.find((t) => t.id === taskId);
     if (!task) return;
 
     if (stage === 'done') {
-      // Done only moves the task to Completed Today. It reaches the timesheet when the user picks it.
+      // Done does not write a log. The task waits for "Log it" or End my day.
       handleCompleteTask(task);
       return;
     }
@@ -555,14 +536,29 @@ export default function App() {
     saveBacklog(updated);
 
     if (stage === 'in_progress') {
-      addToast(`"${task.title.slice(0, 32)}..." is now running`, 'success');
+      addToast(`Started: ${task.title.length > 40 ? `${task.title.slice(0, 40)}…` : task.title}`, 'success');
     } else if (stage === 'paused') {
-      addToast('Task shifted to Paused', 'info');
+      addToast('Task paused', 'info');
     } else if (stage === 'blocked') {
-      addToast('Task marked as Blocked', 'info');
+      addToast('Task marked as blocked', 'info');
     } else if (stage === 'planned') {
-      addToast('Task reverted to Planned Queue', 'info');
+      addToast('Task moved back to planned', 'info');
     }
+  };
+
+  // Pauses one running task. A functional update, so End my day can pause several in a row
+  // (a handler that reads `backlog` would keep only the last pause).
+  const handlePauseTask = (taskId: string) => {
+    const nowIso = new Date().toISOString();
+    setBacklog((prev) => {
+      const next = prev.map((t) =>
+        t.id === taskId && t.stage === 'in_progress'
+          ? endSegment({ ...t, stage: 'paused' as TaskStage, isRunning: false }, nowIso)
+          : t,
+      );
+      saveBacklog(next);
+      return next;
+    });
   };
 
   const handleReopenTask = (taskId: string, targetStage: TaskStage = 'in_progress') => {
@@ -590,25 +586,14 @@ export default function App() {
       targetStage === 'in_progress'
         ? 'Task reopened and running'
         : targetStage === 'planned'
-          ? 'Task reopened and moved to the Planned queue'
+          ? 'Task moved back to planned'
           : 'Task reopened',
       'info',
     );
   };
 
-  const handleToggleBacklogTask = (taskId: string) => {
-    const task = backlog.find((t) => t.id === taskId);
-    if (!task) return;
-
-    if (task.completed || task.stage === 'done') {
-      handleReopenTask(taskId, 'planned');
-    } else {
-      handleCompleteTask(task);
-    }
-  };
-
-  // Marks a task done without writing a log. It waits in Completed Today until the user selects it
-  // for the timesheet (End of day); only then does it become a log and sync to the Sheet.
+  // Marks a task done without writing a log. It waits for "Log it", a timesheet from the Tasks
+  // screen, or End my day; only then does it become a log and sync to the Sheet.
   const handleCompleteTask = (task: BacklogTask) => {
     // Reopened and finished again with no new tracked time: everything is already in a log.
     const alreadyLogged = loggedSecondsOf(task) > 0 && unloggedSeconds(task) === 0;
@@ -631,9 +616,7 @@ export default function App() {
     setBacklog(updated);
     saveBacklog(updated);
     addToast(
-      alreadyLogged
-        ? 'Task completed (no new time to log)'
-        : 'Task done. Select it under Completed Today to add it to the timesheet.',
+      alreadyLogged ? 'Task done (no new time to log)' : 'Task done. Log it now, or in End my day.',
       'success',
     );
   };
@@ -652,7 +635,7 @@ export default function App() {
           completed: true,
           stage: 'done' as TaskStage,
           isRunning: false,
-          completedAt: nowIso,
+          completedAt: t.completedAt ?? nowIso,
           isSynthesized: true,
           synthesizedAt: nowIso,
           loggedSeconds: task.elapsedSeconds || 0,
@@ -665,7 +648,7 @@ export default function App() {
       const done = backlog.map((t) => (t.id === task.id ? markDone(t) : t));
       setBacklog(done);
       saveBacklog(done);
-      addToast('Task completed (no new time to log)', 'info');
+      addToast('Task done (no new time to log)', 'info');
       return;
     }
 
@@ -693,7 +676,7 @@ export default function App() {
     setLogs(updatedLogs);
     saveLogs(updatedLogs);
 
-    addToast('Task completed & logged to timeline!', 'success');
+    addToast("Task logged to today's log", 'success');
 
     // Automatically push to Google Sheet if linked
     if (settings.googleScriptUrl) {
@@ -708,7 +691,7 @@ export default function App() {
     }
   };
 
-  // EOD AI Synthesizer Push Handler
+  // The EOD synthesizer (and End my day step 2) confirmed these logs.
   const handleConfirmEodPush = async (items: SynthesizedLogItem[]) => {
     const todayStr = localDateStr();
     const newLogs: WorkLog[] = items.map((item) => ({
@@ -726,7 +709,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     }));
 
-    // Preserve tasks 100% visible in their respective sections - ONLY update isSynthesized & synthesizedAt
+    // Tasks stay where they are; only isSynthesized, synthesizedAt and loggedSeconds change.
     const touchedTaskIds = new Set(items.flatMap((i) => i.taskIds));
     // The seconds each task contributed to these logs (the modal sends only not-yet-logged time).
     const addedSeconds = new Map<string, number>();
@@ -753,10 +736,9 @@ export default function App() {
     setLogs(updatedLogs);
     saveLogs(updatedLogs);
 
-    addToast(`${newLogs.length} EOD project logs recorded to timeline!`, 'success');
+    addToast(newLogs.length === 1 ? '1 log added' : `${newLogs.length} logs added`, 'success');
 
     if (settings.googleScriptUrl) {
-      addToast('Syncing synthesized EOD logs with Google Sheets...', 'info');
       const res = await syncBatchLogsToSheet(settings.googleScriptUrl, newLogs);
       if (res.success) {
         markLogsSynced(newLogs.map((l) => l.id));
@@ -767,19 +749,6 @@ export default function App() {
     }
   };
 
-  const handleLogWithDetails = (task: BacklogTask) => {
-    setPrefillLog({
-      description: task.title,
-      projectId: task.projectId,
-      status: 'completed',
-    });
-    setActiveTab('feed');
-    setTimeout(() => {
-      loggerRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-    addToast('Task details loaded into Daily Logger', 'info');
-  };
-
   const handleDeleteBacklogTask = (taskId: string) => {
     const index = backlog.findIndex((t) => t.id === taskId);
     if (index === -1) return;
@@ -787,7 +756,7 @@ export default function App() {
     const updated = backlog.filter((t) => t.id !== taskId);
     setBacklog(updated);
     saveBacklog(updated);
-    addToast('Task removed', 'info', {
+    addToast('Task deleted', 'info', {
       label: 'Undo',
       onClick: () =>
         setBacklog((prev) => {
@@ -813,13 +782,7 @@ export default function App() {
     addToast(`Project "${name}" added`);
   };
 
-  const handleAddTag = (tag: string) => {
-    if (!tags.includes(tag)) {
-      const updated = [...tags, tag];
-      setTags(updated);
-      saveTags(updated);
-    }
-  };
+  const backupNow = () => buildBackup({ logs, backlog, projects, tags, settings, workdays });
 
   const handleResetSeedData = () => {
     if (
@@ -827,10 +790,7 @@ export default function App() {
         'Replace all work logs, tasks, projects and tags with the demo data? A backup file of your current data will be downloaded first.',
       )
     ) {
-      downloadTextFile(
-        `workpulse-pre-reset-${localDateStr()}.json`,
-        buildBackup({ logs, backlog, projects, tags, settings }),
-      );
+      downloadTextFile(`workpulse-pre-reset-${localDateStr()}.json`, backupNow());
       const seed = getInitialSeedData();
       setLogs(seed.logs);
       setBacklog(seed.backlog);
@@ -893,10 +853,7 @@ export default function App() {
         'Remove ALL logs, tasks and tags, and keep a single "General" project? Your settings (theme, API key, Sheet URL) stay. A backup file of your current data is downloaded first.',
       )
     ) {
-      downloadTextFile(
-        `workpulse-pre-fresh-${localDateStr()}.json`,
-        buildBackup({ logs, backlog, projects, tags, settings }),
-      );
+      downloadTextFile(`workpulse-pre-fresh-${localDateStr()}.json`, backupNow());
       const general: Project = { id: `proj-${Date.now()}`, name: 'General', color: '#6366f1', isArchived: false };
       setLogs([]);
       setBacklog([]);
@@ -911,10 +868,7 @@ export default function App() {
   };
 
   const handleFixLogDates = (fixes: DateFix[]) => {
-    downloadTextFile(
-      `workpulse-pre-datefix-${localDateStr()}.json`,
-      buildBackup({ logs, backlog, projects, tags, settings }),
-    );
+    downloadTextFile(`workpulse-pre-datefix-${localDateStr()}.json`, backupNow());
     const updated = applyDateFixes(logs, fixes);
     setLogs(updated);
     if (saveLogs(updated).ok) {
@@ -924,10 +878,7 @@ export default function App() {
 
   // The manual backup (Settings, or "Back up now" in the reminder). It also starts the reminder's clock.
   const handleBackupNow = () => {
-    downloadTextFile(
-      `workpulse-backup-${localDateStr()}.json`,
-      buildBackup({ logs, backlog, projects, tags, settings }),
-    );
+    downloadTextFile(`workpulse-backup-${localDateStr()}.json`, backupNow());
     const updated = { ...settings, lastBackupAt: new Date().toISOString() };
     setSettings(updated);
     saveSettings(updated);
@@ -935,10 +886,12 @@ export default function App() {
   };
 
   const handleImportBackup = (data: BackupData) => {
-    // Keep this machine's API key and backup date; backups never contain them.
+    // Keep this machine's API key and backup date; backups never contain them. Workdays travel
+    // with the backup (an older backup without them leaves the stored ones alone).
     const result = replaceAllData({
       ...data,
       settings: { ...data.settings, geminiApiKey: settings.geminiApiKey, lastBackupAt: settings.lastBackupAt },
+      workdays: data.workdays,
     });
     if (!result.ok) {
       addToast('Import failed: browser storage is full. Nothing was changed.', 'error');
@@ -948,10 +901,11 @@ export default function App() {
     window.location.reload();
   };
 
+  // Sends every unsynced log. Toasts the outcome; used by the Retry button on a failed sync.
   const handleSyncGoogleSheet = async () => {
     if (!settings.googleScriptUrl) {
       setActiveTab('settings');
-      addToast('Please enter your Google Apps Script Web App URL first.', 'info');
+      addToast('Add your Google Apps Script Web App URL in Settings first.', 'info');
       return;
     }
 
@@ -961,9 +915,7 @@ export default function App() {
       return;
     }
 
-    setIsSyncingSheet(true);
     const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending);
-    setIsSyncingSheet(false);
     if (result.success) {
       markLogsSynced(pending.map((l) => l.id));
       addToast(result.message, 'success');
@@ -972,280 +924,258 @@ export default function App() {
     }
   };
 
-  const handleDismissReminder = () => {
-    setReminderDismissed(true);
-    const todayStr = localDateStr();
-    const updated = { ...settings, lastDismissedReminderDate: todayStr };
-    setSettings(updated);
-    saveSettings(updated);
+  // End my day's Sync step: the same send, but a failure rejects so the step can show it.
+  const handleSyncForEndDay = async () => {
+    if (!settings.googleScriptUrl) return;
+    const pending = unsyncedLogs(logs, settings.syncTrackingSince);
+    if (pending.length === 0) return;
+    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending);
+    if (!result.success) throw new Error(result.message);
+    markLogsSynced(pending.map((l) => l.id));
   };
 
-  const handleToggleSelectLog = (id: string) => {
-    if (selectedLogIds.includes(id)) {
-      setSelectedLogIds(selectedLogIds.filter((i) => i !== id));
-    } else {
-      setSelectedLogIds([...selectedLogIds, id]);
+  const handleToggleSelectLog = (id: string) =>
+    setSelectedLogIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+
+  const handleCopy = (text: string) => {
+    if (!navigator.clipboard) {
+      addToast('Could not copy: the clipboard is not available here.', 'error');
+      return;
+    }
+    navigator.clipboard.writeText(text).then(
+      () => addToast('Copied to clipboard'),
+      () => addToast('Could not copy to the clipboard.', 'error'),
+    );
+  };
+
+  // ---- Derived state for the shell ----
+  // Re-render twice a minute even with no timer running, so the next action follows the clock
+  // (calm → near the leave time) and the date rolls over at midnight. The band ticks on its own.
+  const now = useNow(30_000);
+  const todayStr = localDateStr(new Date(now));
+  const hours = settings.workdayHours ?? DEFAULT_WORKDAY_HOURS;
+  const todayRecord = workdays[todayStr];
+  // A forgotten clock-out from an earlier day shows in the band only while today has no record.
+  const staleOpen = todayRecord ? null : openWorkdayBefore(workdays, todayStr);
+  const theme = normalizeTheme(settings.theme);
+
+  const pendingSuggestions = useSyncExternalStore(subscribeActivitySession, () => pendingCount(todayStr));
+  const checkedActivityToday = useSyncExternalStore(subscribeActivitySession, () => checkedToday(todayStr));
+  const folders = settings.activityFolders && settings.activityFolders.length > 0 ? settings.activityFolders : NO_FOLDERS;
+
+  const next = chooseNextAction({
+    clock: clockState(todayRecord, hours, Date.now()),
+    pendingSuggestions,
+    doneUnloggedTasks: backlog.filter(isDoneUnlogged).length,
+    checkedActivityToday,
+    hasActivityFolders: folders.length > 0,
+  });
+
+  const todayMinutes = logs.reduce((sum, l) => (l.date === todayStr ? sum + (l.durationMinutes ?? 0) : sum), 0);
+  const openTasks = backlog.filter(isPendingTask).length;
+
+  // Opens the suggestions: on a wide screen the Today card (scrolled into view), under 1024 px the
+  // dialog, because the card sits at the bottom of the single column there.
+  const showSuggestions = () => {
+    if (window.innerWidth < 1024) {
+      setIsActivityOpen(true);
+      return;
+    }
+    setActiveTab('today');
+    setTimeout(() => {
+      const el = document.getElementById('today-suggestions');
+      if (!el) return;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+      el.querySelector<HTMLElement>('h2')?.focus();
+    }, 50);
+  };
+
+  const handleNext = () => {
+    switch (next.kind) {
+      case 'clock-in':
+        setIsClockInOpen(true);
+        return;
+      case 'end-day':
+        setEndDay({});
+        return;
+      case 'review-suggestions':
+      case 'check-activity':
+        showSuggestions();
+        return;
+      case 'log-done':
+        setEndDay({ step: 'tasks' });
+        return;
+      case 'add-log':
+        handleOpenLogForm(null);
+        return;
     }
   };
 
-  const todayStr = localDateStr();
-  const hasLogsToday = logs.some((l) => l.date === todayStr);
-  const pendingTasksCount = backlog.filter(isPendingTask).length;
-
-  // Handlers for the memoized Tasks screen: stable identities that always call the latest closure.
-  const tasksHandlers = {
-    onAddTask: useStableCallback(handleAddBacklogTask),
-    onUpdateTaskStage: useStableCallback(handleUpdateTaskStage),
-    onToggleTask: useStableCallback(handleToggleBacklogTask),
-    onConvertTaskToLog: useStableCallback(handleConvertTaskToLog),
-    onLogWithDetails: useStableCallback(handleLogWithDetails),
-    onDeleteTask: useStableCallback(handleDeleteBacklogTask),
-    onAddProject: useStableCallback(handleAddProject),
-    onReopenTask: useStableCallback(handleReopenTask),
-    onOpenEodSynthesizer: useStableCallback(handleOpenEodSynthesizer),
+  // Stable handlers for the memoized screens and dialogs: they never change identity but always run
+  // the latest closure, so the screens skip the every-second re-render while a timer runs.
+  const h = {
+    addTask: useStableCallback(handleAddBacklogTask),
+    stage: useStableCallback(handleUpdateTaskStage),
+    complete: useStableCallback(handleCompleteTask),
+    logTask: useStableCallback(handleConvertTaskToLog),
+    reopenToPlanned: useStableCallback((id: string) => handleReopenTask(id, 'planned')),
+    deleteTask: useStableCallback(handleDeleteBacklogTask),
+    addLog: useStableCallback(handleAddLog),
+    addLogs: useStableCallback(handleAddLogs),
+    openLogForm: useStableCallback(handleOpenLogForm),
+    editLog: useStableCallback(handleEditLog),
+    deleteLog: useStableCallback(handleDeleteLog),
+    duplicateLog: useStableCallback(handleDuplicateLog),
+    openSettings: useStableCallback(() => setActiveTab('settings')),
+    endDay: useStableCallback(() => setEndDay({})),
+    logSelectedTasks: useStableCallback((ids: string[]) => handleOpenEodSynthesizer(ids)),
+    copy: useStableCallback(handleCopy),
+    toggleSelectLog: useStableCallback(handleToggleSelectLog),
+    selectLogs: useStableCallback((ids: string[]) => setSelectedLogIds(ids)),
+    clearLogSelection: useStableCallback(() => setSelectedLogIds([])),
+    standup: useStableCallback(() => setIsAiStandupOpen(true)),
+    timesheet: useStableCallback(() => handleOpenEodSynthesizer()),
+    historyFocusHandled: useStableCallback(() => setHistoryFocus(null)),
+    confirmEod: useStableCallback(handleConfirmEodPush),
+    syncForEndDay: useStableCallback(handleSyncForEndDay),
+    pauseTask: useStableCallback(handlePauseTask),
+    clockOutToday: useStableCallback(() => handleClockOut(localDateStr())),
+    closeEndDay: useStableCallback(() => setEndDay(null)),
   };
+
+  const sourcesGit = sourcesFromSettings(settings).git;
+  const sourcesClaude = sourcesFromSettings(settings).claude;
+  const ai = aiFromSettings(settings);
+  const activityProps: TodayActivityProps = useMemo(
+    () => ({
+      folders,
+      sources: { git: sourcesGit, claude: sourcesClaude },
+      ai,
+      geminiApiKey: settings.geminiApiKey,
+      onAddLogs: h.addLogs,
+      onOpenSettings: h.openSettings,
+    }),
+    // h.* never change identity, so they are not dependencies.
+    [folders, sourcesGit, sourcesClaude, ai, settings.geminiApiKey],
+  );
+
   if (!dataLoaded) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-        INITIALIZING WORKPULSE OS...
-      </div>
-    );
+    return <div className="min-h-screen bg-[var(--bg-app)]" />;
   }
 
-  // Everything a timeline needs to list, select, edit and copy logs. All four themes get the same
-  // set, so a feature cannot quietly exist in one theme only.
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    addToast('Copied to clipboard!');
-  };
-  const logListProps: LogListProps = {
-    logs,
-    projects,
-    onEditLog: handleEditLog,
-    onDeleteLog: handleDeleteLog,
-    onDuplicateLog: handleDuplicateLog,
-    onOpenImage: (base64) => setActiveLightboxImage(base64),
-    onCopyText: copyToClipboard,
-    selectedLogIds,
-    onToggleSelectLog: handleToggleSelectLog,
-    onSelectAllVisible: (ids) => setSelectedLogIds(ids),
-    onClearSelection: () => setSelectedLogIds([]),
-    onOpenAiStandupWithSelected: () => setIsAiStandupOpen(true),
-    onOpenEodSynthesizer: handleOpenEodSynthesizer,
-    focusLogId,
-    onFocusLogHandled: () => setFocusLogId(null),
-    justAddedLogId,
-  };
-  const quickLogProps: QuickLogProps = {
-    availableTags: tags,
-    onAddLog: handleAddLog,
-    onOpenDetails: (draft) => {
-      setEditingLog(null);
-      setPrefillLog(draft);
-    },
-  };
-  // Modern edits in its inline form; the other themes use the same form in a dialog.
-  const showEditorDialog = settings.theme !== 'modern' && (editingLog !== null || prefillLog !== null);
+  const samples = sampleCounts(logs, backlog);
+  const backup = backupStatus(settings.lastBackupAt, logs, backlog);
+  const showNotices = activeTab === 'today' || activeTab === 'tasks';
+  const noticeWidth = activeTab === 'tasks' ? 'max-w-[960px]' : 'max-w-[1440px]';
 
   return (
-    <div
-      data-theme={settings.theme}
-      data-mode={settings.theme === 'matrix' ? 'dark' : settings.colorMode}
-      className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] transition-all antialiased selection:bg-[var(--accent)] selection:text-[var(--on-accent)] pb-20 md:pb-6"
-    >
-      {/* The top bar and the running task stay together at the top while you scroll */}
-      <div className="sticky top-0 z-40">
-      <TopBar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        activeTheme={settings.theme}
-        onThemeChange={handleThemeChange}
-        colorMode={settings.colorMode}
-        onColorModeChange={handleColorModeChange}
-        onOpenSearch={() => setIsSearchOpen(true)}
-        onOpenAiStandup={() => setIsAiStandupOpen(true)}
-        onOpenEod={handleOpenEodSynthesizer}
-        onOpenActivity={() => setIsActivityOpen(true)}
-        hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
-        onSyncGoogleSheet={handleSyncGoogleSheet}
-        unsyncedCount={
-          settings.googleScriptUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0
-        }
-        isSyncing={isSyncingSheet}
-      />
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] antialiased selection:bg-[var(--accent)] selection:text-[var(--on-accent)]">
+      <AppHeader
+        active={activeTab}
+        onTab={setActiveTab}
+        todayMinutes={todayMinutes}
+        openTasks={openTasks}
+        next={next}
+        onNext={handleNext}
+        onSearch={() => setIsSearchOpen(true)}
+      >
+        <ClockBand
+          theme={theme}
+          today={todayStr}
+          record={todayRecord}
+          staleOpen={staleOpen}
+          hours={hours}
+          tasks={backlog}
+          projects={projects}
+          onClockIn={() => setIsClockInOpen(true)}
+          onClockOut={handleClockOut}
+          onResume={handleResume}
+        />
+      </AppHeader>
 
-      <RunningStrip
-        backlog={backlog}
-        projects={projects}
-        onPause={(id) => handleUpdateTaskStage(id, 'paused')}
-        onOpenTasks={() => setActiveTab('backlog')}
-      />
-      </div>
+      <main className="pb-[calc(56px+env(safe-area-inset-bottom))] sm:pb-0">
+        <div className={`mx-auto ${noticeWidth} px-4 sm:px-8 pt-5 flex flex-col gap-3 empty:hidden`}>
+          <OfflineNotice />
+          {showNotices && samples.total > 0 && (
+            <SampleDataBanner
+              logCount={samples.logs}
+              taskCount={samples.tasks}
+              onClear={handleClearSampleData}
+              onOpenSetup={() => setActiveTab('settings')}
+            />
+          )}
+          {showNotices && !backupReminderHidden && backup.due && (
+            <BackupReminder days={backup.days} onBackup={handleBackupNow} onLater={() => setBackupReminderHidden(true)} />
+          )}
+        </div>
 
-      {/* Main Viewport Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
-        <OfflineNotice />
-
-        {(activeTab === 'feed' || activeTab === 'backlog') && sampleCounts(logs, backlog).total > 0 && (
-          <SampleDataBanner
-            logCount={sampleCounts(logs, backlog).logs}
-            taskCount={sampleCounts(logs, backlog).tasks}
-            onClear={handleClearSampleData}
-            onOpenSetup={() => setActiveTab('settings')}
+        {activeTab === 'today' && (
+          <TodayScreen
+            backlog={backlog}
+            logs={logs}
+            projects={projects}
+            today={todayStr}
+            onAddTask={h.addTask}
+            onStage={h.stage}
+            onComplete={h.complete}
+            onLogTask={h.logTask}
+            onReopen={h.reopenToPlanned}
+            onDeleteTask={h.deleteTask}
+            onAddLog={h.addLog}
+            onOpenLogForm={h.openLogForm}
+            onEditLog={h.editLog}
+            onDeleteLog={h.deleteLog}
+            onDuplicateLog={h.duplicateLog}
+            activityProps={activityProps}
+            onSuggestionsPending={noop}
+            onActivityScanned={noop}
+            onEndDay={h.endDay}
           />
         )}
 
-        {(activeTab === 'feed' || activeTab === 'backlog') && !backupReminderHidden && (() => {
-          const status = backupStatus(settings.lastBackupAt, logs, backlog);
-          return status.due ? (
-            <BackupReminder days={status.days} onBackup={handleBackupNow} onLater={() => setBackupReminderHidden(true)} />
-          ) : null;
-        })()}
-
-        {/* 5:00 PM End of Day Reminder Banner */}
-        <ReminderBanner
-          hasLogsToday={hasLogsToday}
-          isDismissed={reminderDismissed}
-          onDismiss={handleDismissReminder}
-          onScrollToLogger={() => {
-            // Go to the log form in every theme: modern has a ref; the other layouts have a quick-log input.
-            setActiveTab('feed');
-            setTimeout(() => {
-              if (loggerRef.current) {
-                loggerRef.current.scrollIntoView({ behavior: 'smooth' });
-              } else {
-                const input = document.querySelector<HTMLElement>('main textarea, main input[type="text"]');
-                input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                input?.focus();
-              }
-            }, 100);
-          }}
-        />
-
-        {/* =========================================================================
-            VIEW 1: TIMELINE FEED & DAILY LOGGING (UNIQUE PER THEME)
-           ========================================================================= */}
-        {activeTab === 'feed' && (
-          <div>
-            {/* 1. MINIMALIST: The Zen Notebook (Borderless Inline Writing & Narrative Chronicle) */}
-            {settings.theme === 'minimalist' && <MinimalistZenLayout {...logListProps} {...quickLogProps} />}
-
-            {/* 2. COMPACT: The Linear High-Density Console (Horizontal Bar + Full Data Table) */}
-            {settings.theme === 'compact' && (
-              <CompactConsoleLayout
-                {...logListProps}
-                {...quickLogProps}
-                backlog={backlog}
-                onToggleTask={handleToggleBacklogTask}
-                onConvertTaskToLog={handleConvertTaskToLog}
-              />
-            )}
-
-            {/* 3. MATRIX CLI: The Retro UNIX Terminal User Interface (CLI Prompt + Tmux Bar) */}
-            {settings.theme === 'matrix' && (
-              <MatrixTuiLayout
-                {...logListProps}
-                onAddLog={quickLogProps.onAddLog}
-                onOpenDetails={quickLogProps.onOpenDetails}
-                backlog={backlog}
-                hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
-                onToggleTask={handleToggleBacklogTask}
-                onConvertTaskToLog={handleConvertTaskToLog}
-                onOpenAiStandup={() => setIsAiStandupOpen(true)}
-              />
-            )}
-
-            {/* 4. MODERN SAAS: The Command Dashboard (Interactive 2-Column Split Workspace) */}
-            {settings.theme === 'modern' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
-                {/* Left 8 Cols: Form & Timeline */}
-                <div className="lg:col-span-8 space-y-6">
-                  <div ref={loggerRef}>
-                    <DailyLogger
-                      projects={projects}
-                      availableTags={tags}
-                      activeTheme={settings.theme}
-                      prefillData={prefillLog}
-                      onClearPrefill={() => setPrefillLog(null)}
-                      editingLog={editingLog}
-                      onUpdateLog={handleUpdateLog}
-                      onCancelEdit={() => setEditingLog(null)}
-                      onAddLog={handleAddLog}
-                      onAddProject={handleAddProject}
-                      onAddTag={handleAddTag}
-                    />
-                  </div>
-
-                  <TimelineFeed {...logListProps} />
-                </div>
-
-                {/* Right 4 Cols: Consolidated Sticky Command Sidebar */}
-                <div className="lg:col-span-4 sticky top-16">
-                  <CommandSidebar
-                    backlog={backlog}
-                    projects={projects}
-                    logs={logs}
-                    activeTheme={settings.theme}
-                    onAddTask={handleAddBacklogTask}
-                    onToggleTask={handleToggleBacklogTask}
-                    onConvertTaskToLog={handleConvertTaskToLog}
-                    onLogWithDetails={handleLogWithDetails}
-                    onDeleteTask={handleDeleteBacklogTask}
-                    onOpenAiStandup={() => setIsAiStandupOpen(true)}
-                  />
-                </div>
-
-              </div>
-            )}
-          </div>
+        {activeTab === 'tasks' && (
+          <TasksScreen
+            backlog={backlog}
+            projects={projects}
+            today={todayStr}
+            onAddTask={h.addTask}
+            onStage={h.stage}
+            onComplete={h.complete}
+            onLogTask={h.logTask}
+            onReopen={h.reopenToPlanned}
+            onDeleteTask={h.deleteTask}
+            onLogSelected={h.logSelectedTasks}
+          />
         )}
 
-        {/* =========================================================================
-            VIEW 2: PLANNED TASKS FOCUS VIEW & WORKSPACE
-           ========================================================================= */}
-        {activeTab === 'backlog' && (
-          <div className="max-w-7xl mx-auto space-y-6">
-            <BacklogSection
-              backlog={backlog}
-              projects={projects}
-              activeTheme={settings.theme}
-              onAddTask={tasksHandlers.onAddTask}
-              onUpdateTaskStage={tasksHandlers.onUpdateTaskStage}
-              onToggleTask={tasksHandlers.onToggleTask}
-              onConvertTaskToLog={tasksHandlers.onConvertTaskToLog}
-              onLogWithDetails={tasksHandlers.onLogWithDetails}
-              onDeleteTask={tasksHandlers.onDeleteTask}
-              onAddProject={tasksHandlers.onAddProject}
-              onReopenTask={tasksHandlers.onReopenTask}
-              onOpenEodSynthesizer={tasksHandlers.onOpenEodSynthesizer}
-            />
-          </div>
+        {activeTab === 'history' && (
+          <HistoryScreen
+            logs={logs}
+            projects={projects}
+            workdays={workdays}
+            hours={hours}
+            onEditLog={h.editLog}
+            onDeleteLog={h.deleteLog}
+            onDuplicateLog={h.duplicateLog}
+            onCopy={h.copy}
+            selectedIds={selectedLogIds}
+            onToggleSelect={h.toggleSelectLog}
+            onSelectMany={h.selectLogs}
+            onClearSelection={h.clearLogSelection}
+            onStandup={h.standup}
+            onTimesheet={h.timesheet}
+            focusDate={historyFocus?.date}
+            focusLogId={historyFocus?.id}
+            onFocusHandled={h.historyFocusHandled}
+          />
         )}
 
-        {/* =========================================================================
-            VIEW 3: VISUAL ANALYTICS & EXPORT
-           ========================================================================= */}
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <AnalyticsView
-              logs={logs}
-              projects={projects}
-              onNotify={(msg, type) => addToast(msg, type || 'success')}
-            />
-          </div>
-        )}
-
-        {/* =========================================================================
-            VIEW 4: DEDICATED FULL-SCREEN SETTINGS CONSOLE
-           ========================================================================= */}
         {activeTab === 'settings' && (
           <SettingsView
             settings={settings}
             onSaveSettings={handleSaveSettings}
-            // TODO(Task 11): the shell still types the theme as the old ThemeId; store the v2 id as is until it swaps.
-            onThemeChange={(t) => handleThemeChange(t as unknown as ThemeId)}
+            onThemeChange={handleThemeChange}
             projects={projects}
             onUpdateProjects={(p) => {
               setProjects(p);
@@ -1266,46 +1196,59 @@ export default function App() {
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
           />
         )}
-
       </main>
 
-      {/* Mobile Persistent Bottom Tab Bar */}
-      <MobileNav
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        pendingTasksCount={pendingTasksCount}
+      <BottomNav active={activeTab} onChange={setActiveTab} openTasks={openTasks} />
+
+      <ClockInDialog isOpen={isClockInOpen} onClose={() => setIsClockInOpen(false)} onConfirm={handleClockIn} />
+
+      <EndDayDialog
+        isOpen={endDay !== null}
+        initialStep={endDay?.step}
+        onClose={h.closeEndDay}
+        today={todayStr}
+        logs={logs}
+        backlog={backlog}
+        projects={projects}
+        settings={settings}
+        workday={todayRecord}
+        activityProps={activityProps}
+        onConfirmEodPush={h.confirmEod}
+        onEditLog={h.editLog}
+        onDeleteLog={h.deleteLog}
+        onSync={h.syncForEndDay}
+        onPauseTask={h.pauseTask}
+        onClockOut={h.clockOutToday}
       />
 
-      {/* End-of-Day (EOD) AI Log Synthesizer Modal */}
+      {/* Timesheet from selected tasks (Tasks screen) or from History */}
       <EodSynthesizerModal
         isOpen={isEodSynthesizerOpen}
         onClose={() => setIsEodSynthesizerOpen(false)}
         tasksSnapshot={eodTasksSnapshot}
         isCustomSelection={isEodCustomSelection}
         projects={projects}
-        activeTheme={settings.theme}
         geminiApiKey={settings.geminiApiKey}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onConfirmAndPush={handleConfirmEodPush}
         onOpenActivity={() => setIsActivityOpen(true)}
       />
 
-      {/* Activity suggestions: logs suggested from git commits and Claude Code history */}
+      {/* Activity suggestions as a dialog (phones and tablets; the Today card on wide screens) */}
       <ActivitySuggestionsDialog
         isOpen={isActivityOpen}
         onClose={() => setIsActivityOpen(false)}
         logs={logs}
         backlog={backlog}
         projects={projects}
-        folders={settings.activityFolders ?? []}
-        sources={sourcesFromSettings(settings)}
-        ai={aiFromSettings(settings)}
+        folders={folders}
+        sources={activityProps.sources}
+        ai={ai}
         geminiApiKey={settings.geminiApiKey}
         onAddLogs={handleAddLogs}
         onOpenSettings={() => setActiveTab('settings')}
       />
 
-      {/* AI Standup Modal */}
       <AiStandupModal
         isOpen={isAiStandupOpen}
         onClose={() => setIsAiStandupOpen(false)}
@@ -1317,41 +1260,31 @@ export default function App() {
         onCopySuccess={() => addToast('Standup copied to clipboard')}
       />
 
-      {/* Global Cmd+K Search Palette */}
       <SearchPaletteModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         logs={logs}
         projects={projects}
         onSelectLog={(log) => {
-          setActiveTab('feed');
-          setFocusLogId(log.id);
+          setActiveTab('history');
+          setHistoryFocus({ date: log.date, id: log.id });
         }}
         onOpenImage={(base64) => setActiveLightboxImage(base64)}
       />
 
-      {/* Proof Lightbox */}
-      <LightboxModal
-        imageBase64={activeLightboxImage}
-        onClose={() => setActiveLightboxImage(null)}
-      />
+      <LightboxModal imageBase64={activeLightboxImage} onClose={() => setActiveLightboxImage(null)} />
 
-      {/* Dismissable Toast Notifications */}
-      {showEditorDialog && (
-        <LogEditorDialog
+      {/* Opened last so it stacks over End my day when a log is edited from there. */}
+      {logForm && (
+        <LogFormDialog
+          isOpen
           projects={projects}
-          availableTags={tags}
-          activeTheme={settings.theme}
-          editingLog={editingLog}
-          prefill={prefillLog}
-          onAddLog={handleAddLog}
-          onUpdateLog={handleUpdateLog}
+          tags={tags}
+          editing={logForm.editing}
+          prefill={logForm.prefill}
+          onSave={handleSaveLogForm}
           onAddProject={handleAddProject}
-          onAddTag={handleAddTag}
-          onClose={() => {
-            setEditingLog(null);
-            setPrefillLog(null);
-          }}
+          onClose={() => setLogForm(null)}
         />
       )}
 

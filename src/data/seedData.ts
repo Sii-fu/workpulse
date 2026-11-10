@@ -20,12 +20,10 @@ export const INITIAL_TAGS: string[] = [
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'modern',
-  colorMode: 'dark',
+  theme: 'chase',
   googleScriptUrl: '',
   geminiApiKey: '',
   defaultTone: 'casual',
-  crtEffect: false,
 };
 
 // Generates dynamic dates relative to today

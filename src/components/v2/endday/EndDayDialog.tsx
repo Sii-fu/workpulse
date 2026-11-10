@@ -21,6 +21,8 @@ import { StepEmpty, StepId, StepStatus, nextOpenStep, prevOpenStep, stepAfterDon
 
 export interface EndDayDialogProps {
   isOpen: boolean;
+  /** The step to open on (the next action "Log N done tasks" opens on 'tasks'). Absent: the first step with something to do. */
+  initialStep?: StepId;
   onClose(): void;
   /** Local YYYY-MM-DD. */
   today: string;
@@ -72,6 +74,7 @@ const EndDayDialogView: React.FC<EndDayDialogProps> = ({ isOpen, ...rest }) => (
 
 // Mounted fresh on each open: the done-task snapshot and the step marks start over.
 const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
+  initialStep,
   onClose,
   today,
   logs,
@@ -118,7 +121,10 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   const statusOf = (s: StepId): StepStatus =>
     stepStatus(s, empty, marks, (s === 'activity' && checked && pending === 0) || (s === 'tasks' && tasksAdded));
 
-  const [current, setCurrent] = useState(() => nextOpenStep(empty, 0));
+  const [current, setCurrent] = useState(() => {
+    const asked = initialStep ? STEPS.findIndex((s) => s.id === initialStep) : -1;
+    return asked >= 0 ? asked : nextOpenStep(empty, 0);
+  });
   const [visited, setVisited] = useState<Set<number>>(() => new Set([current]));
   const step = STEPS[current];
 
@@ -206,7 +212,6 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
               tasksSnapshot={snapshot}
               isCustomSelection
               projects={projects}
-              activeTheme={settings.theme}
               geminiApiKey={settings.geminiApiKey}
               hasGoogleSheetLinked={!!sheetUrl}
               onConfirmAndPush={onConfirmEodPush}

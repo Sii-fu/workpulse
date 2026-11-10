@@ -62,7 +62,8 @@ export interface Project {
   isArchived: boolean;
 }
 
-export type ThemeId = 'minimalist' | 'modern' | 'compact' | 'matrix';
+// The three themes. Older stored ids (modern, compact, minimalist, matrix) are mapped by normalizeTheme.
+export type ThemeId = 'chase' | 'timecard' | 'console';
 
 export type ReportFormat = 'whatsapp' | 'slack' | 'executive';
 
@@ -70,11 +71,12 @@ export type ReportTone = 'casual' | 'corporate' | 'bullet' | 'client';
 
 export type ColorMode = 'light' | 'dark';
 
-export type AppNavTab = 'feed' | 'backlog' | 'analytics' | 'settings';
+export type AppNavTab = 'today' | 'tasks' | 'history' | 'settings';
 
 export interface AppSettings {
   theme: ThemeId;
-  colorMode: ColorMode;
+  // No longer used (the theme decides light or dark); kept so stored data round-trips.
+  colorMode?: ColorMode;
   googleScriptUrl: string;
   geminiApiKey: string;
   defaultTone: ReportTone;
@@ -82,7 +84,7 @@ export interface AppSettings {
   lastDismissedReminderDate?: string;
   // Logs created before this moment are assumed to be handled already and are never auto-sent.
   syncTrackingSince?: string;
-  // Matrix theme only: draw the CRT scanline overlay. Absent means off.
+  // No longer used (the Matrix theme is gone); kept so stored data round-trips.
   crtEffect?: boolean;
   // When a backup file was last downloaded from Settings or the reminder (ISO). Absent means never.
   // Device-specific: not written into backup files and not replaced by an import.

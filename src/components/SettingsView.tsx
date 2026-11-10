@@ -14,7 +14,7 @@ import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
 import { ThemePicker } from './v2/settings/ThemePicker';
 import { ProjectsSection } from './v2/settings/ProjectsSection';
 import { IconButton } from './ui/IconButton';
-import { normalizeTheme, type V2ThemeId } from '../utils/theme';
+import { normalizeTheme, type ThemeId } from '../utils/theme';
 import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
 import type { ActivityAi, ActivityFolder, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
@@ -28,7 +28,7 @@ interface SettingsViewProps {
   settings: AppSettings;
   onSaveSettings: (settings: AppSettings) => void;
   /** Applies at once; the caller stores it. */
-  onThemeChange: (theme: V2ThemeId) => void;
+  onThemeChange: (theme: ThemeId) => void;
   projects: Project[];
   onUpdateProjects: (projects: Project[]) => void;
   tags: string[];

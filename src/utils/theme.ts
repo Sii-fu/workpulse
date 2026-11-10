@@ -1,13 +1,15 @@
-// The three v2 themes and the mapping from the four old ones. Task 11 moves the id type into types.ts.
-export type V2ThemeId = 'chase' | 'timecard' | 'console';
+// The three themes and the mapping from the four old ones.
+import type { ThemeId } from '../types';
 
-export const THEMES: { id: V2ThemeId; name: string; blurb: string; dark: boolean }[] = [
+export type { ThemeId };
+
+export const THEMES: { id: ThemeId; name: string; blurb: string; dark: boolean }[] = [
   { id: 'chase', name: 'The Chase', blurb: 'Pitch green scoreboard band over a light chalk page.', dark: false },
   { id: 'timecard', name: 'Time Card', blurb: 'A punch-clock card: manila, black stamped figures, red for the leave mark.', dark: false },
   { id: 'console', name: 'Graphite Console', blurb: 'Dark graphite panels with hairline seams; colour only means state.', dark: true },
 ];
 
-const FROM_OLD: Record<string, V2ThemeId> = {
+const FROM_OLD: Record<string, ThemeId> = {
   chase: 'chase',
   timecard: 'timecard',
   console: 'console',
@@ -18,6 +20,6 @@ const FROM_OLD: Record<string, V2ThemeId> = {
 };
 
 /** Any stored theme value (old, new or junk) to one of the three v2 themes. */
-export function normalizeTheme(v: unknown): V2ThemeId {
+export function normalizeTheme(v: unknown): ThemeId {
   return (typeof v === 'string' && Object.prototype.hasOwnProperty.call(FROM_OLD, v)) ? FROM_OLD[v] : 'chase';
 }

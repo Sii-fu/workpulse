@@ -6,7 +6,7 @@ import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
 import { minutesFromSeconds } from '../utils/duration';
-import { BacklogTask, Project, ThemeId, TaskStatus, TaskStage } from '../types';
+import { BacklogTask, Project, TaskStatus, TaskStage } from '../types';
 import {
   ClipboardCheck,
   RefreshCw,
@@ -55,7 +55,6 @@ interface EodSynthesizerModalProps {
   isCustomSelection?: boolean;
   backlog?: BacklogTask[];
   projects: Project[];
-  activeTheme: ThemeId;
   geminiApiKey: string;
   hasGoogleSheetLinked: boolean;
   onConfirmAndPush: (items: SynthesizedLogItem[]) => Promise<void>;
@@ -85,20 +84,12 @@ export interface EodPanelProps extends Omit<EodSynthesizerModalProps, 'isOpen' |
 // The modal keeps its old props. The body is mounted on each open, so the synthesis runs once per open.
 export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({ isOpen, onClose, ...rest }) => {
   if (!isOpen) return null;
-  const isMatrix = rest.activeTheme === 'matrix';
-  const isMinimalist = rest.activeTheme === 'minimalist';
   return (
     <ModalShell
       onClose={onClose}
       labelledBy="eod-title"
       backdropClassName="p-3 sm:p-4"
-      className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden shadow-2xl ${
-        isMatrix
-          ? 'bg-[var(--bg-app)] border-[var(--accent)] text-[var(--text-main)] font-mono shadow-[0_0_30px_rgba(0,255,102,0.2)]'
-          : isMinimalist
-          ? 'bg-[var(--bg-app)] border-[var(--border-app)] text-[var(--text-main)]'
-          : 'bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)] '
-      }`}
+      className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)]"
     >
       <EodPanel {...rest} titleId="eod-title" onCancel={onClose} onDone={onClose} />
     </ModalShell>
@@ -111,7 +102,6 @@ export const EodPanel: React.FC<EodPanelProps> = ({
   isCustomSelection = false,
   backlog,
   projects,
-  activeTheme,
   geminiApiKey,
   hasGoogleSheetLinked,
   onConfirmAndPush,
@@ -134,9 +124,6 @@ export const EodPanel: React.FC<EodPanelProps> = ({
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [activeModelName, setActiveModelName] = useState<string>('GEMINI');
 
-  const isMatrix = activeTheme === 'matrix';
-  const isMinimalist = activeTheme === 'minimalist';
-  const isCompact = activeTheme === 'compact';
 
   // Static snapshot reference to prevent 1-second timer intervals from re-triggering API calls
   const tasksSource = tasksSnapshot || backlog || [];
@@ -473,26 +460,19 @@ export const EodPanel: React.FC<EodPanelProps> = ({
                   const isExpanded = expandedMicroTasks.has(item.id);
                   const activeTasks = item.underlyingTasks.filter((t) => !t.excluded);
 
-                  const textareaThemeClass = isMatrix
-                    ? 'bg-[var(--bg-app)] border-[var(--accent)]/50 text-[var(--text-main)] font-mono focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/30'
-                    : isMinimalist
-                    ? 'bg-[var(--bg-surface)] border-[var(--border-app)] text-[var(--text-main)] font-sans focus:border-[var(--border-focus)] shadow-xs'
-                    : isCompact
-                    ? 'bg-[var(--bg-subtle)] border-[var(--border-app)] text-[var(--text-main)] font-mono text-xs focus:border-[var(--accent)]'
-                    : 'bg-[var(--bg-surface-elevated)] border-white/10 text-[var(--text-main)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 shadow-inner';
+                  const textareaThemeClass =
+                    'bg-[var(--bg-surface-elevated)] border-[var(--border-control)] text-[var(--text-main)] focus:border-[var(--border-focus)]';
 
                   return (
                     <div
                       key={item.id}
                       className={`p-4 rounded-[var(--radius-card)] border transition-all space-y-3 ${
                         isSelected
-                          ? isMatrix
-                            ? 'border-[var(--accent)] bg-[var(--bg-surface)]'
-                            : item.status === 'blocked'
+                          ? item.status === 'blocked'
                             ? 'border-danger/70 bg-danger/5 ring-1 ring-danger/20'
                             : item.status === 'in_progress'
                             ? 'border-warning/70 bg-warning/5 ring-1 ring-warning/20'
-                            : 'border-[var(--accent)]/80 bg-[var(--bg-surface)] ring-1 ring-[var(--accent)]/30'
+                            : 'border-[var(--border-focus)] bg-[var(--bg-surface)]'
                           : 'border-[var(--border-app)] bg-[var(--bg-subtle)]/40 opacity-60'
                       }`}
                     >

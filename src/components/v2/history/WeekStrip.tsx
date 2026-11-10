@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Project, Workdays } from '../../../types';
 import type { weekTotals } from '../../../utils/weekTotals';
 import { localDateStr, parseLocalDate } from '../../../utils/dates';
-import { formatHm as formatHmMin } from '../today/LogRow';
+import { formatMinutes } from '../today/LogRow';
 import { IconButton } from '../../ui/IconButton';
 
 export interface WeekStripProps {
@@ -106,7 +106,7 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
               <span
                 className={`num text-[length:var(--fs-small)] font-semibold ${d.total > 0 ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}
               >
-                {d.total > 0 ? formatHmMin(d.total) : '–'}
+                {d.total > 0 ? formatMinutes(d.total) : '–'}
               </span>
               <span className="relative w-full flex justify-center border-b border-[var(--border-control)]" style={{ height: BAR_HEIGHT }}>
                 <span
@@ -149,7 +149,7 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
 
       <div className="v2-inset flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-[length:var(--fs-small)] text-[var(--text-muted)]">
         <span>
-          <span className="num font-semibold text-[var(--text-main)]">{formatHmMin(weekTotal)}</span> logged this week
+          <span className="num font-semibold text-[var(--text-main)]">{formatMinutes(weekTotal)}</span> logged this week
         </span>
         {legendRows.map(([id, m]) => (
           <span key={id} className="inline-flex items-center gap-1.5">
@@ -159,7 +159,7 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
               style={{ backgroundColor: byId.get(id)?.color ?? 'var(--border-control)' }}
             />
             <span>{byId.get(id)?.name ?? 'Deleted project'}</span>
-            <span className="num">{formatHmMin(m)}</span>
+            <span className="num">{formatMinutes(m)}</span>
           </span>
         ))}
         {hasTarget && (

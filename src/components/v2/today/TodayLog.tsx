@@ -1,6 +1,6 @@
 import React, { useId, useMemo, useState } from 'react';
 import type { Project, WorkLog } from '../../../types';
-import { LogRow, formatHm } from './LogRow';
+import { LogRow, formatMinutes } from './LogRow';
 import type { LogFormPrefill } from '../LogFormDialog';
 import { localTimeStr } from '../../../utils/dates';
 import { defaultProject, splitProjectTag } from '../../../utils/projects';
@@ -56,7 +56,7 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
       <h2 id={`${id}-h`} className="v2-head">
         <span>Today's log</span>
         <span className="v2-head-meta num">
-          {todays.length} {todays.length === 1 ? 'entry' : 'entries'} · {formatHm(total)}
+          {todays.length} {todays.length === 1 ? 'entry' : 'entries'} · {formatMinutes(total)}
           <span className="sr-only"> logged</span>
         </span>
       </h2>

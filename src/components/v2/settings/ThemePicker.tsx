@@ -1,10 +1,10 @@
 import React, { useId } from 'react';
 import { Check } from 'lucide-react';
-import { THEMES, type V2ThemeId } from '../../../utils/theme';
+import { THEMES, type ThemeId } from '../../../utils/theme';
 
 interface ThemePickerProps {
-  value: V2ThemeId;
-  onChange(t: V2ThemeId): void;
+  value: ThemeId;
+  onChange(t: ThemeId): void;
 }
 
 // Three tiles, one radio group. Choosing applies at once (the caller saves it), so there is no
@@ -12,7 +12,7 @@ interface ThemePickerProps {
 // `data-theme` attribute on the preview scopes the theme's custom properties to it, so it keeps
 // its own colours and faces whatever theme the page is in. The previews are decoration
 // (aria-hidden); the radio's name and description carry the same facts in words.
-const Preview: React.FC<{ theme: V2ThemeId }> = ({ theme }) => (
+const Preview: React.FC<{ theme: ThemeId }> = ({ theme }) => (
   <div
     data-theme={theme}
     aria-hidden="true"

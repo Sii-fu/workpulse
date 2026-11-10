@@ -255,7 +255,14 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
       <div aria-live="polite" className="sticky bottom-4 z-10 empty:hidden">
         {picked.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 bg-[var(--bg-surface-elevated)] border border-[var(--border-control)] rounded-[var(--radius-card)]">
-            <button type="button" onClick={() => onLogSelected(picked)} className="v2-btn v2-btn-strong min-h-11 px-4 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => {
+                onLogSelected(picked);
+                setSelected([]);
+              }}
+              className="v2-btn v2-btn-strong min-h-11 px-4 cursor-pointer"
+            >
               Write timesheet from {plural(picked.length)}
             </button>
             <button type="button" onClick={() => setSelected([])} className={TEXT_BTN}>

@@ -17,8 +17,9 @@ export const SuggestionsCard: React.FC<SuggestionsCardProps> = (props) => {
   const sourceNames = [sources.git && 'git', sources.claude && 'Claude Code'].filter(Boolean).join(' + ');
 
   return (
-    <section aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`} className="v2-head">
+    <section id="today-suggestions" aria-labelledby={`${id}-h`}>
+      {/* tabIndex -1: the next action "Review suggestions" moves focus here. */}
+      <h2 id={`${id}-h`} tabIndex={-1} className="v2-head">
         <span>Suggested from your activity</span>
         {folders.length > 0 && (sourceNames || pending !== null) && (
           <span className="v2-head-meta">

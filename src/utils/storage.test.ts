@@ -96,6 +96,13 @@ describe('loadStoredData', () => {
     expect(corruptKeys('workpulse_workdays_corrupt_')).toHaveLength(1);
   });
 
+  it('maps a stored legacy theme to its v2 theme', () => {
+    localStorage.setItem('workpulse_settings', JSON.stringify({ theme: 'matrix' }));
+    expect(loadStoredData().settings.theme).toBe('console');
+    localStorage.setItem('workpulse_settings', JSON.stringify({ theme: 'minimalist' }));
+    expect(loadStoredData().settings.theme).toBe('timecard');
+  });
+
   it('writes the schema version', () => {
     loadStoredData();
     expect(localStorage.getItem('workpulse_schema_version')).toBe(String(CURRENT_SCHEMA_VERSION));

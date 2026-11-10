@@ -2,6 +2,7 @@ import { WorkLog, BacklogTask, Project, AppSettings, BackupData, Workdays } from
 import { localDateStr } from './dates';
 import { isWorkdays } from './workday';
 import { ensureOpenSegment } from './segments';
+import { normalizeTheme } from './theme';
 import { getInitialSeedData, DEFAULT_SETTINGS } from '../data/seedData';
 
 const KEYS = {
@@ -143,7 +144,9 @@ export function loadStoredData() {
     null,
     warnings,
   );
-  const settings: AppSettings = { ...DEFAULT_SETTINGS, ...(storedSettings || {}) };
+  const merged: AppSettings = { ...DEFAULT_SETTINGS, ...(storedSettings || {}) };
+  // Old theme ids (modern, compact, minimalist, matrix) load as their v2 theme.
+  const settings: AppSettings = { ...merged, theme: normalizeTheme(merged.theme) };
   const workdays = readKey<Workdays>(KEYS.WORKDAYS, isWorkdays, {}, {}, warnings);
 
   // Auto-rollover: unfinished tasks whose due date has passed move to today (local date).

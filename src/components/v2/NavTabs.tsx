@@ -1,7 +1,8 @@
 import React from 'react';
+import type { AppNavTab } from '../../types';
 import { formatHm } from '../../utils/workday';
 
-export type V2Tab = 'today' | 'tasks' | 'history' | 'settings';
+export type V2Tab = AppNavTab;
 
 export const V2_TABS: { id: V2Tab; label: string }[] = [
   { id: 'today', label: 'Today' },

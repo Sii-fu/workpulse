@@ -3,12 +3,12 @@ import type { BacklogTask, Project, WorkdayRecord } from '../../types';
 import { clockState, formatHm, type ClockState } from '../../utils/workday';
 import { buildOvers } from '../../utils/segments';
 import { localTimeStr, parseLocalDate } from '../../utils/dates';
-import type { V2ThemeId } from '../../utils/theme';
+import type { ThemeId } from '../../utils/theme';
 import { OversStrip } from './OversStrip';
 import { useNow } from './useNow';
 
 interface ClockBandProps {
-  theme: V2ThemeId;
+  theme: ThemeId;
   /** Local YYYY-MM-DD. */
   today: string;
   /** Today's workday record, if clocked in today. */
@@ -28,7 +28,7 @@ const hhmm = (ms: number) => localTimeStr(new Date(ms));
 // Worked rounds down and "to go" rounds up, so the two always add up to the workday.
 const toGo = (sec: number) => formatHm(Math.ceil(sec / 60) * 60);
 
-const PAD: Record<V2ThemeId, string> = {
+const PAD: Record<ThemeId, string> = {
   chase: 'px-4 md:px-6 lg:px-8 py-4',
   timecard: 'px-4 md:px-6 lg:px-8 py-3.5',
   console: 'px-4 md:px-6 py-2.5',
@@ -39,7 +39,7 @@ const BODY = 'text-[length:var(--fs-body)]';
 const BIG = 'num font-bold leading-[0.9] tracking-[-0.01em] text-[length:var(--fs-num)]';
 
 const BandButton: React.FC<{
-  theme: V2ThemeId;
+  theme: ThemeId;
   tone?: 'plain' | 'out';
   onClick(): void;
   className?: string;
