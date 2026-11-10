@@ -1244,6 +1244,8 @@ export default function App() {
           <SettingsView
             settings={settings}
             onSaveSettings={handleSaveSettings}
+            // TODO(Task 11): the shell still types the theme as the old ThemeId; store the v2 id as is until it swaps.
+            onThemeChange={(t) => handleThemeChange(t as unknown as ThemeId)}
             projects={projects}
             onUpdateProjects={(p) => {
               setProjects(p);

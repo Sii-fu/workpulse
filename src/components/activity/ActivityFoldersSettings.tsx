@@ -14,7 +14,7 @@ interface ActivityFoldersSettingsProps {
 }
 
 const FIELD =
-  'bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)] focus:border-[var(--border-focus)]';
+  'v2-input min-h-11 px-3 text-[length:var(--fs-body)]';
 
 export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = ({ folders, sources, ai, projects, onChange }) => {
   const activeProjects = projects.filter((p) => !p.isArchived);
@@ -37,17 +37,9 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-bold text-[var(--text-main)]">Activity suggestions</h3>
-        <p className="text-xs text-[var(--text-muted)] mt-0.5">
-          At the end of the day WorkPulse can suggest logs from your work. Only the folders listed here are read.
-          Press Save All Settings to keep your changes.
-        </p>
-      </div>
-
       <fieldset className="space-y-3">
-        <legend className="text-xs font-semibold text-[var(--text-main)]">What to read</legend>
-        <label className="flex items-start gap-2.5 text-xs text-[var(--text-main)] cursor-pointer">
+        <legend className="text-[length:var(--fs-small)] font-semibold text-[var(--text-main)]">What to read</legend>
+        <label className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
           <input
             type="checkbox"
             checked={sources.git}
@@ -61,7 +53,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
             </span>
           </span>
         </label>
-        <label className="flex items-start gap-2.5 text-xs text-[var(--text-main)] cursor-pointer">
+        <label className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
           <input
             type="checkbox"
             checked={sources.claude}
@@ -79,15 +71,15 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
       </fieldset>
 
       <fieldset className="space-y-3">
-        <legend className="text-xs font-semibold text-[var(--text-main)]">Who writes the log text</legend>
+        <legend className="text-[length:var(--fs-small)] font-semibold text-[var(--text-main)]">Who writes the log text</legend>
         {(
           [
             ['claude', 'Claude Code (recommended)', 'Uses the Claude login already on this computer. No API key. Takes about 5 seconds.'],
-            ['gemini', 'Gemini', 'Uses the Gemini key from Standup and AI. Commit subjects and prompt lines are sent to Google.'],
+            ['gemini', 'Gemini', 'Uses the Gemini key from the AI section above. Commit subjects and prompt lines are sent to Google.'],
             ['none', 'No AI', 'Plain wording built on this computer from your commits and prompts. Nothing is sent anywhere.'],
           ] as const
         ).map(([value, title, hint]) => (
-          <label key={value} className="flex items-start gap-2.5 text-xs text-[var(--text-main)] cursor-pointer">
+          <label key={value} className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
             <input
               type="radio"
               name="activity-ai"
@@ -104,9 +96,9 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
       </fieldset>
 
       <div className="space-y-3">
-        <h4 className="text-xs font-semibold text-[var(--text-main)]">Folders</h4>
+        <h4 className="text-[length:var(--fs-small)] font-semibold text-[var(--text-main)]">Folders</h4>
         {folders.length === 0 ? (
-          <p className="text-xs text-[var(--text-muted)]">No folders yet. Add the folders you work in, below.</p>
+          <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">No folders yet. Add the folders you work in, below.</p>
         ) : (
           <ul className="space-y-2">
             {folders.map((f) => (
@@ -114,7 +106,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
                 key={f.path}
                 className="flex flex-wrap items-center gap-2 p-2.5 rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-subtle)]"
               >
-                <span className="flex-1 min-w-0 truncate text-xs font-mono text-[var(--text-main)]" title={f.path}>
+                <span className="flex-1 min-w-0 truncate text-[length:var(--fs-small)] font-mono text-[var(--text-main)]" title={f.path}>
                   {f.path}
                 </span>
                 <select
@@ -176,18 +168,18 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
           <button
             type="button"
             onClick={handleAdd}
-            className="px-3 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
+            className="v2-btn min-h-11 px-4 flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add folder</span>
           </button>
         </div>
         {error && (
-          <p role="alert" className="text-xs text-danger">
+          <p role="alert" className="text-[length:var(--fs-small)] text-danger">
             {error}
           </p>
         )}
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">
           A folder covers itself, any git project one level below it, and Claude Code sessions started inside it.
         </p>
       </div>

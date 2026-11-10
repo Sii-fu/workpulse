@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { localDateStr } from '../utils/dates';
 import {
   Project,
-  ThemeId,
-  ColorMode,
   AppSettings,
   WorkLog,
   BacklogTask,
@@ -13,6 +11,10 @@ import {
 } from '../types';
 import { parseBackup } from '../utils/backup';
 import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
+import { ThemePicker } from './v2/settings/ThemePicker';
+import { ProjectsSection } from './v2/settings/ProjectsSection';
+import { IconButton } from './ui/IconButton';
+import { normalizeTheme, type V2ThemeId } from '../utils/theme';
 import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
 import type { ActivityAi, ActivityFolder, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
@@ -20,34 +22,13 @@ import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { logsToCsv } from '../utils/exportLogs';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
-import {
-  Activity,
-  Palette,
-  Cloud,
-  MessageSquareText,
-  Layers,
-  Database,
-  Sun,
-  Moon,
-  Check,
-  Copy,
-  ExternalLink,
-  Loader2,
-  Trash2,
-  Archive,
-  Download,
-  Upload,
-  Eye,
-  EyeOff,
-  FolderPlus,
-  Plus,
-  AlertCircle,
-  X,
-} from 'lucide-react';
+import { Check, Copy, Loader2, Download, Upload, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface SettingsViewProps {
   settings: AppSettings;
   onSaveSettings: (settings: AppSettings) => void;
+  /** Applies at once; the caller stores it. */
+  onThemeChange: (theme: V2ThemeId) => void;
   projects: Project[];
   onUpdateProjects: (projects: Project[]) => void;
   tags: string[];
@@ -62,11 +43,58 @@ interface SettingsViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
 }
 
-type SettingsSection = 'appearance' | 'sheets' | 'ai' | 'projects' | 'activity' | 'data';
+const SECTIONS = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'office', label: 'Office day' },
+  { id: 'projects', label: 'Projects & tags' },
+  { id: 'sheet', label: 'Google Sheet' },
+  { id: 'ai', label: 'AI' },
+  { id: 'activity', label: 'Activity suggestions' },
+  { id: 'data', label: 'Data & backup' },
+  { id: 'sample', label: 'Sample data' },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+const DEFAULT_WORKDAY_HOURS = 8;
+
+const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
+const FIELD = 'v2-input w-full h-11 px-3 text-[length:var(--fs-body)]';
+const BTN =
+  'v2-btn inline-flex items-center justify-center gap-1.5 min-h-11 px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+const DANGER_BTN =
+  'inline-flex items-center justify-center min-h-11 px-4 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-[length:var(--fs-small)] font-semibold cursor-pointer';
+const HINT = 'text-[length:var(--fs-small)] text-[var(--text-muted)]';
+
+const Section: React.FC<{ id: SectionId; title: string; intro?: string; children: React.ReactNode }> = ({
+  id,
+  title,
+  intro,
+  children,
+}) => (
+  <section id={`settings-${id}`} aria-labelledby={`settings-${id}-h`} className="scroll-mt-24">
+    <h2 id={`settings-${id}-h`} tabIndex={-1} className="v2-head">
+      <span>{title}</span>
+    </h2>
+    <div className="flex flex-col gap-5">
+      {intro && <p className={HINT}>{intro}</p>}
+      {children}
+    </div>
+  </section>
+);
+
+// One action in Data & backup or Sample data: what it does, then the button.
+const Block: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div className="flex flex-col items-start gap-2 border-t border-[var(--border-app)] pt-5 first:border-t-0 first:pt-0">
+    <h3 className="text-[length:var(--fs-body)] font-bold text-[var(--text-main)]">{title}</h3>
+    {children}
+  </div>
+);
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
+  onThemeChange,
   projects,
   onUpdateProjects,
   tags,
@@ -80,43 +108,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onStartFresh,
   onNotify,
 }) => {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
+  const uid = useId();
+  const [current, setCurrent] = useState<SectionId>('appearance');
+  const importRef = useRef<HTMLInputElement>(null);
+  const hoursRef = useRef<HTMLInputElement>(null);
 
-  // Appearance state
-  const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme);
-  const [selectedColorMode, setSelectedColorMode] = useState<ColorMode>(settings.colorMode || 'dark');
-  const [selectedCrt, setSelectedCrt] = useState<boolean>(settings.crtEffect === true);
+  // Office day state
+  const [workdayHours, setWorkdayHours] = useState<string>(String(settings.workdayHours ?? DEFAULT_WORKDAY_HOURS));
+  const [hoursError, setHoursError] = useState<string | null>(null);
 
   // Google Sheets state
   const [googleScriptUrl, setGoogleScriptUrl] = useState<string>(settings.googleScriptUrl || '');
   const [isTestingSheet, setIsTestingSheet] = useState<boolean>(false);
   const [sheetTestResult, setSheetTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [showScriptCode, setShowScriptCode] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
-  // AI & Comms state
+  // AI state
   const [geminiApiKey, setGeminiApiKey] = useState<string>(settings.geminiApiKey || '');
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [defaultTone, setDefaultTone] = useState<ReportTone>(settings.defaultTone || 'casual');
   const [defaultRecipientName, setDefaultRecipientName] = useState<string>(settings.defaultRecipientName || '');
-
-  // Project management inputs
-  const [newProjectName, setNewProjectName] = useState<string>('');
-  const [newProjectColor, setNewProjectColor] = useState<string>('#6366f1');
-  const [newTagInput, setNewTagInput] = useState<string>('');
 
   // Activity suggestions state
   const [activityFolders, setActivityFolders] = useState<ActivityFolder[]>(settings.activityFolders ?? []);
   const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
   const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
 
+  // The anchor list marks the section that is at the top of the screen.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const seen = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target.id, e.isIntersecting ? e.boundingClientRect.top : Infinity);
+        const first = SECTIONS.find((s) => (seen.get(`settings-${s.id}`) ?? Infinity) !== Infinity);
+        if (first) setCurrent(first.id);
+      },
+      { rootMargin: '-10% 0px -70% 0px' },
+    );
+    SECTIONS.forEach((s) => {
+      const el = document.getElementById(`settings-${s.id}`);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const goTo = (id: SectionId) => {
+    const el = document.getElementById(`settings-${id}`);
+    if (!el) return;
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+    document.getElementById(`settings-${id}-h`)?.focus({ preventScroll: true });
+    setCurrent(id);
+  };
+
   const handleSaveAll = () => {
+    const hours = Number(workdayHours);
+    if (!workdayHours.trim() || !Number.isFinite(hours) || hours < 1 || hours > 16) {
+      setHoursError('Enter the hours in your workday as a number from 1 to 16.');
+      hoursRef.current?.focus();
+      return;
+    }
+    setHoursError(null);
     const updated: AppSettings = {
       ...settings,
-      theme: selectedTheme,
-      // Matrix is always dark on screen, but the person's own light or dark choice is kept for when they leave it.
-      colorMode: selectedColorMode,
-      crtEffect: selectedCrt,
+      workdayHours: hours,
       googleScriptUrl: googleScriptUrl.trim(),
       geminiApiKey: geminiApiKey.trim(),
       defaultTone,
@@ -150,50 +206,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setCopiedCode(true);
     onNotify('Apps Script code copied to clipboard!', 'success');
     setTimeout(() => setCopiedCode(false), 2500);
-  };
-
-  const handleAddProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectName.trim()) return;
-    const newProj: Project = {
-      id: `proj-${Date.now()}`,
-      name: newProjectName.trim(),
-      color: newProjectColor,
-      isArchived: false,
-    };
-    onUpdateProjects([...projects, newProj]);
-    setNewProjectName('');
-    onNotify(`Project "${newProj.name}" created.`, 'success');
-  };
-
-  const handleToggleArchiveProject = (id: string) => {
-    const updated = projects.map((p) => (p.id === id ? { ...p, isArchived: !p.isArchived } : p));
-    onUpdateProjects(updated);
-  };
-
-  const handleDeleteProject = (id: string) => {
-    if (projects.length <= 1) {
-      alert('You must keep at least one active project.');
-      return;
-    }
-    const updated = projects.filter((p) => p.id !== id);
-    onUpdateProjects(updated);
-    onNotify('Project removed', 'info', { label: 'Undo', onClick: () => onUpdateProjects(projects) });
-  };
-
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    let cleaned = newTagInput.trim();
-    if (!cleaned) return;
-    if (!cleaned.startsWith('#')) cleaned = '#' + cleaned;
-    if (tags.includes(cleaned)) return;
-    onUpdateTags([...tags, cleaned]);
-    setNewTagInput('');
-    onNotify(`Tag "${cleaned}" added.`, 'success');
-  };
-
-  const handleDeleteTag = (t: string) => {
-    onUpdateTags(tags.filter((item) => item !== t));
   };
 
   const lastBackup = describeBackupAge(backupStatus(settings.lastBackupAt, logs, backlog).days);
@@ -254,544 +266,241 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border-app)]">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-main)]">
-            Settings
-          </h1>
-          <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Theme, Google Sheet, standup writing, projects and your data.
-          </p>
-        </div>
+    <div className="mx-auto max-w-[1040px] px-4 sm:px-8 py-6 sm:py-7">
+      <h1 className="sr-only">Settings</h1>
+      <div className="grid gap-10 lg:grid-cols-[12rem_minmax(0,1fr)]">
+        <nav aria-label="Settings sections" className="hidden lg:block">
+          <ul className="sticky top-24 flex flex-col gap-0.5">
+            {SECTIONS.map((s) => (
+              <li key={s.id}>
+                <a
+                  href={`#settings-${s.id}`}
+                  aria-current={current === s.id ? 'location' : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goTo(s.id);
+                  }}
+                  className={`block min-h-9 rounded-[var(--radius-btn)] px-3 py-2 text-[length:var(--fs-small)] font-semibold ${
+                    current === s.id
+                      ? 'bg-[var(--bg-subtle)] text-[var(--text-main)]'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  {s.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-        <button
-          onClick={handleSaveAll}
-          className="px-5 py-2.5 rounded-[var(--radius-btn)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-2"
-        >
-          <Check className="w-4 h-4" />
-          <span>Save All Settings</span>
-        </button>
-      </div>
+        <div className="flex min-w-0 max-w-[44rem] flex-col gap-10">
+          <Section id="appearance" title="Appearance" intro="Pick how WorkPulse looks. It changes as soon as you choose.">
+            <ThemePicker value={normalizeTheme(settings.theme)} onChange={onThemeChange} />
+          </Section>
 
-      {/* Main Settings Grid: Left Sidebar Tabs + Right Pane */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        
-        {/* Navigation Tabs (Sidebar on Desktop, Horizontal Pills on Mobile) */}
-        <div className="md:col-span-3 glass-panel p-2 space-y-1 overflow-x-auto flex md:flex-col shrink-0">
-          {[
-            { id: 'appearance' as SettingsSection, label: 'Appearance & Themes', icon: <Palette className="w-4 h-4" /> },
-            { id: 'sheets' as SettingsSection, label: 'Google Sheets Sync', icon: <Cloud className="w-4 h-4" /> },
-            { id: 'ai' as SettingsSection, label: 'Standup & AI', icon: <MessageSquareText className="w-4 h-4" /> },
-            { id: 'projects' as SettingsSection, label: 'Projects & Tags', icon: <Layers className="w-4 h-4" /> },
-            { id: 'activity' as SettingsSection, label: 'Activity suggestions', icon: <Activity className="w-4 h-4" /> },
-            { id: 'data' as SettingsSection, label: 'Data & Backup', icon: <Database className="w-4 h-4" /> },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-[var(--radius-btn)] transition-all whitespace-nowrap cursor-pointer ${
-                activeSection === item.id
-                  ? 'bg-[var(--bg-surface-elevated)] text-[var(--text-main)] shadow-xs border border-[var(--border-control)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)]'
-              }`}
-            >
-              <span className={activeSection === item.id ? 'text-[var(--accent-text)]' : ''}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Content Pane */}
-        <div className="md:col-span-9 glass-panel p-5 sm:p-6 space-y-6">
-          
-          {/* =========================================================================
-              SECTION 1: APPEARANCE & THEMES
-             ========================================================================= */}
-          {activeSection === 'appearance' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Appearance
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Pick a theme and a light or dark mode. Press Save All Settings to keep them.
+          <Section
+            id="office"
+            title="Office day"
+            intro="How long your workday is. The clock at the top counts toward it, and History draws it as a target line."
+          >
+            <div>
+              <label htmlFor={`${uid}-hours`} className={LABEL}>
+                Hours in your workday
+              </label>
+              <input
+                ref={hoursRef}
+                id={`${uid}-hours`}
+                type="number"
+                inputMode="decimal"
+                min={1}
+                max={16}
+                step={0.5}
+                value={workdayHours}
+                onChange={(e) => {
+                  setWorkdayHours(e.target.value);
+                  setHoursError(null);
+                }}
+                aria-invalid={hoursError ? true : undefined}
+                aria-describedby={hoursError ? `${uid}-hours-err` : undefined}
+                className={`${FIELD} num !w-28`}
+              />
+              {hoursError && (
+                <p id={`${uid}-hours-err`} role="alert" className="mt-1 text-[length:var(--fs-small)] text-danger">
+                  {hoursError}
                 </p>
-              </div>
-
-              {/* 4 Theme Cards */}
-              <div role="radiogroup" aria-label="Theme" className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {[
-                  {
-                    id: 'modern' as ThemeId,
-                    name: 'Modern',
-                    desc: 'Flat panels and one teal signal colour. The log form and your tasks sit side by side.',
-                    font: 'Instrument Sans',
-                    swatch: '#14b8a6',
-                  },
-                  {
-                    id: 'minimalist' as ThemeId,
-                    name: 'Minimalist',
-                    desc: 'Paper and ink. A serif for headings, no brand colour, entries as lines in a ledger.',
-                    font: 'Literata',
-                    swatch: '#37352f',
-                  },
-                  {
-                    id: 'compact' as ThemeId,
-                    name: 'Compact',
-                    desc: 'A dense table you can drive from the keyboard: j and k to move, e to edit.',
-                    font: 'IBM Plex Sans',
-                    swatch: '#2563eb',
-                  },
-                  {
-                    id: 'matrix' as ThemeId,
-                    name: 'Matrix',
-                    desc: 'A terminal. Green on black, one monospace face, commands instead of forms.',
-                    font: 'JetBrains Mono',
-                    swatch: '#00ff66',
-                  },
-                ].map((th, thIndex, themeList) => {
-                  const isSelected = selectedTheme === th.id;
-                  const pickTheme = (id: ThemeId) => {
-                    setSelectedTheme(id);
-                  };
-
-                  return (
-                    <div
-                      key={th.id}
-                      role="radio"
-                      aria-checked={isSelected}
-                      tabIndex={isSelected ? 0 : -1}
-                      onClick={() => pickTheme(th.id)}
-                      onKeyDown={(e) => {
-                        const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-                        if (step) {
-                          e.preventDefault();
-                          const next = themeList[(thIndex + step + themeList.length) % themeList.length];
-                          pickTheme(next.id);
-                          (e.currentTarget.parentElement?.children[(thIndex + step + themeList.length) % themeList.length] as HTMLElement | undefined)?.focus();
-                        } else if (e.key === ' ' || e.key === 'Enter') {
-                          e.preventDefault();
-                          pickTheme(th.id);
-                        }
-                      }}
-                      className={`p-4 rounded-[var(--radius-card)] border transition-all cursor-pointer relative ${
-                        isSelected
-                          ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30 bg-[var(--bg-surface)]'
-                          : 'border-[var(--border-app)] bg-[var(--bg-subtle)]/40 hover:border-[var(--border-focus)]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="font-bold text-xs sm:text-sm text-[var(--text-main)]">
-                          {th.name}
-                        </span>
-                        <span
-                          className="text-2xl leading-none text-[var(--text-main)]"
-                          style={{ fontFamily: `'${th.font}', sans-serif` }}
-                          aria-hidden="true"
-                        >
-                          Aa
-                        </span>
-                      </div>
-                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                        {th.desc}
-                      </p>
-                      <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono border-t border-[var(--border-app)] pt-2">
-                        <span className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full border border-[var(--border-control)]" style={{ backgroundColor: th.swatch }} aria-hidden="true" />
-                          {th.font}
-                        </span>
-                        {isSelected && <span className="font-semibold text-[var(--accent-text)]">Selected</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Independent Color Mode Toggle */}
-              <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-[var(--text-main)]">
-                      Light or dark
-                    </h4>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                      {selectedTheme === 'matrix'
-                        ? 'Matrix is always dark. Your light or dark choice comes back when you switch theme.'
-                        : 'Works with any theme except Matrix.'}
-                    </p>
-                  </div>
-
-                  {selectedTheme !== 'matrix' ? (
-                    <div className="flex items-center gap-1 p-1 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)]">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedColorMode('light')}
-                        className={`px-3 py-1.5 rounded-[var(--radius-btn)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedColorMode === 'light'
-                            ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-xs'
-                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                      >
-                        <Sun className="w-3.5 h-3.5" />
-                        <span>Light</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedColorMode('dark')}
-                        className={`px-3 py-1.5 rounded-[var(--radius-btn)] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedColorMode === 'dark'
-                            ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-xs'
-                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                      >
-                        <Moon className="w-3.5 h-3.5" />
-                        <span>Dark</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-mono text-success font-semibold px-2.5 py-1 rounded bg-[var(--bg-app)] border border-success">
-                      Always dark
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {selectedTheme === 'matrix' && (
-                <label className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedCrt}
-                    onChange={(e) => setSelectedCrt(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-[var(--accent)] cursor-pointer"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-[var(--text-main)]">Scanlines</span>
-                    <span className="block text-xs text-[var(--text-muted)] mt-0.5">
-                      Draws CRT scanlines over the screen. Off by default because they make small text harder to read.
-                    </span>
-                  </span>
-                </label>
               )}
             </div>
-          )}
+          </Section>
 
-          {/* =========================================================================
-              SECTION 2: CLOUD SYNC (GOOGLE SHEETS)
-             ========================================================================= */}
-          {activeSection === 'sheets' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Google Sheet
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Send your logs to the shared Google Sheet your lead reads. Only new and edited logs are sent.
-                </p>
-              </div>
+          <Section id="projects" title="Projects & tags">
+            <ProjectsSection
+              projects={projects}
+              tags={tags}
+              onUpdateProjects={onUpdateProjects}
+              onUpdateTags={onUpdateTags}
+            />
+          </Section>
 
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-[var(--text-main)]">
-                  Google Apps Script Web App Deployment URL:
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="url"
-                    value={googleScriptUrl}
-                    onChange={(e) => setGoogleScriptUrl(e.target.value)}
-                    aria-label="Google Apps Script web app URL"
-                    placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs font-mono text-[var(--text-main)] focus:border-[var(--border-focus)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestSheet}
-                    disabled={isTestingSheet || !googleScriptUrl.trim()}
-                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold shadow-xs hover:bg-[var(--accent-hover)] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
-                  >
-                    {isTestingSheet ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Testing Connection...</span>
-                      </>
-                    ) : (
-                      <span>Test Connection</span>
-                    )}
-                  </button>
-                </div>
-
-                {sheetTestResult && (
-                  <div
-                    className={`p-3 rounded-[var(--radius-btn)] text-xs border ${
-                      sheetTestResult.success
-                        ? 'bg-success/10 border-success/30 text-success'
-                        : 'bg-danger/10 border-danger/30 text-danger'
-                    }`}
-                  >
-                    <p className="font-bold flex items-center gap-1.5">
-                      {sheetTestResult.success ? (
-                        <>
-                          <Check className="w-4 h-4 text-success shrink-0" />
-                          <span>Connection Verified</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-4 h-4 text-danger shrink-0" />
-                          <span>Connection Error</span>
-                        </>
-                      )}
-                    </p>
-                    <p className="mt-0.5 opacity-90">{sheetTestResult.message}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Instructions and Apps Script Code View */}
-              <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
-                    Google Apps Script Code Template
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyAppsScript}
-                    className="px-3 py-1 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
-                  </button>
-                </div>
-
-                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                  Open your Google Sheet, navigate to <strong>Extensions &gt; Apps Script</strong>, paste the code below, and deploy as a Web App with access set to <em>"Anyone"</em>.
-                </p>
-
-                <div className="bg-neutral-950 text-neutral-200 rounded-md p-3 text-xs font-mono max-h-48 overflow-y-auto border border-neutral-800">
-                  <pre>{GOOGLE_APPS_SCRIPT_CODE}</pre>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
-              SECTION 3: AI & COMMUNICATIONS
-             ========================================================================= */}
-          {activeSection === 'ai' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Standup and AI
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Your Gemini key, the default tone and who the standup is addressed to. Without a key, standups use a template.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-[var(--text-main)]">
-                  Custom Gemini API Key (Optional):
-                </label>
-                <div className="relative">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    aria-label="Gemini API key"
-                    placeholder="AIzaSy... (leave blank to use server environment key)"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 pr-10 text-xs font-mono text-[var(--text-main)] focus:border-[var(--border-focus)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                  >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-xs text-[var(--text-muted)]">
-                  Stored securely in your browser's encrypted local storage. If blank, WorkPulse uses the server's attached key.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-[var(--text-main)]">
-                    Default Tone of Voice:
-                  </label>
-                  <select
-                    value={defaultTone}
-                    onChange={(e) => setDefaultTone(e.target.value as ReportTone)}
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
-                  >
-                    <option value="casual" className="bg-[var(--bg-surface)]">Casual & Direct (Agile Standup)</option>
-                    <option value="corporate" className="bg-[var(--bg-surface)]">Formal Corporate (Stakeholders)</option>
-                    <option value="bullet" className="bg-[var(--bg-surface)]">Brief / Bullet-only (High Velocity)</option>
-                    <option value="client" className="bg-[var(--bg-surface)]">Client-Facing (Deliverables Focus)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-[var(--text-main)]">
-                    Default Superior / Lead Name:
-                  </label>
-                  <input
-                    type="text"
-                    value={defaultRecipientName}
-                    onChange={(e) => setDefaultRecipientName(e.target.value)}
-                    aria-label="Your name and role"
-                    placeholder="e.g. Alex, Tech Lead, Engineering Team"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
-              SECTION 4: PROJECTS & TAGS
-             ========================================================================= */}
-          {activeSection === 'projects' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Projects and tags
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Add, archive and colour projects. Manage the tags you can attach to a log.
-                </p>
-              </div>
-
-              {/* Add Project Form */}
-              <form onSubmit={handleAddProject} className="flex flex-col sm:flex-row gap-2">
+          <Section
+            id="sheet"
+            title="Google Sheet"
+            intro="Send your logs to the shared Google Sheet your lead reads. Only new and edited logs are sent."
+          >
+            <div>
+              <label htmlFor={`${uid}-sheet`} className={LABEL}>
+                Google Apps Script web app URL
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  aria-label="New project name"
-                  placeholder="New project name..."
-                  className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-2 text-xs text-[var(--text-main)]"
+                  id={`${uid}-sheet`}
+                  type="url"
+                  value={googleScriptUrl}
+                  onChange={(e) => setGoogleScriptUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                  autoComplete="off"
+                  className={`${FIELD} flex-1 font-mono`}
                 />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={newProjectColor}
-                    onChange={(e) => setNewProjectColor(e.target.value)}
-                    className="w-9 h-9 rounded border-0 cursor-pointer"
-                    title="Marker Color"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold hover:bg-[var(--accent-hover)] transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Project</span>
-                  </button>
-                </div>
-              </form>
-
-              {/* Projects Table */}
-              <div className="border border-[var(--border-app)] rounded-[var(--radius-card)] overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[var(--bg-subtle)]/70 text-[var(--text-muted)] uppercase font-semibold text-xs border-b border-[var(--border-app)]">
-                    <tr>
-                      <th className="p-3">Color</th>
-                      <th className="p-3">Project Name</th>
-                      <th className="p-3">Logged Work</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-app)]">
-                    {projects.map((p) => {
-                      const count = logs.filter((l) => l.projectId === p.id).length;
-                      return (
-                        <tr key={p.id} className="hover:bg-[var(--bg-subtle)]/30">
-                          <td className="p-3">
-                            <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: p.color }} />
-                          </td>
-                          <td className="p-3 font-semibold text-[var(--text-main)]">
-                            {p.name} {p.isArchived && <span className="text-xs text-warning font-mono">(Archived)</span>}
-                          </td>
-                          <td className="p-3 text-[var(--text-muted)] font-mono tabular-nums">
-                            {count} logs recorded
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchiveProject(p.id)}
-                                className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                                title={p.isArchived ? 'Unarchive' : 'Archive'}
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteProject(p.id)}
-                                className="p-1 text-[var(--text-muted)] hover:text-danger cursor-pointer"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Tag Management */}
-              <div className="space-y-3 pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  Category Tags
-                </span>
-                <form onSubmit={handleAddTag} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTagInput}
-                    onChange={(e) => setNewTagInput(e.target.value)}
-                    aria-label="New custom tag"
-                    placeholder="Add custom tag (e.g. #deep-work)..."
-                    className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-control)] rounded-[var(--radius-btn)] px-3 py-1.5 text-xs text-[var(--text-main)]"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] text-xs font-semibold cursor-pointer"
-                  >
-                    Add Tag
-                  </button>
-                </form>
-
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--radius-btn)] bg-[var(--bg-subtle)] border border-[var(--border-app)] text-xs text-[var(--text-main)] font-mono"
-                    >
-                      <span>{t}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTag(t)}
-                        className="text-[var(--text-muted)] hover:text-danger cursor-pointer"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={handleTestSheet}
+                  disabled={isTestingSheet || !googleScriptUrl.trim()}
+                  className={`${BTN} shrink-0`}
+                >
+                  {isTestingSheet ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      <span>Testing…</span>
+                    </>
+                  ) : (
+                    <span>Test connection</span>
+                  )}
+                </button>
               </div>
             </div>
-          )}
 
-          {/* =========================================================================
-              SECTION 5: ACTIVITY SUGGESTIONS
-             ========================================================================= */}
-          {activeSection === 'activity' && (
+            {sheetTestResult && (
+              <div
+                role="status"
+                className={`rounded-[var(--radius-btn)] border p-3 text-[length:var(--fs-small)] ${
+                  sheetTestResult.success
+                    ? 'border-success/30 bg-success/10 text-success'
+                    : 'border-danger/30 bg-danger/10 text-danger'
+                }`}
+              >
+                <p className="flex items-center gap-1.5 font-bold">
+                  {sheetTestResult.success ? (
+                    <>
+                      <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>Connection verified</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>Connection error</span>
+                    </>
+                  )}
+                </p>
+                <p className="mt-0.5">{sheetTestResult.message}</p>
+              </div>
+            )}
+
+            <details className="group">
+              <summary className="min-h-11 cursor-pointer list-none py-2 text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 [&::-webkit-details-marker]:hidden">
+                Set up the sheet: Apps Script code
+              </summary>
+              <div className="flex flex-col gap-3 pt-2">
+                <p className={HINT}>
+                  Open your Google Sheet, go to <strong>Extensions &gt; Apps Script</strong>, paste the code below and
+                  deploy it as a Web App with access set to <em>Anyone</em>.
+                </p>
+                <div>
+                  <button type="button" onClick={handleCopyAppsScript} className={BTN}>
+                    {copiedCode ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                    <span>{copiedCode ? 'Copied' : 'Copy code'}</span>
+                  </button>
+                </div>
+                <pre
+                  tabIndex={0}
+                  aria-label="Apps Script code"
+                  className="max-h-56 overflow-auto rounded-[var(--radius-btn)] border border-[var(--border-app)] bg-[var(--bg-subtle)] p-3 text-[length:var(--fs-small)] text-[var(--text-main)] [font-family:var(--font-mono)]"
+                >
+                  {GOOGLE_APPS_SCRIPT_CODE}
+                </pre>
+              </div>
+            </details>
+          </Section>
+
+          <Section
+            id="ai"
+            title="AI"
+            intro="Your Gemini key, the default tone and who the standup is addressed to. Without a key, standups use a template."
+          >
+            <div>
+              <label htmlFor={`${uid}-key`} className={LABEL}>
+                Gemini API key (optional)
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  id={`${uid}-key`}
+                  type={showApiKey ? 'text' : 'password'}
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  placeholder="AIzaSy… (leave blank to use the server's key)"
+                  autoComplete="off"
+                  className={`${FIELD} flex-1 font-mono`}
+                />
+                <IconButton
+                  label={showApiKey ? 'Hide key' : 'Show key'}
+                  aria-pressed={showApiKey}
+                  onClick={() => setShowApiKey((s) => !s)}
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                </IconButton>
+              </div>
+              <p className={`${HINT} mt-1`}>
+                Kept in this browser only and never written into backups. If blank, WorkPulse uses the key set on the server.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor={`${uid}-tone`} className={LABEL}>
+                  Default tone
+                </label>
+                <select
+                  id={`${uid}-tone`}
+                  value={defaultTone}
+                  onChange={(e) => setDefaultTone(e.target.value as ReportTone)}
+                  className={FIELD}
+                >
+                  <option value="casual">Casual and direct (agile standup)</option>
+                  <option value="corporate">Formal corporate (stakeholders)</option>
+                  <option value="bullet">Brief, bullets only</option>
+                  <option value="client">Client-facing (deliverables)</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor={`${uid}-to`} className={LABEL}>
+                  Default recipient
+                </label>
+                <input
+                  id={`${uid}-to`}
+                  type="text"
+                  value={defaultRecipientName}
+                  onChange={(e) => setDefaultRecipientName(e.target.value)}
+                  placeholder="e.g. Alex, Tech Lead"
+                  autoComplete="off"
+                  className={FIELD}
+                />
+              </div>
+            </div>
+          </Section>
+
+          <Section
+            id="activity"
+            title="Activity suggestions"
+            intro="At the end of the day WorkPulse can suggest logs from your work. Only the folders listed here are read."
+          >
             <ActivityFoldersSettings
               folders={activityFolders}
               sources={activitySources}
@@ -803,122 +512,98 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 setActivityAi(ai);
               }}
             />
-          )}
+          </Section>
 
-          {/* =========================================================================
-              SECTION 6: DATA & BACKUP
-             ========================================================================= */}
-          {activeSection === 'data' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-[var(--text-main)]">
-                  Your data
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Back up, export a CSV timesheet, or clear everything. Data lives only in this browser.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-2.5">
-                  <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
-                    Export Full JSON Backup
-                  </span>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Contains all work logs, tasks, projects, tags, and settings (never your Gemini API key). Importing replaces all current data.
-                  </p>
-                  <p className="text-xs font-semibold text-[var(--text-main)]" data-testid="last-backup">
-                    {lastBackup}
-                  </p>
-                  <button
-                    onClick={onBackupNow}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download JSON Backup</span>
-                  </button>
-                  <label className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-app)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] inline-flex items-center gap-1.5 transition-all cursor-pointer ml-2">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Import JSON Backup</span>
-                    <input type="file" accept="application/json,.json" className="hidden" onChange={handleImportFile} />
-                  </label>
-                </div>
-
-                <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-2.5">
-                  <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
-                    Export CSV Spreadsheet
-                  </span>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Compatible with Excel, Google Sheets, Numbers, or data science notebooks.
-                  </p>
-                  <button
-                    onClick={handleExportCSV}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download CSV Logs</span>
-                  </button>
-                </div>
-              </div>
-
-              {misdatedLogs.length > 0 && (
-                <div className="p-4 rounded-[var(--radius-card)] bg-[var(--bg-subtle)]/50 border border-[var(--border-app)] space-y-2.5">
-                  <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider">
-                    Fix Log Dates ({misdatedLogs.length})
-                  </span>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {misdatedLogs.length} log(s) made between 00:00 and 06:00 local time were filed under the previous day
-                    (older versions used the UTC date). Move them to the day you actually worked. Nothing changes until you confirm.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleFixDates}
-                    className="px-3.5 py-2 rounded-[var(--radius-btn)] bg-[var(--bg-surface)] border border-[var(--border-control)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-main)] transition-all cursor-pointer"
-                  >
-                    Review and fix dates
-                  </button>
-                </div>
-              )}
-
-              <div className="p-4 rounded-[var(--radius-card)] border border-danger/20 bg-danger/5 space-y-2">
-                <span className="text-xs font-bold text-danger uppercase tracking-wider">
-                  Start Fresh
-                </span>
-                <p className="text-xs text-[var(--text-muted)]">
-                  Remove the demo logs, tasks and projects and start with an empty workspace and one "General" project.
-                  Settings stay. A backup file is downloaded first.
-                </p>
-                <button
-                  type="button"
-                  onClick={onStartFresh}
-                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-xs font-semibold transition-all cursor-pointer"
-                >
-                  Start with empty data
+          <Section
+            id="data"
+            title="Data & backup"
+            intro="Your data lives only in this browser. Back it up, or take a timesheet out as a spreadsheet."
+          >
+            <Block title="JSON backup">
+              <p className={HINT}>
+                Contains all work logs, tasks, projects, tags and settings, never your Gemini API key. Importing replaces
+                all current data.
+              </p>
+              <p className="text-[length:var(--fs-small)] font-semibold text-[var(--text-main)]" data-testid="last-backup">
+                {lastBackup}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={onBackupNow} className={BTN}>
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  <span>Download JSON backup</span>
                 </button>
-              </div>
-
-              <div className="p-4 rounded-[var(--radius-card)] border border-danger/20 bg-danger/5 space-y-2">
-                <span className="text-xs font-bold text-danger uppercase tracking-wider">
-                  Reset Data
-                </span>
-                <p className="text-xs text-[var(--text-muted)]">
-                  Replaces logs, tasks, projects and tags with the demo data. A backup file is downloaded first.
-                </p>
-                <button
-                  type="button"
-                  onClick={onResetSeedData}
-                  className="px-3.5 py-1.5 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-xs font-semibold transition-all cursor-pointer"
-                >
-                  Reset to Seed Preset
+                <button type="button" onClick={() => importRef.current?.click()} className={BTN}>
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  <span>Import JSON backup</span>
                 </button>
+                <input
+                  ref={importRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={handleImportFile}
+                />
               </div>
+            </Block>
+
+            <Block title="CSV spreadsheet">
+              <p className={HINT}>Opens in Excel, Google Sheets or Numbers.</p>
+              <button type="button" onClick={handleExportCSV} className={BTN}>
+                <Download className="h-4 w-4" aria-hidden="true" />
+                <span>Download CSV logs</span>
+              </button>
+            </Block>
+
+            {misdatedLogs.length > 0 && (
+              <Block title={`Fix log dates (${misdatedLogs.length})`}>
+                <p className={HINT}>
+                  {misdatedLogs.length} log(s) made between 00:00 and 06:00 local time were filed under the previous day
+                  (older versions used the UTC date). Move them to the day you actually worked. Nothing changes until you
+                  confirm.
+                </p>
+                <button type="button" onClick={handleFixDates} className={BTN}>
+                  Review and fix dates
+                </button>
+              </Block>
+            )}
+          </Section>
+
+          <Section
+            id="sample"
+            title="Sample data"
+            intro="The demo logs, tasks and projects WorkPulse starts with. Both actions download a backup file first."
+          >
+            <Block title="Start fresh">
+              <p className={HINT}>
+                Remove the demo logs, tasks and projects and start with an empty workspace and one &ldquo;General&rdquo;
+                project. Settings stay.
+              </p>
+              <button type="button" onClick={onStartFresh} className={DANGER_BTN}>
+                Start with empty data
+              </button>
+            </Block>
+
+            <Block title="Reset to demo data">
+              <p className={HINT}>Replaces logs, tasks, projects and tags with the demo data.</p>
+              <button type="button" onClick={onResetSeedData} className={DANGER_BTN}>
+                Reset to demo data
+              </button>
+            </Block>
+          </Section>
+
+          <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 sm:bottom-4">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[var(--radius-card)] border border-[var(--border-control)] bg-[var(--bg-surface-elevated)] px-4 py-3">
+              <p className={HINT}>Theme, projects and tags apply as you change them. The rest waits for Save.</p>
+              <button type="button" onClick={handleSaveAll} className={`${BTN} v2-btn-strong`}>
+                <Check className="h-4 w-4" aria-hidden="true" />
+                <span>Save All Settings</span>
+              </button>
             </div>
-          )}
-
+          </div>
         </div>
-
       </div>
-
     </div>
   );
 };

@@ -5,10 +5,10 @@ export function plainAiMessage(raw: string | undefined, online: boolean = typeof
   const text = (raw || '').trim();
   if (!online) return 'You are offline, so Gemini cannot be reached.';
   if (/api[ _-]?key.*(missing|provided|not set|configure)|no gemini api key|GEMINI_API_KEY/i.test(text)) {
-    return 'No Gemini key is set. Add one in Settings under Standup and AI.';
+    return 'No Gemini key is set. Add one in Settings under AI.';
   }
   if (/API_KEY_INVALID|permission|unauthori[sz]ed|forbidden|\b(401|403)\b|key not valid/i.test(text)) {
-    return 'Gemini did not accept the key. Check it in Settings under Standup and AI.';
+    return 'Gemini did not accept the key. Check it in Settings under AI.';
   }
   if (/\b429\b|quota|rate.?limit|RESOURCE_EXHAUSTED|too many requests/i.test(text)) {
     return 'Gemini has reached its usage limit for now. Try again in a few minutes.';
