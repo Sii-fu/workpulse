@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate, isPendingTask } from './taskLogging';
+import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate, isPendingTask, isDoneUnlogged } from './taskLogging';
 import type { BacklogTask } from '../types';
 
 const TODAY = '2026-11-08';
@@ -52,5 +52,19 @@ describe('isPendingTask', () => {
     expect(isPendingTask(task({ stage: 'blocked' }))).toBe(true);
     expect(isPendingTask(task({ completed: true }))).toBe(false);
     expect(isPendingTask(task({ stage: 'done' }))).toBe(false);
+  });
+});
+
+describe('isDoneUnlogged', () => {
+  it('is a done task with tracked time not yet in a log', () => {
+    expect(isDoneUnlogged(task({ stage: 'done', completed: true, elapsedSeconds: 600 }))).toBe(true);
+    expect(isDoneUnlogged(task({ stage: 'done', completed: true, elapsedSeconds: 600, loggedSeconds: 600 }))).toBe(false);
+    expect(isDoneUnlogged(task({ stage: 'done', completed: true, elapsedSeconds: 0 }))).toBe(false);
+    expect(isDoneUnlogged(task({ stage: 'paused', completed: false, elapsedSeconds: 600 }))).toBe(false);
+  });
+
+  it('counts a task as done by either field, including old tasks with no stage', () => {
+    expect(isDoneUnlogged(task({ stage: undefined, completed: true, elapsedSeconds: 60 }))).toBe(true);
+    expect(isDoneUnlogged(task({ stage: 'done', completed: false, elapsedSeconds: 60 }))).toBe(true);
   });
 });

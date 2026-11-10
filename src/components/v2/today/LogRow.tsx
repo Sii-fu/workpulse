@@ -3,7 +3,6 @@ import type { Project, WorkLog } from '../../../types';
 import { RowMenu, RowMenuItem } from '../RowMenu';
 import { SampleBadge } from '../../ui/SampleBadge';
 import { isSampleLog } from '../../../data/sampleData';
-import { LightboxModal } from '../../LightboxModal';
 
 export interface LogRowProps {
   log: WorkLog;
@@ -20,6 +19,8 @@ export interface LogRowProps {
   onToggleSelect?(id: string): void;
   /** Added after Edit, Duplicate and Copy, before Delete. */
   extraMenuItems?: RowMenuItem[];
+  /** Opens the log's screenshot (a v1 log may have one). "View screenshot" shows only when given. */
+  onOpenImage?(base64: string): void;
 }
 
 /** "0:34" from minutes (workday.ts formatHm takes seconds). */
@@ -28,10 +29,8 @@ export const formatMinutes = (minutes: number): string => `${Math.floor(minutes 
 const STATUS_LABEL: Record<WorkLog['status'], string> = { completed: 'Done', in_progress: 'In progress', blocked: 'Blocked' };
 
 /** One log: time · ribbon · text · duration, and a ⋯ menu (Edit, Duplicate, Copy, Delete). */
-export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicate, onDelete, showDate, selected, onToggleSelect, extraMenuItems = [] }) => {
+export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicate, onDelete, showDate, selected, onToggleSelect, extraMenuItems = [], onOpenImage }) => {
   const [copied, setCopied] = useState<'' | 'ok' | 'failed'>('');
-  // A log saved with a screenshot (the v1 form) still shows it; the v2 form cannot add one.
-  const [showImage, setShowImage] = useState(false);
 
   useEffect(() => {
     if (!copied) return;
@@ -54,7 +53,9 @@ export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicat
   if (onEdit) items.push({ label: 'Edit', onSelect: () => onEdit(log) });
   if (onDuplicate) items.push({ label: 'Duplicate', onSelect: () => onDuplicate(log) });
   items.push({ label: 'Copy text', onSelect: copy });
-  if (log.imageBase64) items.push({ label: 'View screenshot', onSelect: () => setShowImage(true) });
+  // A log saved with a screenshot (the v1 form) still shows it; the v2 form cannot add one.
+  const image = log.imageBase64;
+  if (image && onOpenImage) items.push({ label: 'View screenshot', onSelect: () => onOpenImage(image) });
   items.push(...extraMenuItems);
   if (onDelete) items.push({ label: 'Delete', danger: true, onSelect: () => onDelete(log.id) });
 
@@ -112,7 +113,6 @@ export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicat
         </span>
         <RowMenu label={`Actions for log: ${short}`} items={items} />
       </div>
-      {showImage && <LightboxModal imageBase64={log.imageBase64 ?? null} onClose={() => setShowImage(false)} />}
     </li>
   );
 };

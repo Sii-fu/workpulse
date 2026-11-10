@@ -6,14 +6,13 @@ import { IconButton } from '../../ui/IconButton';
 import { ActivitySuggestionsPanel } from '../../activity/ActivitySuggestionsDialog';
 import { EodPanel, SynthesizedLogItem } from '../../EodSynthesizerModal';
 import { TaskClock } from '../../tasks/Clock';
-import { getTaskStage } from '../../tasks/helpers';
 import { LogRow } from '../today/LogRow';
 import { TodayActivityProps, sameActivityProps } from '../today/TodayScreen';
 import { useNow } from '../useNow';
 import { checkedToday, pendingCount, subscribeActivitySession } from '../../../utils/activity/sessionStore';
 import { DEFAULT_WORKDAY_HOURS, clockState, formatHm } from '../../../utils/workday';
 import { unsyncedLogs } from '../../../utils/syncStatus';
-import { unloggedSeconds } from '../../../utils/taskLogging';
+import { isDoneUnlogged } from '../../../utils/taskLogging';
 import { isRunningTask, sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import { plainSheetMessage } from '../../../utils/aiErrors';
 import { localTimeStr } from '../../../utils/dates';
@@ -41,6 +40,7 @@ export interface EndDayDialogProps {
   onSync(): Promise<void>;
   onPauseTask(id: string): void;
   onClockOut(): void;
+  onOpenImage(base64: string): void;
 }
 
 const STEPS: { id: StepId; label: string; title: string }[] = [
@@ -59,8 +59,6 @@ const TEXT_BTN =
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** A done task whose tracked time is not in a log yet. */
-const isDoneUnlogged = (t: BacklogTask) => (t.completed || getTaskStage(t) === 'done') && unloggedSeconds(t) > 0;
 
 const NothingHere: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <div className="v2-panel v2-inset py-[var(--row-pad)]">
@@ -89,6 +87,7 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   onSync,
   onPauseTask,
   onClockOut,
+  onOpenImage,
 }) => {
   const id = useId();
   const titleId = `${id}-title`;
@@ -230,7 +229,7 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
           <div className="v2-panel">
             <ul>
               {todayLogs.map((l) => (
-                <LogRow key={l.id} log={l} project={byId.get(l.projectId)} onEdit={onEditLog} onDelete={onDeleteLog} />
+                <LogRow key={l.id} log={l} project={byId.get(l.projectId)} onEdit={onEditLog} onDelete={onDeleteLog} onOpenImage={onOpenImage} />
               ))}
             </ul>
           </div>

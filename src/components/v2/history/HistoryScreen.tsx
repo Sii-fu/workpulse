@@ -8,6 +8,7 @@ import { logsToCsv, logsToMarkdown } from '../../../utils/exportLogs';
 import { LogRow, formatMinutes } from '../today/LogRow';
 import { RowMenu } from '../RowMenu';
 import { WeekStrip } from './WeekStrip';
+import { SyncButton, type SyncState } from '../SyncButton';
 
 export interface HistoryScreenProps {
   logs: WorkLog[];
@@ -26,8 +27,9 @@ export interface HistoryScreenProps {
   onClearSelection(): void;
   /** Open the standup dialog for the selected logs. */
   onStandup(): void;
-  /** Open the timesheet for the selected logs. */
-  onTimesheet(): void;
+  onOpenImage(base64: string): void;
+  /** The Sync button's state (memoized in App). */
+  sync: SyncState;
   /** A log to show (picked in the search palette): the strip jumps to its day and the row is scrolled to. */
   focusDate?: string;
   focusLogId?: string;
@@ -73,7 +75,8 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
   onSelectMany,
   onClearSelection,
   onStandup,
-  onTimesheet,
+  onOpenImage,
+  sync,
   focusDate,
   focusLogId,
   onFocusHandled,
@@ -244,7 +247,8 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
               ))}
             </select>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <SyncButton {...sync} />
             <RowMenu label="Export all logs" buttonText="Export" items={exportItems} />
           </div>
         </div>
@@ -261,7 +265,7 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
         ) : (
           <>
             <div className="no-print flex flex-wrap items-center justify-between gap-x-4 gap-y-1 -mb-1">
-              <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">Tick logs for a standup, a timesheet or an export.</p>
+              <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">Tick logs for a standup or an export.</p>
               <button
                 type="button"
                 onClick={() => (allPicked ? onClearSelection() : onSelectMany([...new Set([...selectedIds, ...shownIds])]))}
@@ -292,6 +296,7 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
                       onDelete={onDeleteLog}
                       selected={selectedIds.includes(l.id)}
                       onToggleSelect={onToggleSelect}
+                      onOpenImage={onOpenImage}
                     />
                   ))}
                 </ul>
@@ -307,9 +312,6 @@ const HistoryScreenView: React.FC<HistoryScreenProps> = ({
             <p className="num text-[length:var(--fs-small)] font-semibold text-[var(--text-main)] mr-1">{plural(selectedLogs.length)} selected</p>
             <button type="button" onClick={onStandup} className="v2-btn v2-btn-strong min-h-11 px-4 cursor-pointer">
               Standup
-            </button>
-            <button type="button" onClick={onTimesheet} className="v2-btn min-h-11 px-4 cursor-pointer">
-              Timesheet
             </button>
             <button type="button" onClick={() => onCopy(logsToMarkdown(selectedLogs, projects))} className="v2-btn min-h-11 px-4 cursor-pointer">
               Copy as Markdown

@@ -38,3 +38,9 @@ export function isEodCandidate(t: BacklogTask, todayStr: string, isCustomSelecti
 export function isPendingTask(t: BacklogTask): boolean {
   return !t.completed && t.stage !== 'done';
 }
+
+// A done task (by stage or by the completed flag) whose tracked time is not in a log yet. Drives the
+// next action "Log N done tasks" and End my day's Done tasks step.
+export function isDoneUnlogged(t: BacklogTask): boolean {
+  return (t.completed === true || t.stage === 'done') && unloggedSeconds(t) > 0;
+}

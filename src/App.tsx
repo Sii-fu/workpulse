@@ -25,7 +25,7 @@ import {
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
-import { loggedSecondsOf, unloggedSeconds, isPendingTask } from './utils/taskLogging';
+import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
 import { startSegment, endSegment } from './utils/segments';
 import { minutesFromSeconds } from './utils/duration';
@@ -80,8 +80,6 @@ import { ActivitySuggestionsDialog } from './components/activity/ActivitySuggest
 const NO_FOLDERS: ActivityFolder[] = [];
 const noop = () => {};
 
-/** A done task whose tracked time is not in a log yet. */
-const isDoneUnlogged = (t: BacklogTask) => (t.completed || t.stage === 'done') && unloggedSeconds(t) > 0;
 
 export default function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -128,6 +126,7 @@ export default function App() {
   const [historyFocus, setHistoryFocus] = useState<{ date: string; id: string } | null>(null);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
   // "Later" on the backup reminder: hidden until the next visit, not remembered.
   const [backupReminderHidden, setBackupReminderHidden] = useState(false);
 
@@ -238,6 +237,9 @@ export default function App() {
   const timerDirty = useRef(false);
   const timerLastSaveAt = useRef(Date.now());
   const backlogRef = useRef<BacklogTask[]>([]);
+  // Set just before a reload that follows a write of new data (backup import): the page must not
+  // save its old tasks on the way out, or they would overwrite what was just imported.
+  const leavingRef = useRef(false);
 
   // Mirror the running tasks' seconds for the clocks that show them (they redraw on their own).
   useEffect(() => {
@@ -246,7 +248,7 @@ export default function App() {
 
   useEffect(() => {
     backlogRef.current = backlog;
-    if (timerDirty.current && Date.now() - timerLastSaveAt.current >= 30000) {
+    if (timerDirty.current && !leavingRef.current && Date.now() - timerLastSaveAt.current >= 30000) {
       saveBacklog(backlog);
       timerDirty.current = false;
       timerLastSaveAt.current = Date.now();
@@ -256,7 +258,7 @@ export default function App() {
   useEffect(() => {
     let lastTickMs = Date.now();
     const flush = () => {
-      if (timerDirty.current) {
+      if (timerDirty.current && !leavingRef.current) {
         saveBacklog(backlogRef.current);
         timerDirty.current = false;
         timerLastSaveAt.current = Date.now();
@@ -268,6 +270,7 @@ export default function App() {
     // Writes only when there is something to write (before the data has loaded the ref is empty,
     // and saving it would wipe the stored tasks).
     const onPageHide = () => {
+      if (leavingRef.current) return;
       const nowIso = new Date().toISOString();
       const closed = backlogRef.current.map((t) => endSegment(t, nowIso));
       const segmentsClosed = closed.some((t, i) => t !== backlogRef.current[i]);
@@ -897,7 +900,10 @@ export default function App() {
       addToast('Import failed: browser storage is full. Nothing was changed.', 'error');
       return;
     }
-    // Reload so the normal loader normalises the imported data (stages, rollover, theme).
+    // Reload so the normal loader normalises the imported data (stages, rollover, theme). The page's
+    // own (old) tasks must not be saved on the way out.
+    leavingRef.current = true;
+    timerDirty.current = false;
     window.location.reload();
   };
 
@@ -915,7 +921,8 @@ export default function App() {
       return;
     }
 
-    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending);
+    setIsSyncingSheet(true);
+    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, pending).finally(() => setIsSyncingSheet(false));
     if (result.success) {
       markLogsSynced(pending.map((l) => l.id));
       addToast(result.message, 'success');
@@ -1035,7 +1042,15 @@ export default function App() {
     selectLogs: useStableCallback((ids: string[]) => setSelectedLogIds(ids)),
     clearLogSelection: useStableCallback(() => setSelectedLogIds([])),
     standup: useStableCallback(() => setIsAiStandupOpen(true)),
-    timesheet: useStableCallback(() => handleOpenEodSynthesizer()),
+    // Today's log "Standup": the day's logs become the selection, as a History selection would.
+    standupToday: useStableCallback(() => {
+      setSelectedLogIds(logs.filter((l) => l.date === localDateStr()).map((l) => l.id));
+      setIsAiStandupOpen(true);
+    }),
+    openImage: useStableCallback((base64: string) => setActiveLightboxImage(base64)),
+    sync: useStableCallback(() => {
+      if (!isSyncingSheet) handleSyncGoogleSheet();
+    }),
     historyFocusHandled: useStableCallback(() => setHistoryFocus(null)),
     confirmEod: useStableCallback(handleConfirmEodPush),
     syncForEndDay: useStableCallback(handleSyncForEndDay),
@@ -1058,6 +1073,14 @@ export default function App() {
     }),
     // h.* never change identity, so they are not dependencies.
     [folders, sourcesGit, sourcesClaude, ai, settings.geminiApiKey],
+  );
+
+  const hasSheet = Boolean(settings.googleScriptUrl);
+  const unsyncedCount = hasSheet ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0;
+  const sync = useMemo(
+    () => ({ hasSheet, unsynced: unsyncedCount, syncing: isSyncingSheet, onSync: h.sync }),
+    // h.sync never changes identity.
+    [hasSheet, unsyncedCount, isSyncingSheet],
   );
 
   if (!dataLoaded) {
@@ -1131,6 +1154,9 @@ export default function App() {
             onSuggestionsPending={noop}
             onActivityScanned={noop}
             onEndDay={h.endDay}
+            onStandup={h.standupToday}
+            onOpenImage={h.openImage}
+            sync={sync}
           />
         )}
 
@@ -1164,7 +1190,8 @@ export default function App() {
             onSelectMany={h.selectLogs}
             onClearSelection={h.clearLogSelection}
             onStandup={h.standup}
-            onTimesheet={h.timesheet}
+            onOpenImage={h.openImage}
+            sync={sync}
             focusDate={historyFocus?.date}
             focusLogId={historyFocus?.id}
             onFocusHandled={h.historyFocusHandled}
@@ -1219,6 +1246,7 @@ export default function App() {
         onSync={h.syncForEndDay}
         onPauseTask={h.pauseTask}
         onClockOut={h.clockOutToday}
+        onOpenImage={h.openImage}
       />
 
       {/* Timesheet from selected tasks (Tasks screen) or from History */}

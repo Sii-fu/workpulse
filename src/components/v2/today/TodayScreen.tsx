@@ -6,6 +6,7 @@ import { SuggestionsCard } from './SuggestionsCard';
 import { TodayTasks } from './TodayTasks';
 import { TodayLog } from './TodayLog';
 import { sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
+import type { SyncState } from '../SyncButton';
 
 /** What the suggestions card needs besides the logs, tasks and projects the screen already has. */
 export type TodayActivityProps = Pick<SuggestionsCardProps, 'folders' | 'sources' | 'ai' | 'geminiApiKey' | 'onAddLogs' | 'onOpenSettings'>;
@@ -33,6 +34,10 @@ export interface TodayScreenProps {
   onSuggestionsPending(n: number): void;
   onActivityScanned(): void;
   onEndDay(): void;
+  onStandup(): void;
+  onOpenImage(base64: string): void;
+  /** The Sync button's state (App memoizes it, so the memo below holds). */
+  sync: SyncState;
 }
 
 const TodayScreenView: React.FC<TodayScreenProps> = ({
@@ -55,6 +60,9 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
   onSuggestionsPending,
   onActivityScanned,
   onEndDay,
+  onStandup,
+  onOpenImage,
+  sync,
 }) => (
   // Desktop: tasks on the left (7/12), suggestions over the log on the right (5/12).
   // Under 1024 px one column: tasks, log, suggestions.
@@ -94,6 +102,9 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onDeleteLog={onDeleteLog}
         onDuplicateLog={onDuplicateLog}
         onEndDay={onEndDay}
+        onStandup={onStandup}
+        onOpenImage={onOpenImage}
+        sync={sync}
       />
     </div>
   </div>

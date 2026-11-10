@@ -1,6 +1,7 @@
 import React, { useId, useMemo, useState } from 'react';
 import type { Project, WorkLog } from '../../../types';
 import { LogRow, formatMinutes } from './LogRow';
+import { SyncButton, type SyncState } from '../SyncButton';
 import type { LogFormPrefill } from '../LogFormDialog';
 import { localTimeStr } from '../../../utils/dates';
 import { defaultProject, splitProjectTag } from '../../../utils/projects';
@@ -15,9 +16,13 @@ export interface TodayLogProps {
   onDeleteLog(id: string): void;
   onDuplicateLog(log: WorkLog): void;
   onEndDay(): void;
+  /** Opens the Standup dialog with today's logs selected. */
+  onStandup(): void;
+  onOpenImage(base64: string): void;
+  sync: SyncState;
 }
 
-export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAddLog, onOpenLogForm, onEditLog, onDeleteLog, onDuplicateLog, onEndDay }) => {
+export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAddLog, onOpenLogForm, onEditLog, onDeleteLog, onDuplicateLog, onEndDay, onStandup, onOpenImage, sync }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
   const todays = useMemo(
@@ -98,12 +103,26 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
         ) : (
           <ul>
             {todays.map((l) => (
-              <LogRow key={l.id} log={l} project={byId.get(l.projectId)} onEdit={onEditLog} onDuplicate={onDuplicateLog} onDelete={onDeleteLog} />
+              <LogRow
+                key={l.id}
+                log={l}
+                project={byId.get(l.projectId)}
+                onEdit={onEditLog}
+                onDuplicate={onDuplicateLog}
+                onDelete={onDeleteLog}
+                onOpenImage={onOpenImage}
+              />
             ))}
           </ul>
         )}
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <SyncButton {...sync} />
+        {todays.length > 0 && (
+          <button type="button" onClick={onStandup} className="v2-btn min-h-11 px-4 cursor-pointer transition-colors">
+            Standup
+          </button>
+        )}
         <button
           type="button"
           onClick={onEndDay}
