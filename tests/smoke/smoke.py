@@ -93,7 +93,7 @@ SEL = {
     "phone_section": "#settings-phone",                   # CSS: Settings > Phone & evening email
     "set_pin": "Set PIN", "change_pin": "Change PIN", "reset_access": "Reset phone access",
     "pin_new": "New PIN", "pin_again": "New PIN again", "phone_link": "Phone link",
-    "email_on": "Send me an evening email", "email_save": "Save", "email_test": "Send a test email",
+    "email_on": "Send me an evening email", "email_save": "Save email time", "email_test": "Send a test email",
     # dialogs
     "palette_trigger_key": "Control+k",
     "palette_input": "input[role=combobox]",              # CSS

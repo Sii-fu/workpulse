@@ -450,9 +450,10 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
                 />
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                <button type="button" onClick={saveEmail} disabled={emailBusy !== null} className={`${BTN} v2-btn-strong`}>
+                {/* Outlined, and named for what it saves, so it is not taken for the sticky Save All Settings. */}
+                <button type="button" onClick={saveEmail} disabled={emailBusy !== null} className={BTN}>
                   {emailBusy === 'save' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                  <span>Save</span>
+                  <span>Save email time</span>
                 </button>
                 <button type="button" onClick={testEmail} disabled={emailBusy !== null} className={BTN}>
                   {emailBusy === 'test' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
