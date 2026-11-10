@@ -13,10 +13,9 @@ don't apply, and say which ones you skipped and why.
 - Update the interface (`WorkLog`, `BacklogTask`, `Project`, `AppSettings`, or the unions `TaskStatus`, `TaskStage`, `ThemeId`, …).
 - Prefer an **optional** field (`foo?: T`) for new data; old records won't have it.
 - For a rename or retype, note the old shape: you will need it for the migration in step 2.
-- `ActiveDraft` (the old logger's unsaved draft) lives in `src/utils/storage.ts`, not `types.ts`; nothing in the v2 UI reads or writes it.
 
 ## 2. Migration — `src/utils/storage.ts` → `loadStoredData()`
-- Keys: `workpulse_logs`, `workpulse_backlog`, `workpulse_projects`, `workpulse_tags`, `workpulse_settings`, `workpulse_workdays`, `workpulse_active_draft` (`KEYS` object).
+- Keys: `workpulse_logs`, `workpulse_backlog`, `workpulse_projects`, `workpulse_tags`, `workpulse_settings`, `workpulse_workdays` (`KEYS` object in `src/utils/storage.ts`; the old `workpulse_active_draft` key is no longer used).
 - **Workdays** are validated by `isWorkdays` (`src/utils/workday.ts`); a new `WorkdayRecord` field must pass it. Settings' `theme` goes through `normalizeTheme` (`src/utils/theme.ts`).
 - **Backlog** already has a normalisation pass (`backlog.map(...)` that fills `stage`, `elapsedSeconds`, `isRunning`, and does rollover). Add defaults / rename handling there.
 - **Logs and projects** are parsed with a bare `JSON.parse` cast and **no** normalisation. If old records need a default, rename or type conversion, add a `.map()` after parsing.

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T00:00:00Z",
+  "title": "Design System: WorkPulse",
+  "extensions": {
+    "colorMeta": {
+      "chase-pitch": { "role": "primary", "displayName": "Pitch Green", "canonical": "#0f3d2e", "tonalRamp": ["#071f17", "#0a2a1f", "#0f3d2e", "#2a5c4a", "#4f7d6b", "#7fa391", "#b3cabf", "#e0ebe5"] },
+      "chase-gold": { "role": "primary", "displayName": "Scoreboard Gold", "canonical": "#f2b705", "tonalRamp": ["#4a3700", "#7a5c00", "#b08700", "#dba603", "#f2b705", "#f6cb4a", "#f9de8a", "#fcf0c9"] },
+      "chase-chalk": { "role": "neutral", "displayName": "Chalk", "canonical": "#f4f1e8", "tonalRamp": ["#5d6b63", "#83806f", "#b3af9f", "#dcd8cb", "#ebe7db", "#efebe1", "#f4f1e8", "#fbfaf5"] },
+      "timecard-manila": { "role": "neutral", "displayName": "Manila", "canonical": "#efe6cf", "tonalRamp": ["#665d4e", "#8a7d62", "#c9bc9c", "#e6dbbf", "#efe6cf", "#f7f1e1", "#fffdf6", "#ffffff"] },
+      "timecard-stamp-red": { "role": "secondary", "displayName": "Leave-mark Red", "canonical": "#c4302b", "tonalRamp": ["#4a0f0d", "#7a1d1a", "#8f221e", "#b02a25", "#c4302b", "#d9605b", "#e89995", "#f5d0ce"] },
+      "console-graphite": { "role": "neutral", "displayName": "Graphite", "canonical": "#16181d", "tonalRamp": ["#16181d", "#1c1f25", "#22262d", "#2c3038", "#6c737e", "#8b929c", "#e6e8eb", "#ffffff"] },
+      "console-mint": { "role": "primary", "displayName": "Console Mint", "canonical": "#7cc4a4", "tonalRamp": ["#0d1a14", "#1f3d30", "#3a6b55", "#5a9b7d", "#7cc4a4", "#95d3b7", "#bde5d3", "#e3f4ec"] }
+    },
+    "typographyMeta": {
+      "chase-figure": { "displayName": "Scoreboard Figure", "purpose": "WORKED and TO GO numerals in the band; Archivo 72% width, tabular. 64px desktop, 40px phone." },
+      "timecard-figure": { "displayName": "Stamped Figure", "purpose": "Courier Prime figures in Time Card cells; 40px desktop, 28px phone." },
+      "console-figure": { "displayName": "Console Figure", "purpose": "Geist Mono at body size in Console's single band line." },
+      "body": { "displayName": "Body", "purpose": "Task titles, band statements, primary buttons. 15px." },
+      "small": { "displayName": "Small", "purpose": "Row buttons, metas, labels. 13px, 600." },
+      "section-head": { "displayName": "Section Head", "purpose": "Uppercase tracked card headings; rank by case and weight, not size." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ball-pulse", "value": "1.6s ease-in-out infinite, opacity 1 to 0.4", "purpose": "The current ball in the overs strip." },
+      { "name": "rise-in", "value": "160ms cubic-bezier(0.22, 1, 0.36, 1), 8px", "purpose": "Dialogs and toasts answering an action." },
+      { "name": "fade-in", "value": "120ms ease-out", "purpose": "Overlays." },
+      { "name": "log-flash", "value": "1.6s ease-out", "purpose": "History row picked from search flashes once." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "639px (band numerals step down)" },
+      { "name": "xs", "value": "420px (section metas show in full)" },
+      { "name": "md", "value": "768px (full band replaces compact band)" },
+      { "name": "lg", "value": "1024px (12-column Today grid, overs strip)" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "action-primary",
+      "description": "The one next-action button in the header band.",
+      "html": "<button class=\"ds-action\">Start task</button>",
+      "css": ".ds-action{height:40px;padding:0 16px;border:0;border-radius:6px;background:#f2b705;color:#1d1a0a;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s}.ds-action:hover{background:#dba603}.ds-action:focus-visible{outline:2px solid #f2b705;outline-offset:2px}"
+    },
+    {
+      "name": "Row Button",
+      "kind": "button",
+      "refersTo": "row-button",
+      "description": "Outlined 13px button on task rows; filled with ink when the task is running.",
+      "html": "<button class=\"ds-row-btn\">Start</button> <button class=\"ds-row-btn ds-strong\">Pause</button>",
+      "css": ".ds-row-btn{min-height:32px;padding:0 12px;font-size:13px;font-weight:600;border:1px solid #83806f;border-radius:6px;background:#fff;color:#1d2b24;cursor:pointer}.ds-row-btn:hover{background:#ebe7db}.ds-strong,.ds-strong:hover{background:#1d2b24;border-color:#1d2b24;color:#fbfaf5}.ds-row-btn:focus-visible{outline:2px solid #0f3d2e;outline-offset:2px}"
+    },
+    {
+      "name": "Band Button",
+      "kind": "button",
+      "refersTo": "band-button",
+      "description": "Clock out and other controls inside the band, outlined in band ink.",
+      "html": "<div class=\"ds-band\"><button class=\"ds-band-btn\">Clock out</button></div>",
+      "css": ".ds-band{background:#0f3d2e;padding:16px}.ds-band-btn{min-height:40px;padding:0 16px;font-size:15px;font-weight:600;color:#f4f1e8;background:transparent;border:1.5px solid #f4f1e8;border-radius:6px;cursor:pointer}.ds-band-btn:hover{background:rgba(255,255,255,.1)}.ds-band-btn:focus-visible{outline:2px solid #f2b705;outline-offset:2px}"
+    },
+    {
+      "name": "Clock Figures",
+      "kind": "custom",
+      "refersTo": "chase-figure",
+      "description": "Worked and To go in the Chase band: condensed bold tabular numerals under a tracked label.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-label\">Worked today</div><div class=\"ds-fig\">5:42</div></div>",
+      "css": ".ds-band{background:#0f3d2e;padding:18px 24px}.ds-label{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(244,241,232,.7);margin-bottom:6px}.ds-fig{font-size:64px;font-weight:700;line-height:.9;letter-spacing:-.01em;font-stretch:72%;font-variant-numeric:tabular-nums;color:#f2b705}"
+    },
+    {
+      "name": "Overs Strip",
+      "kind": "custom",
+      "refersTo": "chase-gold",
+      "description": "One over per hour, six 10-minute balls (three by two), coloured by project; current ball is gold.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-over\"><div class=\"ds-balls\"><i style=\"background:#10b981;border-color:#10b981\"></i><i style=\"background:#10b981;border-color:#10b981\"></i><i style=\"background:#6366f1;border-color:#6366f1\"></i><i style=\"background:#6366f1;border-color:#6366f1\"></i><i class=\"now\"></i><i></i></div><span>9</span></div></div>",
+      "css": ".ds-band{background:#0f3d2e;padding:16px 24px}.ds-over{display:inline-flex;flex-direction:column;align-items:center;gap:6px}.ds-balls{display:grid;grid-template-columns:repeat(3,14px);gap:4px}.ds-balls i{display:block;width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(244,241,232,.35)}.ds-balls i.now{background:#f2b705;border-color:#f2b705}.ds-over span{font-size:13px;color:rgba(244,241,232,.7);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Task Row",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Paper panel row with the 6px project ribbon; the running row takes the warm tint.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-row ds-running\"><span class=\"ds-rib\"></span><span class=\"ds-title\">Review PR #129</span><button class=\"ds-rb\">Pause</button></div><div class=\"ds-row\"><span class=\"ds-rib\" style=\"background:#6366f1\"></span><span class=\"ds-title\">Write standup</span><button class=\"ds-rb ds-out\">Start</button></div></div>",
+      "css": ".ds-panel{background:#fbfaf5;border:1px solid #dcd8cb;border-radius:8px;padding:0 16px;color:#1d2b24;font-size:15px}.ds-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #dcd8cb}.ds-row:last-child{border-bottom:0}.ds-running{background:#fff8e1;margin:0 -16px;padding-inline:16px}.ds-rib{width:6px;align-self:stretch;border-radius:3px;background:#10b981}.ds-title{flex:1}.ds-rb{min-height:32px;padding:0 12px;font-size:13px;font-weight:600;border:1px solid #83806f;border-radius:6px;background:#fff;color:#1d2b24}.ds-rb:not(.ds-out){background:#1d2b24;color:#fbfaf5}"
+    },
+    {
+      "name": "Section Head",
+      "kind": "custom",
+      "refersTo": "section-head",
+      "description": "Uppercase tracked heading with a sentence-case meta; rank by case and weight.",
+      "html": "<h2 class=\"ds-head\">Today's tasks <span>4 open</span></h2>",
+      "css": ".ds-head{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1d2b24}.ds-head span{font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:#5d6b63}"
+    },
+    {
+      "name": "Quick-add Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Elevated field, 1px control line, border moves to the focus colour.",
+      "html": "<input class=\"ds-input\" placeholder=\"Add a task\" />",
+      "css": ".ds-input{min-height:40px;padding:0 12px;font-size:15px;background:#fff;color:#1d2b24;border:1px solid #83806f;border-radius:6px}.ds-input::placeholder{color:#5d6b63}.ds-input:focus{outline:none;border-color:#0f3d2e}.ds-input:focus-visible{outline:2px solid #0f3d2e;outline-offset:2px}"
+    },
+    {
+      "name": "Punched Bar (Time Card)",
+      "kind": "custom",
+      "refersTo": "timecard-ink",
+      "description": "Time Card's progress bar: 2px punches every 9px in the clock colour, red tick at the target.",
+      "html": "<div class=\"ds-bar\"><div class=\"ds-punch\"></div><div class=\"ds-tick\"></div></div>",
+      "css": ".ds-bar{position:relative;width:260px;height:26px;border:1.5px solid #1c1a17;background:#efe6cf}.ds-punch{position:absolute;inset:0 auto 0 0;width:62%;background:repeating-linear-gradient(90deg,#1c1a17 0 2px,transparent 2px 9px)}.ds-tick{position:absolute;top:-8px;bottom:-8px;left:84%;border-right:2px solid #c4302b}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Scorer's Book",
+    "overview": "The office day is a chase against an 8-hour target. The top band is a scoreboard that is glanced at, not a dashboard that is read: how long worked, how long to go, when to leave. Everything below the band is a plain ruled book of tasks and logs. There is no sidebar of navigation and no grid of stat cards.\n\nOne layout serves three themes. A theme changes type, palette, density, radius and one signature move; it never moves components around. The Chase (default) is a pitch-green band with gold and condensed numerals. Time Card is a manila punch-clock card with stamped figures. Graphite Console is a dark panel set split by hairline seams where colour only means state.",
+    "keyCharacteristics": [
+      "A band at the top that holds the day's state; the body is quiet.",
+      "Three type sizes only for text: body 15, small 13, and the figure size (64 / 40 / 15 by theme).",
+      "Project colour is data: a 6px ribbon on every task and log row and the colour of each ball in the overs strip.",
+      "Flat and opaque. Depth comes from 1px lines, tonal steps and the band, not shadows.",
+      "Each theme sets every token itself, status colours included."
+    ],
+    "rules": [
+      { "name": "The Band Ink Rule", "body": "Inside the band, text, hover and focus tokens are remapped to the band's own ink, muted, line and focus colour. Pitch-green accent text would vanish on the Chase band, so controls there focus in gold.", "section": "colors" },
+      { "name": "The Large Figures Rule", "body": "Clock phase colours near, due and over pass 3:1 only. They colour big numerals, balls, dots and meter fills, never small text; small red text uses --danger.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "Each theme has a single accent. Colour beyond it is a project colour (data) or a status (state), never decoration.", "section": "colors" },
+      { "name": "The Three Sizes Rule", "body": "Figure, body, small. Rank is made with case, weight and tracking, not with a fourth size.", "section": "typography" },
+      { "name": "The Even Digits Rule", "body": "Every figure is tabular so ticking clocks do not jitter.", "section": "typography" },
+      { "name": "The One Layout Rule", "body": "Themes restyle; they do not restructure. A new screen is built once with panel, row, section head and the ribbon, and all three themes dress it.", "section": "layout" },
+      { "name": "The Flat Rule", "body": "Hierarchy comes from lines, tone and the band, never from a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use .num for every figure and keep the three text sizes (15, 13, figure).",
+      "Do carry a project's ribbon colour on every task and log row, ball and bar.",
+      "Do keep one accent per theme and one gold (or ink, or mint) primary action in the header.",
+      "Do set any new token in all three theme blocks, status colours included, and check AA (4.5:1 text, 3:1 large figures and control outlines).",
+      "Do make dialogs with ModalShell and icon buttons with IconButton."
+    ],
+    "donts": [
+      "Don't add a sidebar of navigation or a grid of stat cards; the band is the dashboard.",
+      "Don't put clock phase colours (near, due, over) on small text.",
+      "Don't use shadows, glass, glow or gradients for depth.",
+      "Don't change layout per theme; change only type, palette, density, radius and the signature move.",
+      "Don't use text-[10px] or any text under 12px."
+    ]
+  }
+}
