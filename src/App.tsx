@@ -359,6 +359,7 @@ export default function App() {
     const next = normalizeTheme(theme);
     if (next === settings.theme) return;
     const updated = { ...settings, theme: next };
+    settingsRef.current = updated;
     setSettings(updated);
     saveSettings(updated);
   };
@@ -371,6 +372,7 @@ export default function App() {
         ? { ...incoming, syncTrackingSince: new Date().toISOString() }
         : incoming;
     const newSettings = { ...withTracking, theme: normalizeTheme(withTracking.theme) };
+    settingsRef.current = newSettings;
     setSettings(newSettings);
     saveSettings(newSettings);
   };

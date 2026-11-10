@@ -102,7 +102,9 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
           </p>
         </div>
         {tasks.length === 0 ? (
-          <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">Nothing planned yet. Add the first task above.</p>
+          <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
+            {earlier.length > 0 ? 'Nothing due today.' : 'Nothing planned yet. Add the first task above.'}
+          </p>
         ) : (
           <ul>
             {tasks.map((t) => (
