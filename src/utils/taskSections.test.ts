@@ -28,20 +28,25 @@ describe('dayLabelLong', () => {
 });
 
 describe('groupTasks', () => {
-  it('puts rolled-over and past-due open tasks in overdue, with the date they were added', () => {
+  it('puts pending tasks due before today in earlier groups, newest date first, blocked ones inside their date', () => {
     const g = groupTasks(
       [
-        task('rolled', { isRolledOver: true, originalDate: '2026-11-09' }),
-        task('stale', { dueDate: '2026-11-07', originalDate: '2026-11-05' }),
+        task('two', { dueDate: '2026-11-08' }),
+        task('y1', { dueDate: '2026-11-09' }),
+        task('yb', { dueDate: '2026-11-09', stage: 'blocked', blockReason: 'vendor key' }),
         task('fresh'),
+        task('tom', { dueDate: '2026-11-11' }),
+        task('rolled', { dueDate: '2026-11-10', isRolledOver: true, originalDate: '2026-11-08' }),
       ],
       today,
     );
-    expect(ids(g.overdue)).toEqual(['rolled', 'stale']);
-    expect(ids(g.today)).toEqual(['fresh']);
-    expect(g.overdueAdded.rolled).toBe('2026-11-09');
-    // not rolled yet: still the day it was made, not the day it was due
-    expect(g.overdueAdded.stale).toBe('2026-11-05');
+    expect(g.earlier.map((d) => [d.date, ids(d.tasks)])).toEqual([
+      ['2026-11-09', ['yb', 'y1']],
+      ['2026-11-08', ['two']],
+    ]);
+    expect(ids(g.today)).toEqual(['fresh', 'rolled']);
+    expect(g.upcoming.map((d) => [d.date, ids(d.tasks)])).toEqual([['2026-11-11', ['tom']]]);
+    expect(g.doneRecently).toEqual([]);
   });
 
   it('groups upcoming tasks by date, earliest first, keeping list order within a date', () => {
@@ -53,21 +58,6 @@ describe('groupTasks', () => {
       ['2026-11-11', ['a', 'b']],
       ['2026-11-13', ['c']],
     ]);
-  });
-
-  it('shows every blocked open task in blocked, whatever its date, and nowhere else', () => {
-    const g = groupTasks(
-      [
-        task('b1', { stage: 'blocked', blockReason: 'vendor key' }),
-        task('b2', { stage: 'blocked', dueDate: '2026-11-15' }),
-        task('b3', { stage: 'blocked', dueDate: '2026-11-08', isRolledOver: true }),
-      ],
-      today,
-    );
-    expect(ids(g.blocked)).toEqual(['b1', 'b2', 'b3']);
-    expect(g.overdue).toEqual([]);
-    expect(g.today).toEqual([]);
-    expect(g.upcoming).toEqual([]);
   });
 
   it('keeps a running task under today even when it is due later, and orders running first', () => {
@@ -109,7 +99,8 @@ describe('filterByProject and sectionProjectIds', () => {
   const list = [
     task('a', { projectId: 'p1' }),
     task('b', { projectId: 'p2', dueDate: '2026-11-11' }),
-    task('c', { projectId: 'p2', stage: 'blocked' }),
+    task('c', { projectId: 'p2', stage: 'blocked', dueDate: '2026-11-09' }),
+    task('e', { projectId: 'p1', dueDate: '2026-11-09' }),
     done('d', '2026-11-09T05:00:00.000Z', { projectId: 'p3' }),
   ];
 
@@ -121,7 +112,8 @@ describe('filterByProject and sectionProjectIds', () => {
     const f = filterByProject(groupTasks(list, today), 'p2');
     expect(ids(f.today)).toEqual([]);
     expect(f.upcoming.map((d) => ids(d.tasks))).toEqual([['b']]);
-    expect(ids(f.blocked)).toEqual(['c']);
+    expect(f.earlier.map((d) => [d.date, ids(d.tasks)])).toEqual([['2026-11-09', ['c']]]);
+    expect(filterByProject(groupTasks(list, today), 'p3').earlier).toEqual([]);
     expect(f.doneRecently).toEqual([]);
     expect(filterByProject(groupTasks(list, today), null)).toEqual(groupTasks(list, today));
   });

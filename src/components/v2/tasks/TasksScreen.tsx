@@ -110,7 +110,9 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
 
   const anyTasks = projectIds.length > 0;
   const upcomingCount = sections.upcoming.reduce((n, d) => n + d.tasks.length, 0);
+  const earlierCount = sections.earlier.reduce((n, d) => n + d.tasks.length, 0);
   const tomorrow = addDays(today, 1);
+  const yesterday = addDays(today, -1);
 
   return (
     <div className="mx-auto max-w-[960px] px-4 sm:px-8 py-6 sm:py-7 flex flex-col gap-7">
@@ -185,15 +187,16 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
         </div>
       )}
 
-      {sections.overdue.length > 0 && (
-        <Section title="Overdue" count={sections.overdue.length}>
-          <ul>
-            {sections.overdue.map((t) => {
-              const added = sections.overdueAdded[t.id];
-              const base = metaFor(t, getTaskStage(t));
-              return row(t, { meta: added && added < today ? `added ${dayLabelLong(added)} · ${base}` : base });
-            })}
-          </ul>
+      {earlierCount > 0 && (
+        <Section title="Earlier" count={earlierCount}>
+          {sections.earlier.map((d) => (
+            <React.Fragment key={d.date}>
+              <h3 className="v2-inset pt-3 pb-1 text-[length:var(--fs-small)] font-bold text-[var(--text-muted)] border-t border-[var(--border-app)] first:border-t-0">
+                {d.date === yesterday ? `Yesterday · ${dayLabelLong(d.date)}` : dayLabelLong(d.date)}
+              </h3>
+              <ul>{d.tasks.map((t) => row(t))}</ul>
+            </React.Fragment>
+          ))}
         </Section>
       )}
 
@@ -217,12 +220,6 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
               <ul>{d.tasks.map((t) => row(t))}</ul>
             </React.Fragment>
           ))}
-        </Section>
-      )}
-
-      {sections.blocked.length > 0 && (
-        <Section title="Blocked" count={sections.blocked.length}>
-          <ul>{sections.blocked.map((t) => row(t))}</ul>
         </Section>
       )}
 

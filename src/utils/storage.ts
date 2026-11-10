@@ -71,8 +71,8 @@ function runMigrations(_storedVersion: number): void {
   // No migrations yet: version 1 is the current shape.
 }
 
-// Normalises tasks and moves unfinished past-due tasks to todayStr. Also runs while the app stays
-// open across midnight (App.tsx), not only at load.
+// Normalises tasks (stage, completed, elapsed time, running state) and gives running clocks an open
+// segment. It never changes a task's dueDate: pending tasks stay under their own day.
 export function rollOverTasks(
   backlog: BacklogTask[],
   todayStr: string,
@@ -85,27 +85,13 @@ export function rollOverTasks(
     const isDone = task.stage === 'done' || task.completed === true;
     const normalizedStage = isDone ? 'done' : task.stage || 'planned';
 
-    let next: BacklogTask;
-    if (!isDone && task.dueDate < todayStr) {
-      changed = true;
-      next = {
-        ...task,
-        stage: normalizedStage,
-        completed: false,
-        dueDate: todayStr,
-        isRolledOver: true,
-        elapsedSeconds: task.elapsedSeconds ?? 0,
-        isRunning: normalizedStage === 'in_progress',
-      };
-    } else {
-      next = {
-        ...task,
-        stage: normalizedStage,
-        completed: isDone,
-        elapsedSeconds: task.elapsedSeconds ?? 0,
-        isRunning: normalizedStage === 'in_progress',
-      };
-    }
+    let next: BacklogTask = {
+      ...task,
+      stage: normalizedStage,
+      completed: isDone,
+      elapsedSeconds: task.elapsedSeconds ?? 0,
+      isRunning: normalizedStage === 'in_progress',
+    };
     // A clock that ran before segments existed gets an open one, so the overs strip can show it.
     if (next.isRunning) {
       const withSegment = ensureOpenSegment(next, nowIso);
@@ -141,7 +127,7 @@ export function loadStoredData() {
   };
   const workdays = readKey<Workdays>(KEYS.WORKDAYS, isWorkdays, {}, {}, warnings);
 
-  // Auto-rollover: unfinished tasks whose due date has passed move to today (local date).
+  // Normalise tasks; due dates are left alone.
   const rolled = rollOverTasks(backlog, localDateStr());
   backlog = rolled.tasks;
   const updatedBacklog = rolled.changed;

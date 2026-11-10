@@ -143,14 +143,26 @@ describe('rollOverTasks (C3)', () => {
   it('a task with no stage gets one from completed', () => {
     expect(rollOverTasks([{ ...base, completed: false }], '2026-11-08').tasks[0]).toMatchObject({ stage: 'planned', completed: false });
   });
-  it('past-due unfinished tasks roll over to today and finished ones do not', () => {
+  it('never changes dueDate: a planned task due yesterday stays there and is not a change', () => {
+    const { tasks, changed } = rollOverTasks([{ ...base, dueDate: '2026-11-09', completed: false, stage: 'planned' }], '2026-11-10');
+    expect(tasks[0].dueDate).toBe('2026-11-09');
+    expect(changed).toBe(false);
+  });
+  it('a task already marked rolled over keeps its current date', () => {
+    const { tasks } = rollOverTasks(
+      [{ ...base, dueDate: '2026-11-10', isRolledOver: true, originalDate: '2026-11-08', completed: false, stage: 'planned' }],
+      '2026-11-10',
+    );
+    expect(tasks[0].dueDate).toBe('2026-11-10');
+  });
+  it('a running task due on an earlier day keeps that date but still gets an open segment', () => {
     const { tasks, changed } = rollOverTasks(
-      [{ ...base, id: 'a', dueDate: '2026-11-01', completed: false, stage: 'in_progress' }, { ...base, id: 'b', dueDate: '2026-11-01', completed: true, stage: 'done' }],
+      [{ ...base, dueDate: '2026-11-01', completed: false, stage: 'in_progress' }],
       '2026-11-08',
+      '2026-11-08T05:00:00.000Z',
     );
     expect(changed).toBe(true);
-    expect(tasks[0]).toMatchObject({ dueDate: '2026-11-08', isRolledOver: true, isRunning: true });
-    expect(tasks[1].dueDate).toBe('2026-11-01');
+    expect(tasks[0]).toMatchObject({ dueDate: '2026-11-01', isRunning: true });
   });
   it('a running task with no open segment gets one starting now, and that counts as changed', () => {
     const now = '2026-11-08T05:00:00.000Z';

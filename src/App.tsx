@@ -21,13 +21,13 @@ import {
   saveSettings as storeSettings,
   saveWorkdays as storeWorkdays,
   replaceAllData,
-  rollOverTasks,
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged } from './utils/taskLogging';
 import { advanceClock, MAX_TICK_GAP_SECONDS } from './utils/timer';
 import { startSegment, endSegment, splitSegmentsAtGap } from './utils/segments';
+import { moveRunningToDay, moveTasksToDay } from './utils/taskDates';
 import { minutesFromSeconds } from './utils/duration';
 import { unsyncedLogs } from './utils/syncStatus';
 import { applyDateFixes, DateFix } from './utils/logDates';
@@ -323,8 +323,8 @@ export default function App() {
     };
   }, []);
 
-  // Midnight rollover: if the date changes while the app stays open, move unfinished past-due
-  // tasks to the new day (before, this only happened when the page was reloaded).
+  // Midnight: pending tasks keep their own day, but a timer still running when the date changes
+  // moves to the new day (the work now happens on it).
   useEffect(() => {
     let lastDate = localDateStr();
     const id = setInterval(() => {
@@ -332,8 +332,8 @@ export default function App() {
       if (now === lastDate) return;
       lastDate = now;
       setBacklog((prev) => {
-        const { tasks, changed } = rollOverTasks(prev, now);
-        if (!changed) return prev;
+        const tasks = moveRunningToDay(prev, now);
+        if (tasks === prev) return prev;
         saveBacklog(tasks);
         return tasks;
       });
@@ -504,7 +504,8 @@ export default function App() {
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       projectId,
-      dueDate: dueDate ?? localDateStr(),
+      // A task started on creation is worked on today, whatever date was asked for.
+      dueDate: stage === 'in_progress' ? localDateStr() : (dueDate ?? localDateStr()),
       completed: stage === 'done',
       stage,
       originalDate: localDateStr(),
@@ -537,6 +538,8 @@ export default function App() {
           stage,
           completed: false,
           isRunning: isNowInProgress,
+          // Starting or resuming a task makes it today's work; other stages keep the date.
+          dueDate: isNowInProgress ? localDateStr() : t.dueDate,
           startedAt: isNowInProgress ? t.startedAt || nowIso : t.startedAt,
           blockReason:
             blockReason !== undefined ? blockReason : stage === 'in_progress' ? undefined : t.blockReason,
@@ -584,6 +587,7 @@ export default function App() {
           completed: false,
           stage: targetStage,
           isRunning: targetStage === 'in_progress',
+          dueDate: targetStage === 'in_progress' ? localDateStr() : t.dueDate,
           completedAt: undefined,
           startedAt: targetStage === 'in_progress' ? nowIso : t.startedAt,
           // New work after reopening can be logged again; loggedSeconds keeps what was already logged.
@@ -604,6 +608,25 @@ export default function App() {
           : 'Task reopened',
       'info',
     );
+  };
+
+  // Brings pending tasks from other days to today. Undo puts back each task's previous date.
+  const handleMoveToToday = (ids: string[]) => {
+    const today = localDateStr();
+    const moved = moveTasksToDay(backlog, ids, today);
+    if (moved === backlog) return;
+    const previous = new Map(backlog.filter((t, i) => moved[i] !== t).map((t) => [t.id, t.dueDate]));
+    setBacklog(moved);
+    saveBacklog(moved);
+    addToast(`${previous.size} ${previous.size === 1 ? 'task' : 'tasks'} moved to today`, 'success', {
+      label: 'Undo',
+      onClick: () =>
+        setBacklog((prev) => {
+          const next = prev.map((t) => (previous.has(t.id) && t.dueDate === today ? { ...t, dueDate: previous.get(t.id) as string } : t));
+          saveBacklog(next);
+          return next;
+        }),
+    });
   };
 
   // Marks a task done without writing a log. It waits for "Log it", a timesheet from the Tasks
@@ -1047,6 +1070,7 @@ export default function App() {
     logTask: useStableCallback(handleConvertTaskToLog),
     reopenToPlanned: useStableCallback((id: string) => handleReopenTask(id, 'planned')),
     deleteTask: useStableCallback(handleDeleteBacklogTask),
+    moveToToday: useStableCallback(handleMoveToToday),
     addLog: useStableCallback(handleAddLog),
     addLogs: useStableCallback(handleAddLogs),
     openLogForm: useStableCallback(handleOpenLogForm),
