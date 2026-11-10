@@ -189,9 +189,9 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
         <Section title="Overdue" count={sections.overdue.length}>
           <ul>
             {sections.overdue.map((t) => {
-              const from = sections.overdueFrom[t.id];
+              const added = sections.overdueAdded[t.id];
               const base = metaFor(t, getTaskStage(t));
-              return row(t, { meta: from && from < today ? `from ${dayLabelLong(from)} · ${base}` : base });
+              return row(t, { meta: added && added < today ? `added ${dayLabelLong(added)} · ${base}` : base });
             })}
           </ul>
         </Section>

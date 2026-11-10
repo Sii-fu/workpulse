@@ -8,8 +8,8 @@ import { lastNDays, localDateOfIso, parseLocalDate } from './dates';
 export interface TaskSections {
   /** Open tasks that rolled over from an earlier day (or are still dated before today). */
   overdue: BacklogTask[];
-  /** Task id -> the local date an overdue task came from (when it was made, or was due). */
-  overdueFrom: Record<string, string>;
+  /** Task id -> the local date an overdue task was added (its originalDate). */
+  overdueAdded: Record<string, string>;
   today: BacklogTask[];
   /** Open tasks due after today, by date ascending. */
   upcoming: { date: string; tasks: BacklogTask[] }[];
@@ -43,7 +43,7 @@ const byRank = (list: BacklogTask[]): BacklogTask[] =>
 /** Splits the backlog into the Tasks screen's sections for a local date. */
 export function groupTasks(backlog: BacklogTask[], today: string): TaskSections {
   const overdue: BacklogTask[] = [];
-  const overdueFrom: Record<string, string> = {};
+  const overdueAdded: Record<string, string> = {};
   const todays: BacklogTask[] = [];
   const blocked: BacklogTask[] = [];
   const byDate = new Map<string, BacklogTask[]>();
@@ -61,7 +61,7 @@ export function groupTasks(backlog: BacklogTask[], today: string): TaskSections 
       blocked.push(t);
     } else if (t.dueDate < today || (t.isRolledOver && t.dueDate === today)) {
       overdue.push(t);
-      overdueFrom[t.id] = t.isRolledOver && t.originalDate < today ? t.originalDate : t.dueDate;
+      overdueAdded[t.id] = t.originalDate;
     } else if (t.dueDate === today || isRunningTask(t)) {
       todays.push(t);
     } else {
@@ -71,7 +71,7 @@ export function groupTasks(backlog: BacklogTask[], today: string): TaskSections 
 
   return {
     overdue: byRank(overdue),
-    overdueFrom,
+    overdueAdded,
     today: byRank(todays),
     upcoming: [...byDate.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, tasks]) => ({ date, tasks })),
     blocked,
@@ -92,7 +92,7 @@ export function filterByProject(s: TaskSections, projectId: string | null): Task
   const keep = (list: BacklogTask[]) => list.filter((t) => t.projectId === projectId);
   return {
     overdue: keep(s.overdue),
-    overdueFrom: s.overdueFrom,
+    overdueAdded: s.overdueAdded,
     today: keep(s.today),
     upcoming: s.upcoming.map((d) => ({ date: d.date, tasks: keep(d.tasks) })).filter((d) => d.tasks.length > 0),
     blocked: keep(s.blocked),

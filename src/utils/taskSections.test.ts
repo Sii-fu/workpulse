@@ -28,7 +28,7 @@ describe('dayLabelLong', () => {
 });
 
 describe('groupTasks', () => {
-  it('puts rolled-over and past-due open tasks in overdue, with the date they came from', () => {
+  it('puts rolled-over and past-due open tasks in overdue, with the date they were added', () => {
     const g = groupTasks(
       [
         task('rolled', { isRolledOver: true, originalDate: '2026-11-09' }),
@@ -39,9 +39,9 @@ describe('groupTasks', () => {
     );
     expect(ids(g.overdue)).toEqual(['rolled', 'stale']);
     expect(ids(g.today)).toEqual(['fresh']);
-    expect(g.overdueFrom.rolled).toBe('2026-11-09');
-    // not rolled yet: the day it was due
-    expect(g.overdueFrom.stale).toBe('2026-11-07');
+    expect(g.overdueAdded.rolled).toBe('2026-11-09');
+    // not rolled yet: still the day it was made, not the day it was due
+    expect(g.overdueAdded.stale).toBe('2026-11-05');
   });
 
   it('groups upcoming tasks by date, earliest first, keeping list order within a date', () => {
