@@ -483,6 +483,13 @@
   color: var(--text-muted);
 }
 [data-theme="console"] .v2-head-meta { font-family: var(--font-num); }
+/* Section heads inside a dialog drop to label scale, so the dialog title outranks them. */
+.v2-head.v2-head-label {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
 
 /* The project ribbon at the start of a task or log row. */
 .v2-ribbon { width: 6px; border-radius: 3px; flex-shrink: 0; }

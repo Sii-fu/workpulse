@@ -122,14 +122,12 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
           </ul>
         )}
         {earlier.length > 0 && (
-          <div aria-labelledby={`${id}-earlier`} role="group" className="mt-2">
-            {/* The rule above the block: the last task row already draws one in Time Card, and the empty line does everywhere. */}
-            <h3
-              id={`${id}-earlier`}
-              className={`v2-inset pt-3 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)] ${tasks.length > 0 ? 'border-t border-[var(--border-app)] [[data-theme=timecard]_&]:border-t-0' : ''}`}
-            >
-              Earlier, still pending
-            </h3>
+          <div
+            role="group"
+            aria-label="Earlier, still pending"
+            // The rule above the block: the last task row already draws one in Time Card, and the empty line does everywhere.
+            className={tasks.length > 0 ? 'border-t border-[var(--border-app)] [[data-theme=timecard]_&]:border-t-0' : undefined}
+          >
             {shownEarlier.map((d) => (
               <EarlierBlock key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks} onMoveAll={onMoveToToday}>
                 <ul>

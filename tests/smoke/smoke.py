@@ -1304,7 +1304,7 @@ def phone_email_settings(s):
     assert "4821" not in json.dumps(saved), "the PIN was stored on this computer"
     first = stub.payloads("setPin")[0]
     assert first["pin"] == "4821" and "token" not in first, f"unexpected setPin request {first}"
-    assert sec.get_by_label(SEL["phone_link"]).input_value() == SCRIPT_URL + "?page=phone", "wrong phone link"
+    assert sec.get_by_label(SEL["phone_link"]).inner_text().strip() == SCRIPT_URL + "?page=phone", "wrong phone link"
     expect(btn(sec, SEL["change_pin"], exact=True)).to_be_visible()
     expect(btn(sec, SEL["reset_access"], exact=True)).to_be_visible()
     # the evening email

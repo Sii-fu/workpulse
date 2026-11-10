@@ -39,16 +39,19 @@ export const EarlierSection: React.FC<GroupProps> = ({ heading, tasks, onMoveAll
   );
 };
 
-/** A date group inside a card (Today screen): a small subheading with the count and the move button, then the rows. */
-export const EarlierBlock: React.FC<GroupProps> = ({ heading, tasks, onMoveAll, children }) => (
-  <div>
-    <div className="v2-inset flex flex-wrap items-center gap-x-3 pt-3 pb-1">
-      <h4 className="text-[length:var(--fs-small)] font-bold text-[var(--text-muted)]">{heading}</h4>
-      <span className="num text-[length:var(--fs-small)] text-[var(--text-muted)]">{plural(tasks.length)}</span>
-      <span className="ml-auto">
+/** A date group inside a card (Today screen): the same day heading as the Tasks screen, then the rows. */
+export const EarlierBlock: React.FC<GroupProps> = ({ heading, tasks, onMoveAll, children }) => {
+  const id = useId();
+  return (
+    <div role="group" aria-labelledby={`${id}-h`}>
+      <div className="v2-head v2-head-split v2-inset pt-5 !mb-0">
+        <h3 id={`${id}-h`} className="v2-head-group">
+          <span>{heading}</span>
+          <span className="v2-head-meta num">{tasks.length} still pending</span>
+        </h3>
         <MoveAll heading={heading} onClick={() => onMoveAll(tasks.map((t) => t.id))} />
-      </span>
+      </div>
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};

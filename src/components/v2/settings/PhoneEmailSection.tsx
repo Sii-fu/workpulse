@@ -347,19 +347,18 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
 
         {token && link && (
           <div className="w-full">
-            <label htmlFor={`${uid}-link`} className={LABEL}>
+            <p id={`${uid}-link-label`} className={LABEL}>
               Phone link
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id={`${uid}-link`}
-                type="text"
-                readOnly
-                value={link}
-                onFocus={(e) => e.target.select()}
-                className={`${FIELD} flex-1 font-mono`}
-              />
-              <div className="flex gap-2 shrink-0">
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              {/* Wraps instead of scrolling, so the end of the link (?page=phone) always shows; a tap selects all of it. */}
+              <p
+                aria-labelledby={`${uid}-link-label`}
+                className="v2-input flex-1 min-w-0 min-h-11 px-3 py-2.5 font-mono text-[length:var(--fs-body)] leading-snug break-all select-all"
+              >
+                {link}
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
                 <button type="button" onClick={copyLink} className={BTN}>
                   <Copy className="h-4 w-4" aria-hidden="true" />
                   <span>Copy link</span>
@@ -376,7 +375,8 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
 
         {mode === 'none' &&
           (token ? (
-            <div className="flex flex-wrap gap-x-4">
+            // -ml-1 cancels the buttons' own 4px padding, so the text lines up with the controls above.
+            <div className="flex flex-wrap gap-x-4 -ml-1">
               <button type="button" onClick={() => openMode('change')} className={TEXT_BTN}>
                 Change PIN
               </button>
@@ -429,7 +429,8 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
               />
               <span className="font-semibold">Send me an evening email</span>
             </label>
-            <div className="flex flex-wrap items-end gap-3">
+            {/* Phones: the time field and the two buttons stack at full width, like Test connection above. */}
+            <div className="w-full flex flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
               <div>
                 <label htmlFor={`${uid}-time`} className={LABEL}>
                   Around
@@ -445,17 +446,19 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
                     setEmailTime(e.target.value);
                     setEmailResult(null);
                   }}
-                  className={`${FIELD} num !w-36 disabled:opacity-50`}
+                  className={`${FIELD} num sm:!w-36 disabled:opacity-50`}
                 />
               </div>
-              <button type="button" onClick={saveEmail} disabled={emailBusy !== null} className={`${BTN} v2-btn-strong`}>
-                {emailBusy === 'save' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                <span>Save</span>
-              </button>
-              <button type="button" onClick={testEmail} disabled={emailBusy !== null} className={BTN}>
-                {emailBusy === 'test' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                <span>Send a test email</span>
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                <button type="button" onClick={saveEmail} disabled={emailBusy !== null} className={`${BTN} v2-btn-strong`}>
+                  {emailBusy === 'save' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                  <span>Save</span>
+                </button>
+                <button type="button" onClick={testEmail} disabled={emailBusy !== null} className={BTN}>
+                  {emailBusy === 'test' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                  <span>Send a test email</span>
+                </button>
+              </div>
             </div>
             <ResultLine result={emailResult} />
           </>

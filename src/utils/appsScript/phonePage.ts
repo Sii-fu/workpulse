@@ -133,8 +133,9 @@ button { background: none; border: 0; cursor: pointer; }
 .boxes i.on { border-color: var(--pitch); }
 .boxes i.on::after { content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); }
 .boxes i.next { border-color: var(--pitch); box-shadow: inset 0 0 0 1px var(--pitch); }
-.pinmsg { min-height: 36px; padding-top: 2px; }
-.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+/* Two lines are always reserved, so an error never moves the heading or the keypad. */
+.pinmsg { line-height: 18px; min-height: 38px; padding-top: 2px; }
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 24px; }
 .key { min-height: 60px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-fig); font-stretch: 72%; font-size: 28px; font-weight: 700; color: var(--ink); display: flex; align-items: center; justify-content: center; transition: background-color 90ms ease-out; touch-action: manipulation; }
 .key:active { background: var(--subtle); }
 .key:disabled { color: var(--control); cursor: default; }

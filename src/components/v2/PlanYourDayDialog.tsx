@@ -69,8 +69,8 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
       backdropClassName="p-0 sm:p-4"
       className="w-full max-w-xl max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-main)] sm:border border-[var(--border-app)] sm:rounded-[var(--radius-card)]"
     >
-      <div className="px-4 sm:px-6 pt-5 pb-3 shrink-0">
-        <h2 id={`${id}-title`} className="text-[length:var(--fs-body)] font-bold">
+      <div className="px-4 sm:px-6 pt-5 pb-5 shrink-0">
+        <h2 id={`${id}-title`} className="font-[family-name:var(--font-display)] text-[length:var(--fs-body)] font-extrabold">
           Plan your day
         </h2>
         <p className={`mt-0.5 ${MUTED}`}>{dayLabelLong(today)}. Choose what today holds; nothing moves unless you start.</p>
@@ -79,7 +79,7 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
       <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-5 flex flex-col gap-6">
         {phoneTasks.length > 0 && (
           <section aria-labelledby={`${id}-phone`}>
-            <h3 id={`${id}-phone`} className="v2-head">
+            <h3 id={`${id}-phone`} className="v2-head v2-head-label">
               <span>From your phone</span>
               <span className="v2-head-meta num">{phoneTasks.length} added</span>
             </h3>
@@ -106,7 +106,7 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
         {candidates.length > 0 && (
           <section aria-labelledby={`${id}-earlier`}>
             {/* The heading wraps on phones instead of being cut short. */}
-            <h3 id={`${id}-earlier`} className="v2-head [&>span:first-child]:!whitespace-normal">
+            <h3 id={`${id}-earlier`} className="v2-head v2-head-label [&>span:first-child]:!whitespace-normal">
               <span>Still pending from earlier days</span>
               <span className="v2-head-meta num !shrink-0">{carryCount} to carry</span>
             </h3>
@@ -149,7 +149,7 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
         )}
 
         <section>
-          <h3 className="v2-head">
+          <h3 className="v2-head v2-head-label">
             <label htmlFor={`${id}-new`}>Add today's tasks</label>
           </h3>
           <textarea
