@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadStoredData, saveLogs, rollOverTasks, CURRENT_SCHEMA_VERSION } from './storage';
+import { loadStoredData, saveLogs, saveWorkdays, rollOverTasks, CURRENT_SCHEMA_VERSION } from './storage';
 
 const log = (id: string) => ({
   id,
@@ -64,6 +64,36 @@ describe('loadStoredData', () => {
   it('a corrupt key is never replaced by seed data', () => {
     localStorage.setItem('workpulse_backlog', '{bad');
     expect(loadStoredData().backlog).toEqual([]);
+  });
+
+  it('workdays: absent key gives an empty object and no warning', () => {
+    const r = loadStoredData();
+    expect(r.workdays).toEqual({});
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('workdays: a stored valid object round-trips through saveWorkdays', () => {
+    const w = { '2026-11-10': { clockIn: '2026-11-10T03:48:00.000Z', clockOut: '2026-11-10T11:00:00.000Z' } };
+    expect(saveWorkdays(w).ok).toBe(true);
+    expect(loadStoredData().workdays).toEqual(w);
+  });
+
+  it('workdays: garbage is quarantined with a warning and does not touch other keys', () => {
+    localStorage.setItem('workpulse_logs', JSON.stringify([log('a')]));
+    localStorage.setItem('workpulse_workdays', '{bad');
+    const r = loadStoredData();
+    expect(r.workdays).toEqual({});
+    expect(r.logs.map((l) => l.id)).toEqual(['a']);
+    expect(r.warnings).toHaveLength(1);
+    const keys = corruptKeys('workpulse_workdays_corrupt_');
+    expect(keys).toHaveLength(1);
+    expect(localStorage.getItem(keys[0])).toBe('{bad');
+  });
+
+  it('workdays: valid JSON of the wrong shape is quarantined too', () => {
+    localStorage.setItem('workpulse_workdays', JSON.stringify({ '2026-11-10': { clockIn: 7 } }));
+    expect(loadStoredData().workdays).toEqual({});
+    expect(corruptKeys('workpulse_workdays_corrupt_')).toHaveLength(1);
   });
 
   it('writes the schema version', () => {

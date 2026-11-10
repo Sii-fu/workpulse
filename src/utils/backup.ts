@@ -1,6 +1,7 @@
 import { BackupData, AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seedData';
 import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isStringArray, isSettingsObject } from './storage';
+import { isWorkdays } from './workday';
 
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
 // lastBackupAt: that date belongs to this device, not to the data.
@@ -15,6 +16,7 @@ export function buildBackup(d: BackupData): string {
       projects: d.projects,
       tags: d.tags,
       settings,
+      workdays: d.workdays ?? {},
     },
     null,
     2,
@@ -42,6 +44,9 @@ export function parseBackup(text: string): ParseBackupResult {
   if (o.settings !== undefined && !isSettingsObject(o.settings)) {
     return { ok: false, error: 'Backup has invalid "settings".' };
   }
+  if (o.workdays !== undefined && !isWorkdays(o.workdays)) {
+    return { ok: false, error: 'Backup has invalid "workdays".' };
+  }
   const settings: AppSettings = {
     ...DEFAULT_SETTINGS,
     ...((o.settings as object) || {}),
@@ -49,7 +54,10 @@ export function parseBackup(text: string): ParseBackupResult {
     lastBackupAt: undefined,
     activityFolders: undefined,
   };
-  return { ok: true, data: { logs: o.logs, backlog: o.backlog, projects: o.projects, tags: o.tags, settings } };
+  return {
+    ok: true,
+    data: { logs: o.logs, backlog: o.backlog, projects: o.projects, tags: o.tags, settings, workdays: o.workdays },
+  };
 }
 
 export function downloadTextFile(filename: string, text: string, mime = 'application/json') {

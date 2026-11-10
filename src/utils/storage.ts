@@ -1,5 +1,6 @@
-import { WorkLog, BacklogTask, Project, AppSettings, BackupData } from '../types';
+import { WorkLog, BacklogTask, Project, AppSettings, BackupData, Workdays } from '../types';
 import { localDateStr } from './dates';
+import { isWorkdays } from './workday';
 import { getInitialSeedData, DEFAULT_SETTINGS } from '../data/seedData';
 
 const KEYS = {
@@ -8,6 +9,7 @@ const KEYS = {
   PROJECTS: 'workpulse_projects',
   TAGS: 'workpulse_tags',
   SETTINGS: 'workpulse_settings',
+  WORKDAYS: 'workpulse_workdays',
   ACTIVE_DRAFT: 'workpulse_active_draft',
   SCHEMA_VERSION: 'workpulse_schema_version',
 };
@@ -131,6 +133,7 @@ export function loadStoredData() {
     warnings,
   );
   const settings: AppSettings = { ...DEFAULT_SETTINGS, ...(storedSettings || {}) };
+  const workdays = readKey<Workdays>(KEYS.WORKDAYS, isWorkdays, {}, {}, warnings);
 
   // Auto-rollover: unfinished tasks whose due date has passed move to today (local date).
   const rolled = rollOverTasks(backlog, localDateStr());
@@ -150,7 +153,7 @@ export function loadStoredData() {
     console.error('Failed to write storage metadata:', e);
   }
 
-  return { logs, backlog, projects, tags, settings, warnings };
+  return { logs, backlog, projects, tags, settings, workdays, warnings };
 }
 
 function saveKey(key: string, value: unknown, what: string): SaveResult {
@@ -168,8 +171,10 @@ export const saveBacklog = (backlog: BacklogTask[]) => saveKey(KEYS.BACKLOG, bac
 export const saveProjects = (projects: Project[]) => saveKey(KEYS.PROJECTS, projects, 'projects');
 export const saveTags = (tags: string[]) => saveKey(KEYS.TAGS, tags, 'tags');
 export const saveSettings = (settings: AppSettings) => saveKey(KEYS.SETTINGS, settings, 'settings');
+export const saveWorkdays = (workdays: Workdays) => saveKey(KEYS.WORKDAYS, workdays, 'workdays');
 
-// Replaces all five data keys at once (backup import). If any write fails, every key is
+// Replaces all data keys at once (backup import). Workdays are written only when the backup has
+// them; an older backup leaves the stored workdays alone. If any write fails, every key is
 // restored to its previous value so a failed import cannot leave a half-written state.
 export function replaceAllData(d: BackupData): SaveResult {
   const entries: [string, unknown][] = [
@@ -179,6 +184,7 @@ export function replaceAllData(d: BackupData): SaveResult {
     [KEYS.TAGS, d.tags],
     [KEYS.SETTINGS, d.settings],
   ];
+  if (d.workdays !== undefined) entries.push([KEYS.WORKDAYS, d.workdays]);
   const previous = entries.map(([k]) => [k, localStorage.getItem(k)] as const);
   try {
     for (const [k, v] of entries) localStorage.setItem(k, JSON.stringify(v));

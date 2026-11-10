@@ -45,6 +45,32 @@ describe('backup', () => {
   });
 });
 
+describe('workdays in backups', () => {
+  const workdays = { '2026-11-10': { clockIn: '2026-11-10T03:48:00.000Z' } };
+  it('buildBackup includes workdays and a round trip keeps them', () => {
+    const text = buildBackup({ ...data(), workdays });
+    expect(JSON.parse(text).workdays).toEqual(workdays);
+    const r = parseBackup(text);
+    expect(r.ok && r.data.workdays).toEqual(workdays);
+  });
+  it('a backup file without workdays still imports, with workdays undefined', () => {
+    const { workdays: _omit, ...old } = JSON.parse(buildBackup(data()));
+    const r = parseBackup(JSON.stringify(old));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.data.workdays).toBeUndefined();
+  });
+  it('rejects invalid workdays', () => {
+    const r = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), workdays: [1] }));
+    expect(r.ok).toBe(false);
+  });
+  it('replaceAllData writes workdays when present and leaves them alone when undefined', () => {
+    expect(replaceAllData({ ...data(), workdays }).ok).toBe(true);
+    expect(JSON.parse(localStorage.getItem('workpulse_workdays')!)).toEqual(workdays);
+    expect(replaceAllData(data()).ok).toBe(true);
+    expect(JSON.parse(localStorage.getItem('workpulse_workdays')!)).toEqual(workdays);
+  });
+});
+
 describe('replaceAllData', () => {
   it('writes all keys', () => {
     expect(replaceAllData(data()).ok).toBe(true);

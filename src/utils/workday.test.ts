@@ -1,0 +1,103 @@
+process.env.TZ = 'Asia/Dhaka';
+import { describe, it, expect } from 'vitest';
+import { clockState, openWorkdayBefore, clockIn, clockOut, resumeWorkday, formatHm, isWorkdays } from './workday';
+
+// 09:48 in Dhaka (UTC+6) is 03:48Z.
+const IN = '2026-11-10T03:48:00.000Z';
+const inMs = Date.parse(IN);
+const leaveMs = inMs + 8 * 3600_000;
+
+describe('clockState', () => {
+  it('calm mid-day: 09:48 in, 8h, now 15:26', () => {
+    const now = Date.parse('2026-11-10T09:26:00.000Z');
+    const s = clockState({ clockIn: IN }, 8, now);
+    expect(s).toMatchObject({ phase: 'calm', workedSec: 5 * 3600 + 38 * 60, leftSec: 2 * 3600 + 22 * 60 });
+    expect(s.leaveAtMs).toBe(leaveMs);
+    expect(s.clockInMs).toBe(inMs);
+  });
+  it('near, due and over phases', () => {
+    expect(clockState({ clockIn: IN }, 8, leaveMs - 30 * 60_000).phase).toBe('near');
+    expect(clockState({ clockIn: IN }, 8, leaveMs - 10 * 60_000).phase).toBe('due');
+    const over = clockState({ clockIn: IN }, 8, leaveMs + 12 * 60_000);
+    expect(over.phase).toBe('over');
+    expect(over.overSec).toBe(720);
+    expect(over.leftSec).toBeLessThanOrEqual(0);
+  });
+  it('phase boundaries', () => {
+    expect(clockState({ clockIn: IN }, 8, leaveMs - 3601_000).phase).toBe('calm');
+    expect(clockState({ clockIn: IN }, 8, leaveMs - 3600_000).phase).toBe('near');
+    expect(clockState({ clockIn: IN }, 8, leaveMs - 900_000).phase).toBe('due');
+    expect(clockState({ clockIn: IN }, 8, leaveMs).phase).toBe('over');
+  });
+  it('out when clockOut is set', () => {
+    const outIso = '2026-11-10T11:00:00.000Z';
+    const s = clockState({ clockIn: IN, clockOut: outIso }, 8, Date.parse('2026-11-10T20:00:00.000Z'));
+    expect(s.phase).toBe('out');
+    expect(s.workedSec).toBe((Date.parse(outIso) - inMs) / 1000);
+  });
+  it('off with no record', () => {
+    const s = clockState(undefined, 8, Date.now());
+    expect(s).toMatchObject({ phase: 'off', workedSec: 0, leaveAtMs: null, clockInMs: null });
+  });
+});
+
+describe('openWorkdayBefore', () => {
+  it('returns an earlier open record', () => {
+    const rec = { clockIn: '2026-11-09T03:00:00.000Z' };
+    expect(openWorkdayBefore({ '2026-11-09': rec }, '2026-11-10')).toEqual({ date: '2026-11-09', rec });
+  });
+  it('null when clocked out, or when only today is open', () => {
+    expect(openWorkdayBefore({ '2026-11-09': { clockIn: 'a', clockOut: 'b' } }, '2026-11-10')).toBeNull();
+    expect(openWorkdayBefore({ '2026-11-10': { clockIn: 'a' } }, '2026-11-10')).toBeNull();
+  });
+  it('returns the latest of several open days', () => {
+    const w = { '2026-11-07': { clockIn: 'a' }, '2026-11-09': { clockIn: 'b' } };
+    expect(openWorkdayBefore(w, '2026-11-10')?.date).toBe('2026-11-09');
+  });
+});
+
+describe('clockIn / clockOut / resumeWorkday', () => {
+  it('keys by the local date of the instant', () => {
+    expect(Object.keys(clockIn({}, '2026-11-09T19:30:00Z'))).toEqual(['2026-11-10']);
+  });
+  it('a second clockIn the same day keeps the first', () => {
+    const first = clockIn({}, '2026-11-10T03:48:00.000Z');
+    const second = clockIn(first, '2026-11-10T07:00:00.000Z');
+    expect(second['2026-11-10'].clockIn).toBe('2026-11-10T03:48:00.000Z');
+  });
+  it('clockOut sets and resumeWorkday removes clockOut, without mutating', () => {
+    const w = clockIn({}, IN);
+    const out = clockOut(w, '2026-11-10', '2026-11-10T11:00:00.000Z');
+    expect(out['2026-11-10'].clockOut).toBe('2026-11-10T11:00:00.000Z');
+    expect(w['2026-11-10'].clockOut).toBeUndefined();
+    const back = resumeWorkday(out, '2026-11-10');
+    expect('clockOut' in back['2026-11-10']).toBe(false);
+    expect(back['2026-11-10'].clockIn).toBe(IN);
+  });
+  it('clockOut and resumeWorkday on a missing date change nothing', () => {
+    expect(clockOut({}, '2026-11-10', IN)).toEqual({});
+    expect(resumeWorkday({}, '2026-11-10')).toEqual({});
+  });
+});
+
+describe('formatHm', () => {
+  it('formats h:mm', () => {
+    expect(formatHm(20280)).toBe('5:38');
+    expect(formatHm(-5)).toBe('0:00');
+    expect(formatHm(3600 * 12 + 60 * 5)).toBe('12:05');
+  });
+});
+
+describe('isWorkdays', () => {
+  it('accepts valid and rejects garbage', () => {
+    expect(isWorkdays({})).toBe(true);
+    expect(isWorkdays({ '2026-11-10': { clockIn: IN } })).toBe(true);
+    expect(isWorkdays({ '2026-11-10': { clockIn: IN, clockOut: IN } })).toBe(true);
+    expect(isWorkdays([])).toBe(false);
+    expect(isWorkdays(null)).toBe(false);
+    expect(isWorkdays({ x: { clockIn: IN } })).toBe(false);
+    expect(isWorkdays({ '2026-11-10': {} })).toBe(false);
+    expect(isWorkdays({ '2026-11-10': { clockIn: 5 } })).toBe(false);
+    expect(isWorkdays({ '2026-11-10': { clockIn: IN, clockOut: 5 } })).toBe(false);
+  });
+});

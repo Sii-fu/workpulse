@@ -92,7 +92,18 @@ export interface AppSettings {
   activityUseGit?: boolean;
   // Which AI groups the activity into suggestions. Absent = Claude Code.
   activityAi?: ActivityAi;
+  // Length of the workday in hours, for the office clock. Absent = 8.
+  workdayHours?: number;
 }
+
+// One day at the office. ISO timestamps (UTC).
+export interface WorkdayRecord {
+  clockIn: string;
+  clockOut?: string;
+}
+
+// Keyed by the local YYYY-MM-DD of clockIn.
+export type Workdays = Record<string, WorkdayRecord>;
 
 export interface ToastMessage {
   id: string;
@@ -109,4 +120,6 @@ export interface BackupData {
   projects: Project[];
   tags: string[];
   settings: AppSettings;
+  // Absent in backups made before the office clock existed.
+  workdays?: Workdays;
 }

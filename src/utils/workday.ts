@@ -1,0 +1,85 @@
+import { WorkdayRecord, Workdays } from '../types';
+import { localDateOfIso } from './dates';
+
+export const DEFAULT_WORKDAY_HOURS = 8;
+
+export type ClockPhase = 'off' | 'calm' | 'near' | 'due' | 'over' | 'out';
+
+export interface ClockState {
+  phase: ClockPhase;
+  workedSec: number;
+  leftSec: number;
+  overSec: number;
+  leaveAtMs: number | null;
+  clockInMs: number | null;
+}
+
+// Where the office clock stands. `off` = no record, `out` = clocked out. Otherwise the phase
+// follows the time left to the leave time: calm > 1 h, near > 15 min, due > 0, then over.
+export function clockState(rec: WorkdayRecord | undefined, hours: number, nowMs: number): ClockState {
+  if (!rec) return { phase: 'off', workedSec: 0, leftSec: 0, overSec: 0, leaveAtMs: null, clockInMs: null };
+  const clockInMs = Date.parse(rec.clockIn);
+  const leaveAtMs = clockInMs + hours * 3600_000;
+  if (rec.clockOut) {
+    const workedSec = Math.max(0, Math.floor((Date.parse(rec.clockOut) - clockInMs) / 1000));
+    return { phase: 'out', workedSec, leftSec: 0, overSec: 0, leaveAtMs, clockInMs };
+  }
+  const workedSec = Math.max(0, Math.floor((nowMs - clockInMs) / 1000));
+  const leftSec = hours * 3600 - workedSec;
+  const overSec = Math.max(0, -leftSec);
+  const phase: ClockPhase = leftSec > 3600 ? 'calm' : leftSec > 900 ? 'near' : leftSec > 0 ? 'due' : 'over';
+  return { phase, workedSec, leftSec, overSec, leaveAtMs, clockInMs };
+}
+
+// The latest date before `today` that was clocked in but never clocked out (a forgotten clock-out).
+export function openWorkdayBefore(
+  workdays: Workdays,
+  today: string,
+): { date: string; rec: WorkdayRecord } | null {
+  const dates = Object.keys(workdays)
+    .filter((d) => d < today && !workdays[d].clockOut)
+    .sort();
+  const date = dates[dates.length - 1];
+  return date ? { date, rec: workdays[date] } : null;
+}
+
+// Starts the day for the local date of `atIso`. An existing record for that date is kept as it is.
+export function clockIn(workdays: Workdays, atIso: string): Workdays {
+  const date = localDateOfIso(atIso);
+  if (workdays[date]) return workdays;
+  return { ...workdays, [date]: { clockIn: atIso } };
+}
+
+export function clockOut(workdays: Workdays, date: string, atIso: string): Workdays {
+  const rec = workdays[date];
+  if (!rec) return workdays;
+  return { ...workdays, [date]: { ...rec, clockOut: atIso } };
+}
+
+// Undo a clock-out: the day is open again.
+export function resumeWorkday(workdays: Workdays, date: string): Workdays {
+  const rec = workdays[date];
+  if (!rec) return workdays;
+  const { clockOut: _omit, ...open } = rec;
+  return { ...workdays, [date]: open };
+}
+
+// 20280 -> "5:38". Negative counts as 0.
+export function formatHm(sec: number): string {
+  const total = Math.max(0, Math.floor(sec));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isWorkdays(v: unknown): v is Workdays {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
+  return Object.entries(v as Record<string, unknown>).every(([date, rec]) => {
+    if (!DATE_KEY.test(date)) return false;
+    if (typeof rec !== 'object' || rec === null || Array.isArray(rec)) return false;
+    const r = rec as Record<string, unknown>;
+    return typeof r.clockIn === 'string' && (r.clockOut === undefined || typeof r.clockOut === 'string');
+  });
+}
