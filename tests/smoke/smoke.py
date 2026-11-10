@@ -59,7 +59,6 @@ SEL = {
     "plan_skip": "Skip",
     "plan_start": "Start the day",                        # footer button of Plan your day
     "plan_new_tasks": "Add today's tasks",                # textarea, one task per line
-    "move_all": re.compile(r"^Move all to today"),        # per date group; the sr-only suffix adds " from <date>"
     "menu_move_today": "Move to today",                   # row menu
     # Today
     "task_quick_add": "Add a task for today",             # textbox; Enter = planned
@@ -188,16 +187,22 @@ PHONE_TOKEN = "a" * 64
 
 class SheetGuard:
     """The Google Sheet never gets a real request. The page only reaches the Sheet through the local
-    /api/sheets/proxy route, so that route is stubbed (by default with a harmless failure, by a check with its
-    own `ScriptStub`), and any request straight to a script.google.com host is aborted and fails the run.
-    `check()` fails the run when a proxy request was not answered by a stub, or a real host was asked."""
+    /api/sheets/proxy route, so that route is stubbed (a check installs its own `ScriptStub`), and any request
+    straight to a script.google.com host is aborted and fails the run. A proxy request nobody stubbed gets a harmless
+    failure from the default handler, which counts it in `defaulted` (never in `stubbed`).
+    `check()` fails the run when a real host was asked, a proxy request fell through to the default handler, or a
+    stub recorded a request it did not expect (`mismatches`). `checks` counts how often it ran."""
 
     def __init__(self, ctx):
-        self.seen, self.stubbed, self.real = 0, 0, []
+        self.seen, self.stubbed, self.defaulted, self.checks = 0, 0, 0, 0
+        self.real, self.mismatches = [], []
         ctx.on("request", self._on_request)
         ctx.route(REAL_SCRIPT_HOST, lambda route: route.abort())
-        ctx.route("**/api/sheets/proxy", self.stub(
-            lambda r: r.fulfill(json={"status": "error", "message": "No Sheet in the smoke test"})))
+        ctx.route("**/api/sheets/proxy", self._default)
+
+    def _default(self, route):
+        self.defaulted += 1
+        route.fulfill(json={"status": "error", "message": "No Sheet in the smoke test"})
 
     def _on_request(self, req):
         if REAL_SCRIPT_HOST.search(req.url):
@@ -213,9 +218,12 @@ class SheetGuard:
         return run
 
     def check(self):
+        self.checks += 1
         assert not self.real, f"a request reached a real Google script host: {self.real[:2]}"
-        assert self.seen == self.stubbed, \
-            f"{self.seen - self.stubbed} Sheet proxy request(s) were not answered by a stub (seen {self.seen}, stubbed {self.stubbed})"
+        assert self.defaulted == 0, (
+            f"{self.defaulted} Sheet proxy request(s) were not answered by a stub (seen {self.seen}, stubbed {self.stubbed})")
+        assert not self.mismatches, f"the Sheet stub saw an unexpected request: {self.mismatches[:2]}"
+        assert self.seen == self.stubbed, f"Sheet proxy requests and stubbed answers differ (seen {self.seen}, stubbed {self.stubbed})"
 
 
 class ScriptStub:
@@ -225,6 +233,7 @@ class ScriptStub:
 
     def __init__(self, s, version=3, inbox=None, serve_again=False):
         self.version, self.serve_again = version, serve_again
+        self.guard = s.sheets
         self.inbox = list(inbox or [])
         self.calls, self.taken = [], set()
         s.page.route("**/api/sheets/proxy", s.sheets.stub(self.handle))
@@ -237,7 +246,11 @@ class ScriptStub:
 
     def handle(self, route):
         body = json.loads(route.request.post_data or "{}")
-        assert body.get("scriptUrl") == SCRIPT_URL, f"unexpected script URL {body.get('scriptUrl')}"
+        if body.get("scriptUrl") != SCRIPT_URL:
+            # An assert here would only break the route handler; record it so the run fails instead.
+            self.guard.mismatches.append(f"unexpected script URL {body.get('scriptUrl')}")
+            route.fulfill(json={"status": "error", "message": "Unexpected script URL in the smoke stub"})
+            return
         action, p = body.get("action"), body.get("payload") or {}
         self.calls.append((action, p))
         if action == "ping":
@@ -1331,15 +1344,33 @@ def phone_old_script(s):
 @check("sheet_safety_net")
 def sheet_safety_net(s):
     """The guard itself: a request straight to a script.google.com host is aborted and recorded, and fails the run."""
+    def expect_failure(text):
+        try:
+            s.sheets.check()
+        except AssertionError as e:
+            assert text in str(e), f"the safety net failed with the wrong message: {e}"
+        else:
+            raise AssertionError(f"the safety net did not fail the run ({text})")
+
     reached = s.page.evaluate("() => fetch('https://script.google.com/macros/s/AKfycbNOPE/exec').then(() => true, () => false)")
     assert reached is False, "a request to a real script host was not blocked"
     assert s.sheets.real, "the safety net did not record the request"
-    try:
-        s.sheets.check()
-    except AssertionError:
-        s.sheets.real.clear()          # expected: the net works; clear it so the run does not fail
-    else:
-        raise AssertionError("the safety net did not fail the run")
+    expect_failure("real Google script host")
+    s.sheets.real.clear()              # expected: the net works; clear it so the run does not fail
+
+    # A proxy request nobody stubbed is answered by the default handler, which must not count as stubbed.
+    answer = s.page.evaluate("() => fetch('/api/sheets/proxy', {method: 'POST', headers: {'Content-Type': 'application/json'},"
+                             " body: JSON.stringify({scriptUrl: 'x', action: 'ping'})}).then(r => r.json())")
+    assert answer.get("status") == "error", f"the default handler answered {answer}"
+    assert s.sheets.defaulted == 1 and s.sheets.stubbed == 0, "the default handler counted as a stub"
+    expect_failure("not answered by a stub")
+    s.sheets.defaulted, s.sheets.seen = 0, 0
+
+    # A stub that saw something it did not expect fails the run too.
+    s.sheets.mismatches.append("test mismatch")
+    expect_failure("unexpected request")
+    s.sheets.mismatches.clear()
+    s.sheets.check()                   # clean again: passes
 
 
 # -- phones ----------------------------------------------------------------------------------------
@@ -1397,6 +1428,7 @@ def phone_pass(s):
             assert not errors, f"{theme}: browser errors {errors[:3]}"
             guard.check()
             sheet_guard.check()
+            assert sheet_guard.checks == 1, f"{theme}: the phone pass did not run the Sheet guard"
         finally:
             ctx.close()
 
@@ -1455,6 +1487,7 @@ def main():
                 session.page.wait_for_timeout(100)  # let a last request reach its route handler
                 session.ai.check()
                 session.sheets.check()
+                assert session.sheets.checks >= 1, "the Sheet guard was not run"
             except Exception as e:  # AssertionError, playwright timeouts, anything
                 err = e
                 if session and args.shots:

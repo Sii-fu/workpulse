@@ -9,7 +9,7 @@ You need the Google Sheet you already sync logs to, with its script. A phone and
 
 ## One-time setup
 
-1. Open WorkPulse, then **Settings > Google Sheet**. Press **Copy script**.
+1. Open WorkPulse, then **Settings > Google Sheet**. Open **Set up the sheet: Apps Script code** and press **Copy code**.
 2. Open the Sheet. Choose **Extensions > Apps Script**. Delete the old code, paste the new script and save.
 3. Update the deployment you already have, so the link stays the same:
    **Deploy > Manage deployments**, press the pencil on your existing deployment, set **Version** to
@@ -20,7 +20,7 @@ You need the Google Sheet you already sync logs to, with its script. A phone and
 5. Back in WorkPulse, **Settings > Phone & evening email**. The section should say the script is version 3.
    If it says an older version, the paste or the new version in step 3 did not take; repeat them.
 6. Press **Set PIN** and type a 4-digit PIN twice. WorkPulse keeps only a token for this computer, never the PIN.
-7. Choose the time for the evening email, tick **Send me an evening email**, press **Save**, then
+7. Choose the time for the evening email (from 00:30 to 23:29), tick **Send me an evening email**, press **Save**, then
    **Send a test email**.
 8. Open the **phone link** shown there on your phone (it is your Sheet's `/exec` address with `?page=phone`),
    type the PIN once, then add the page to the home screen (Share > Add to Home Screen on iPhone; the menu >
@@ -28,10 +28,11 @@ You need the Google Sheet you already sync logs to, with its script. A phone and
 
 Notes:
 
+- **Set the PIN straight after deploying.** If no PIN was ever set, anyone who has the link can set the first one.
 - Use this on **one computer only**. If a second computer also sends data, the section warns about it.
 - Five wrong PINs in a row lock the phone page for 15 minutes (each further wrong PIN locks it again).
   **Change PIN** in Settings, which this computer can do without the old PIN, sets a new PIN and clears the lock.
-  **Reset phone access** is for a computer that has lost its link: it asks for the current PIN and a new one.
+  **Reset phone access** is for a computer that has lost its access: it asks for the current PIN and a new one.
 - Updating WorkPulse's script in future (a new version of the app may bring a new script): paste it again and update
   the same deployment (step 3). The change only takes effect after that new version is deployed.
 - The Sheet gains tabs (`WorkPulse_Tasks`, `WorkPulse_Days`, `WorkPulse_Recent`, `WorkPulse_Inbox`,
@@ -58,7 +59,7 @@ The automated tests use fakes for Google. Do these once against the real Sheet, 
 9. **A task titled `=1+1`.** Add a phone task with exactly that title. In the Sheet (`WorkPulse_Inbox` and then
    `WorkPulse_Tasks`) and in WorkPulse it stays the text `=1+1`; it is never calculated.
 10. **Times round-trip.** The Time cells of `WorkPulse_Logs` in the Asia/Dhaka zone show up with the right time in
-    the phone page's "Earlier" logs (Sheets can store them as dates).
+    the phone page's logs under **Show earlier days** (Sheets can store them as dates).
 11. **Time zone check.** In the script editor, run `Utilities.formatDate(new Date(), 'Not/AZone', 'yyyy-MM-dd')`
     in a scratch function: it should throw. The script relies on that to reject a bad time zone.
 12. **Google's script runner on the phone.** `google.script.run` works from the phone page that opens without a
