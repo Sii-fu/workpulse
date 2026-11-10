@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WorkPulse phone mockup</title>
+<style>
+:root{--pitch:#0f3d2e;--chalk:#f4f1e8;--paper:#fbfaf5;--ink:#1d2b24;--mute:#5d6b63;--line:#dcd8cb;--gold:#f2b705;--p1:#2e86de;--p2:#e07a2f;--p3:#8e5bd6;--p4:#2aa876}
+*{box-sizing:border-box;margin:0}
+body{background:#d9d5c7;font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);padding:24px;display:flex;gap:28px;flex-wrap:wrap;justify-content:center}
+.cap{font-size:13px;color:#444;margin:0 0 8px 4px;font-weight:600}
+.phone{width:390px;height:844px;background:var(--chalk);border-radius:28px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #1b1b1b;display:flex;flex-direction:column}
+.band{background:var(--pitch);color:var(--chalk);padding:14px 18px 12px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:800;letter-spacing:.02em}
+.lock{font-size:13px;color:#f4f1e8b3;text-decoration:underline}
+.nums{display:flex;gap:28px;margin-top:10px}
+.lab{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#f4f1e8a6;font-weight:600}
+.big{font-size:44px;line-height:1;font-stretch:72%;font-weight:700;font-variant-numeric:tabular-nums}
+.gold{color:var(--gold)}
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--paper)}
+.tab{flex:1;text-align:center;padding:13px 0;font-weight:600;color:var(--mute);font-size:15px}
+.tab.on{color:var(--ink);box-shadow:inset 0 -3px 0 var(--pitch)}
+.tab b{color:var(--pitch);font-stretch:72%}
+.body{padding:14px 16px;overflow:hidden;flex:1}
+h3{font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:14px 0 8px;display:flex;justify-content:space-between}
+h3:first-child{margin-top:0}
+h3 span{font-weight:500;letter-spacing:0;text-transform:none;color:var(--mute)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:8px}
+.t{display:grid;grid-template-columns:6px 1fr;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.t:last-child{border:0}
+.rib{width:6px;border-radius:3px}
+.ti{font-weight:600;font-size:15px;line-height:1.3}
+.pr{font-size:13px;color:var(--mute);margin-top:3px}
+.wait{color:#7a5a00;font-weight:600}
+.asof{font-size:13px;color:var(--mute);text-align:center;padding:8px 0}
+.lg{display:grid;grid-template-columns:46px 6px 1fr 40px;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-size:15px;align-items:start}
+.lg .n{font-stretch:72%;font-weight:700;text-align:right}
+.lg .tm{color:var(--mute);font-size:13px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.inp{border:1px solid #83806f;border-radius:6px;background:#fff;padding:13px 12px;font-size:16px;color:var(--mute)}
+.seg{display:flex;border:1px solid #83806f;border-radius:6px;overflow:hidden}
+.seg div{flex:1;text-align:center;padding:13px 0;font-weight:600;background:#fff}
+.seg .on{background:var(--pitch);color:var(--chalk)}
+.btn{background:var(--gold);color:#1d1a0a;font-weight:700;text-align:center;padding:15px;border-radius:6px;font-size:16px}
+.pin{margin:auto;width:100%;padding:0 28px}
+.pin h2{font-size:22px;margin-bottom:6px}
+.dots{display:flex;gap:10px;margin:18px 0}
+.dots i{width:46px;height:54px;border:1px solid #83806f;border-radius:6px;background:#fff;display:block;text-align:center;line-height:54px;font-size:24px;font-style:normal}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.keys div{background:var(--paper);border:1px solid var(--line);border-radius:8px;text-align:center;padding:15px 0;font-size:20px;font-weight:600}
+.small{font-size:13px;color:var(--mute)}
+</style></head><body>
+
+<div><p class="cap">1 · Tasks (opened with PIN)</p>
+<div class="phone">
+ <div class="band"><div class="row"><span class="brand">WorkPulse</span><span class="lock">Lock</span></div>
+  <div class="nums"><div><div class="lab">Worked today</div><div class="big gold">3:12</div></div><div><div class="lab">In at</div><div class="big">09:48</div></div></div></div>
+ <div class="tabs"><div class="tab on">Tasks <b>7</b></div><div class="tab">Log</div><div class="tab">Add</div></div>
+ <div class="body">
+  <h3>Today <span>4 tasks</span></h3>
+  <div class="card">
+   <div class="t"><div class="rib" style="background:var(--p4)"></div><div><div class="ti">Review leave-balance migration with Rafiq</div><div class="pr">HR Dashboard · <span class="wait">waiting for your PC</span></div></div></div>
+   <div class="t"><div class="rib" style="background:var(--p4)"></div><div><div class="ti">Send attendance report to section head</div><div class="pr">HR Dashboard · <span class="wait">waiting for your PC</span></div></div></div>
+   <div class="t"><div class="rib" style="background:var(--p1)"></div><div><div class="ti">Fix date filter on attendance report</div><div class="pr">BGB Portal · running on PC</div></div></div>
+   <div class="t"><div class="rib" style="background:var(--p3)"></div><div><div class="ti">Monthly progress meeting</div><div class="pr">Meetings · planned</div></div></div>
+  </div>
+  <h3>Yesterday <span>2 tasks</span></h3>
+  <div class="card">
+   <div class="t"><div class="rib" style="background:var(--p2)"></div><div><div class="ti">Write migration for leave balance table</div><div class="pr">HR Dashboard · 1:10 tracked</div></div></div>
+   <div class="t"><div class="rib" style="background:var(--p1)"></div><div><div class="ti">Review pull request #212</div><div class="pr">BGB Portal · planned</div></div></div>
+  </div>
+  <h3>Mon 9 Nov <span>1 task</span></h3>
+  <div class="card"><div class="t"><div class="rib" style="background:var(--p1)"></div><div><div class="ti">Draft RFC for search indexing</div><div class="pr">BGB Portal · planned</div></div></div></div>
+  <div class="asof">Data from your PC as of 09:55 · Refresh</div>
+ </div>
+</div></div>
+
+<div><p class="cap">2 · Log</p>
+<div class="phone">
+ <div class="band"><div class="row"><span class="brand">WorkPulse</span><span class="lock">Lock</span></div>
+  <div class="nums"><div><div class="lab">Worked today</div><div class="big gold">3:12</div></div><div><div class="lab">In at</div><div class="big">09:48</div></div></div></div>
+ <div class="tabs"><div class="tab">Tasks <b>7</b></div><div class="tab on">Log</div><div class="tab">Add</div></div>
+ <div class="body">
+  <h3>Today <span>2 logs · 1:26</span></h3>
+  <div class="card">
+   <div class="lg"><span class="tm">11:58</span><div class="rib" style="background:var(--p1)"></div><span>Reviewed search PR #212, requested index change</span><span class="n">0:34</span></div>
+   <div class="lg"><span class="tm">10:40</span><div class="rib" style="background:var(--p2)"></div><span>Leave balance: schema review with Rafiq</span><span class="n">0:52</span></div>
+  </div>
+  <h3>Yesterday <span>4 logs · 7:48</span></h3>
+  <div class="card">
+   <div class="lg"><span class="tm">17:30</span><div class="rib" style="background:var(--p4)"></div><span>Deployed WorkPulse suggestions build</span><span class="n">0:52</span></div>
+   <div class="lg"><span class="tm">15:05</span><div class="rib" style="background:var(--p1)"></div><span>Built attendance filters and fixed the timezone bug in date ranges</span><span class="n">2:10</span></div>
+   <div class="lg"><span class="tm">12:20</span><div class="rib" style="background:var(--p3)"></div><span>Progress meeting with section head</span><span class="n">1:00</span></div>
+   <div class="lg"><span class="tm">10:10</span><div class="rib" style="background:var(--p2)"></div><span>Wrote leave balance migration</span><span class="n">3:46</span></div>
+  </div>
+ </div>
+</div></div>
+
+<div><p class="cap">3 · Add a task</p>
+<div class="phone">
+ <div class="band"><div class="row"><span class="brand">WorkPulse</span><span class="lock">Lock</span></div>
+  <div class="nums"><div><div class="lab">Worked today</div><div class="big gold">3:12</div></div><div><div class="lab">In at</div><div class="big">09:48</div></div></div></div>
+ <div class="tabs"><div class="tab">Tasks <b>7</b></div><div class="tab">Log</div><div class="tab on">Add</div></div>
+ <div class="body">
+  <div class="field"><label>Task</label><div class="inp">What needs doing?</div></div>
+  <div class="field"><label>Project</label><div class="inp" style="color:#1d2b24">HR Dashboard ▾</div></div>
+  <div class="field"><label>Day</label><div class="seg"><div class="on">Today</div><div>Tomorrow</div></div></div>
+  <div class="btn">Add task</div>
+  <p class="small" style="margin-top:14px">It shows under Tasks right away and is added to your PC the next time the app is open.</p>
+ </div>
+</div></div>
+
+<div><p class="cap">4 · PIN screen</p>
+<div class="phone">
+ <div class="band"><div class="row"><span class="brand">WorkPulse</span></div></div>
+ <div class="body" style="display:flex">
+  <div class="pin"><h2>Enter your PIN</h2><p class="small">Asked once on this phone.</p>
+   <div class="dots"><i>•</i><i>•</i><i>•</i><i></i></div>
+   <div class="keys"><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div></div><div>0</div><div>⌫</div></div>
+   <p class="small" style="margin-top:16px;color:#a1281f">Wrong PIN. 3 tries left.</p></div>
+ </div>
+</div></div>
+</body></html>
