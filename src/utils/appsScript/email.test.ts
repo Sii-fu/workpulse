@@ -48,11 +48,13 @@ function state(over: Record<string, unknown> = {}) {
   };
 }
 
-// A script with a PIN, a push at 17:52 on Tue 10 Nov and the clock at 18:00 the same day.
-function evening(over: Record<string, unknown> = {}): { h: ScriptHarness; token: string } {
-  const h = createScriptHarness({ now: at(10, 17, 52) });
+// A script with a PIN, the email switched on (unless withEmail is false), a push at 17:52 (or pushAt) on
+// Tue 10 Nov and the clock at 18:00 the same day.
+function evening(over: Record<string, unknown> = {}, withEmail = true, pushAt: Date = at(10, 17, 52)): { h: ScriptHarness; token: string } {
+  const h = createScriptHarness({ now: pushAt });
   const token = h.call('setPin', { pin: '1234' }).token as string;
   expect(h.call('pushState', { token, ...state(over) }).status).toBe('ok');
+  if (withEmail) expect(h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA }).status).toBe('ok');
   h.setNow(at(10, 18, 0));
   return { h, token };
 }
@@ -140,6 +142,7 @@ describe('evening email: content', () => {
     const h = createScriptHarness({ now: at(9, 17, 52) });
     const token = h.call('setPin', { pin: '1234' }).token as string;
     h.call('pushState', { token, ...state({ today: '2026-11-09' }) });
+    h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA });
     h.setNow(at(10, 18, 0));
     h.run('sendEveningEmail');
     const html = h.mails[0].htmlBody;
@@ -152,12 +155,28 @@ describe('evening email: content', () => {
     const open = evening({ workdays: { '2026-11-10': { clockIn: at(10, 9, 48).toISOString() } } });
     open.h.run('sendEveningEmail');
     expect(open.h.mails[0].htmlBody).toContain('still clocked in');
-    expect(open.h.mails[0].subject).toContain('8:12 worked');
+    // The PC last sent at 17:52, so the open-ended time stops there, not at the 18:00 send.
+    expect(open.h.mails[0].subject).toContain('8:04 worked');
 
     const none = evening({ workdays: {} });
     none.h.run('sendEveningEmail');
     expect(none.h.mails[0].htmlBody).toContain('not clocked in');
     expect(none.h.mails[0].subject).toBe('WorkPulse · Tue 10 Nov · 8:04 worked · 5 logs');
+  });
+
+  it('does not count time after the last data from the PC while still clocked in', () => {
+    const stopped = evening({ workdays: { '2026-11-10': { clockIn: at(10, 9, 48).toISOString() } } }, true, at(10, 14, 0));
+    stopped.h.run('sendEveningEmail');
+    expect(stopped.h.mails[0].subject).toContain('4:12 worked');
+    expect(stopped.h.mails[0].htmlBody).toContain('Data from your PC as of 14:00.');
+    expect(stopped.h.mails[0].htmlBody).not.toContain('8:12');
+  });
+
+  it('uses the logged time when still clocked in and the PC sent nothing today', () => {
+    const { h } = evening({ workdays: { '2026-11-10': { clockIn: at(10, 9, 48).toISOString() } } }, true, at(9, 17, 0));
+    h.run('sendEveningEmail');
+    expect(h.mails[0].subject).toBe('WorkPulse \u00b7 Tue 10 Nov \u00b7 8:04 worked \u00b7 5 logs');
+    expect(h.mails[0].htmlBody).toContain('No data from your PC today.');
   });
 
   it('warns about phone tasks the PC has not taken yet', () => {
@@ -169,13 +188,15 @@ describe('evening email: content', () => {
   });
 
   it('buildEveningEmail is pure: it sends nothing and flags an empty day as skip', () => {
-    const h = createScriptHarness({ now: at(10, 18, 0) });
-    const base = { date: '2026-11-10', tz: DHAKA, tasks: [], logs: [], workday: null, workdayHours: 8, pushedAt: '', pendingPhoneCount: 0 };
+    const h = createScriptHarness({ now: at(11, 12, 0) });
+    const base = { date: '2026-11-10', tz: DHAKA, now: at(10, 18, 0).toISOString(), tasks: [], logs: [], workday: null, workdayHours: 8, pushedAt: '', pendingPhoneCount: 0 };
     const empty = h.run('buildEveningEmail', base);
     expect(empty.skip).toBe(true);
     const full = h.run('buildEveningEmail', { ...base, logs: MOCKUP_LOGS });
     expect(full.skip).toBe(false);
     expect(full.subject).toContain('8:04 worked · 5 logs');
+    // It uses the moment it is given (18:00 on the 10th), not the script clock (12:00 on the 11th).
+    expect(full.html).toContain('Sent by your WorkPulse script at 18:00 (Asia/Dhaka)');
     expect(h.mails).toHaveLength(0);
   });
 });
@@ -222,11 +243,24 @@ describe('evening email: when it is sent', () => {
     const h = createScriptHarness({ spreadsheetTz: 'America/New_York', now: zonedTime(DHAKA, 2026, 11, 10, 17, 52) });
     const token = h.call('setPin', { pin: '1234' }).token as string;
     h.call('pushState', { token, ...state() });
+    h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA });
     // 02:00 on Wed 11 Nov in Dhaka is still Tue 10 Nov in New York.
     h.setNow(zonedTime(DHAKA, 2026, 11, 11, 2, 0));
     h.run('sendEveningEmail');
     expect(h.mails).toHaveLength(0); // the user's date is Wed 11 Nov: no log, no clock-in
     expect(h.props.lastEmailDate).toBeUndefined();
+
+    // With data for the user's date (Wed 11 Nov), the same kind of moment sends, although the Sheet's zone is still on Tue 10 Nov.
+    h.setNow(zonedTime(DHAKA, 2026, 11, 11, 1, 0));
+    h.call('pushState', {
+      token,
+      ...state({ today: '2026-11-11', logs: [log('l9', 'Meetings', 'p3', 'Night deploy', 45, '01:00', '2026-11-11')], workdays: {} }),
+    });
+    h.setNow(zonedTime(DHAKA, 2026, 11, 11, 2, 0));
+    h.run('sendEveningEmail');
+    expect(h.mails).toHaveLength(1);
+    expect(h.mails[0].subject).toBe('WorkPulse \u00b7 Wed 11 Nov \u00b7 0:45 worked \u00b7 1 log');
+    expect(h.props.lastEmailDate).toBe('2026-11-11');
   });
 
   it('records the date only after the mail was sent', () => {
@@ -257,6 +291,26 @@ describe('evening email: when it is sent', () => {
   });
 });
 
+describe('evening email: switched on or off', () => {
+  it('sends nothing before setEmail, sends once it is enabled, and nothing again after it is disabled', () => {
+    const { h, token } = evening({}, false);
+    expect(h.run('sendEveningEmail')).toEqual({ sent: false });
+    expect(h.mails).toHaveLength(0);
+    expect(h.props.lastEmailDate).toBeUndefined();
+
+    h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA });
+    expect(h.run('sendEveningEmail')).toEqual({ sent: true });
+    expect(h.mails).toHaveLength(1);
+
+    h.setNow(at(11, 18, 0));
+    h.call('pushState', { token, ...state({ today: '2026-11-11', logs: [log('l9', 'Meetings', 'p3', 'Standup', 15, '09:30', '2026-11-11')], workdays: {} }) });
+    h.call('setEmail', { token, enabled: false });
+    expect(h.run('sendEveningEmail')).toEqual({ sent: false });
+    expect(h.mails).toHaveLength(1);
+    expect(h.props.lastEmailDate).toBe('2026-11-10');
+  });
+});
+
 describe('evening email: setEmail and sendTestEmail', () => {
   it('setEmail enabled leaves exactly one trigger, however often it is called', () => {
     const { h, token } = evening();
@@ -265,6 +319,26 @@ describe('evening email: setEmail and sendTestEmail', () => {
     h.call('setEmail', { token, enabled: true, hour: 19, minute: 30, tz: DHAKA });
     expect(h.triggers).toEqual([expect.objectContaining({ fn: 'sendEveningEmail', hour: 19, minute: 30, tz: DHAKA })]);
     expect(JSON.parse(h.props.email)).toEqual({ enabled: true, hour: 19, minute: 30, tz: DHAKA });
+    expect(h.lockHeld).toBe(false);
+  });
+
+  it('a failing trigger create keeps the old trigger and the saved settings', () => {
+    const { h, token } = evening({}, false);
+    h.breakTriggers(true);
+    // First time: nothing was set up, nothing is claimed.
+    expect(h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA })).toMatchObject({ status: 'error', code: 'error' });
+    expect(h.triggers).toHaveLength(0);
+    expect(h.props.email).toBeUndefined();
+    expect(h.run('sendEveningEmail')).toEqual({ sent: false });
+
+    // Later: the working 18:00 trigger and its settings survive a failed change to 19:30.
+    h.breakTriggers(false);
+    h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA });
+    h.breakTriggers(true);
+    const r = h.call('setEmail', { token, enabled: true, hour: 19, minute: 30, tz: DHAKA });
+    expect(r).toMatchObject({ status: 'error', code: 'error' });
+    expect(h.triggers).toEqual([expect.objectContaining({ fn: 'sendEveningEmail', hour: 18, minute: 0 })]);
+    expect(JSON.parse(h.props.email)).toEqual({ enabled: true, hour: 18, minute: 0, tz: DHAKA });
     expect(h.lockHeld).toBe(false);
   });
 
@@ -285,7 +359,7 @@ describe('evening email: setEmail and sendTestEmail', () => {
   });
 
   it('needs the desktop token and a sensible time and zone', () => {
-    const { h, token } = evening();
+    const { h, token } = evening({}, false);
     expect(h.call('setEmail', { token: 'nope', enabled: true, hour: 18, minute: 0, tz: DHAKA }).code).toBe('bad_token');
     expect(h.call('sendTestEmail', { token: 'nope' }).code).toBe('bad_token');
     expect(h.call('setEmail', { token: '', enabled: true, hour: 18, minute: 0, tz: DHAKA }).code).toBe('bad_token');

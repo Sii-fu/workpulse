@@ -43,6 +43,8 @@ export interface ScriptHarness {
   readonly lockCalls: number;
   readonly lockHeld: boolean;
   setNow(d: Date): void;
+  // true: ScriptApp trigger builders throw on create() (a script without the trigger permission).
+  breakTriggers(on: boolean): void;
 }
 
 const DEFAULT_ROWS = 1000;
@@ -115,6 +117,7 @@ export function createScriptHarness(opts: { spreadsheetTz?: string; now?: Date }
   const triggers: (FakeTrigger & { id: string })[] = [];
   let lockCalls = 0;
   let lockHeld = false;
+  let triggersBroken = false;
 
   // A value written to a cell, as Sheets stores it.
   function stored(name: string, r: number, c: number, v: unknown): unknown {
@@ -286,6 +289,7 @@ export function createScriptHarness(opts: { spreadsheetTz?: string; now?: Date }
       nearMinute: (m: number) => ((t.minute = m), b),
       inTimezone: (tz: string) => ((t.tz = tz), b),
       create() {
+        if (triggersBroken) throw new Error('You do not have permission to call ScriptApp.newTrigger.');
         triggers.push(t);
         return { getHandlerFunction: () => t.fn, getUniqueId: () => t.id };
       },
@@ -456,6 +460,9 @@ export function createScriptHarness(opts: { spreadsheetTz?: string; now?: Date }
     },
     setNow(d: Date) {
       nowMs = d.getTime();
+    },
+    breakTriggers(on: boolean) {
+      triggersBroken = on;
     },
   };
 }

@@ -33,7 +33,9 @@ function setEmailAction_(c) {
   }
   try {
     return withLock(function () {
-      removeEmailTriggers_();
+      // The new trigger is created before the old ones go, so a failure leaves the old settings working
+      // (and the saved settings still describing them).
+      var old = emailTriggers_();
       var saved = {};
       try {
         saved = JSON.parse(props.getProperty('email') || '{}') || {};
@@ -44,6 +46,7 @@ function setEmailAction_(c) {
       } else {
         saved.enabled = false;
       }
+      removeTriggers_(old);
       props.setProperty('email', JSON.stringify(saved));
       return { status: 'ok', enabled: !!saved.enabled, hour: saved.hour, minute: saved.minute, tz: saved.tz };
     });
@@ -57,16 +60,22 @@ function setEmailAction_(c) {
 function sendTestEmailAction_(c) {
   var check = checkToken(c.token);
   if (!check.ok) return errorOf_(check);
-  var mail = composeEmail_(true);
+  var mail = composeEmail_(true, new Date(), getMeta_());
   var to = sendMail_(mail);
   return { status: 'ok', sent: true, to: to };
 }
 
-function removeEmailTriggers_() {
+function emailTriggers_() {
   var all = ScriptApp.getProjectTriggers();
+  var mine = [];
   for (var i = 0; i < all.length; i++) {
-    if (all[i].getHandlerFunction() === EMAIL_FN) ScriptApp.deleteTrigger(all[i]);
+    if (all[i].getHandlerFunction() === EMAIL_FN) mine.push(all[i]);
   }
+  return mine;
+}
+
+function removeTriggers_(list) {
+  for (var i = 0; i < list.length; i++) ScriptApp.deleteTrigger(list[i]);
 }
 
 function validZone_(tz) {
@@ -81,15 +90,23 @@ function validZone_(tz) {
 
 // ---- The daily send ----
 
-// Run by the time trigger. It sends at most once per local date (lastEmailDate is set only after the mail
-// went out), and only when the day has a log or a clock-in. google.script.run can call it too, so it
-// never takes input and never sends anywhere but to the owner.
+// Run by the time trigger. It does nothing unless setEmail switched the email on, sends at most once per
+// local date (lastEmailDate is set only after the mail went out), and only when the day has a log or a
+// clock-in. google.script.run can call it too, so it never takes input and never sends anywhere but to
+// the owner. The moment and the date are read once, so a run across local midnight stays on one date.
 function sendEveningEmail() {
   return withLock(function () {
     var props = PropertiesService.getScriptProperties();
-    var today = todayIn_(userTz_(getMeta_()));
+    var settings = {};
+    try {
+      settings = JSON.parse(props.getProperty('email') || '{}') || {};
+    } catch (err) {}
+    if (settings.enabled !== true) return { sent: false };
+    var now = new Date();
+    var meta = getMeta_();
+    var today = Utilities.formatDate(now, userTz_(meta), 'yyyy-MM-dd');
     if (props.getProperty('lastEmailDate') === today) return { sent: false };
-    var mail = composeEmail_(false);
+    var mail = composeEmail_(false, now, meta);
     if (mail.skip) return { sent: false };
     sendMail_(mail);
     props.setProperty('lastEmailDate', today);
@@ -103,12 +120,11 @@ function sendMail_(mail) {
   return to;
 }
 
-// Reads the Sheet and builds today's email (the date in the user's zone).
-function composeEmail_(isTest) {
-  var meta = getMeta_();
+// Reads the Sheet and builds the email for the date of now in the user's zone.
+function composeEmail_(isTest, now, meta) {
   var tz = userTz_(meta);
   var ssTz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
-  var today = todayIn_(tz);
+  var today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   var i;
 
   var tasks = [];
@@ -141,6 +157,7 @@ function composeEmail_(isTest) {
   return buildEveningEmail({
     date: today,
     tz: tz,
+    now: now.toISOString(),
     tasks: tasks,
     logs: logs,
     projects: projectList_(),
@@ -154,12 +171,13 @@ function composeEmail_(isTest) {
 
 // ---- The email itself (pure) ----
 
-// data = { date, tz, tasks, logs, workday, workdayHours, pushedAt, pendingPhoneCount, projects?, isTest? }
+// data = { date, tz, now, tasks, logs, workday, workdayHours, pushedAt, pendingPhoneCount, projects?, isTest? }
+// now (an ISO text or a Date) is the moment the email is for; the function reads no clock itself.
 // Returns { skip, subject, html, text }. skip is true when the day has no log and no clock-in.
 function buildEveningEmail(data) {
   var date = data.date;
   var tz = data.tz;
-  var now = new Date();
+  var now = emailDate_(data.now);
   var i;
 
   var logs = [];
@@ -174,23 +192,29 @@ function buildEveningEmail(data) {
   var clockOut = emailDate_(data.workday && data.workday.clockOut);
   var noData = logs.length === 0 && !clockIn;
 
-  // Worked time is the clocked time (to now while still clocked in); with no clock-in it is the logged time.
+  var pushed = emailDate_(data.pushedAt);
+  var pushedToday = !!pushed && Utilities.formatDate(pushed, tz, 'yyyy-MM-dd') === date;
+
+  // Worked time is the clocked time; with no clock-in it is the logged time. While still clocked in it runs
+  // to now, but never past the last data from the PC (a PC that stopped sending would otherwise look like
+  // hours of work), and with no data from today at all it falls back to the logged time.
   var worked = logMinutes;
   if (clockIn) {
-    var end = clockOut || now;
-    worked = Math.max(0, Math.floor((end.getTime() - clockIn.getTime()) / 60000));
+    var end = null;
+    if (clockOut) end = clockOut;
+    else if (pushedToday) end = now && now.getTime() < pushed.getTime() ? now : pushed;
+    if (end) worked = Math.max(0, Math.floor((end.getTime() - clockIn.getTime()) / 60000));
   }
   var hours = num_(data.workdayHours) > 0 ? num_(data.workdayHours) : DEFAULT_WORKDAY_HOURS;
   var target = Math.round(hours * 60);
 
   var clockLine;
   if (!clockIn) clockLine = 'not clocked in';
-  else if (clockOut) clockLine = 'In ' + clockTime_(clockIn, tz) + ' · Out ' + clockTime_(clockOut, tz);
-  else clockLine = 'In ' + clockTime_(clockIn, tz) + ' · still clocked in';
+  else if (clockOut) clockLine = 'In ' + clockTime_(clockIn, tz) + ' \u00b7 Out ' + clockTime_(clockOut, tz);
+  else clockLine = 'In ' + clockTime_(clockIn, tz) + ' \u00b7 still clocked in';
 
-  var pushed = emailDate_(data.pushedAt);
   var dataLine;
-  if (pushed && Utilities.formatDate(pushed, tz, 'yyyy-MM-dd') === date) {
+  if (pushedToday) {
     dataLine = 'Data from your PC as of ' + clockTime_(pushed, tz) + '.';
   } else {
     dataLine = 'No data from your PC today.';
@@ -221,11 +245,11 @@ function buildEveningEmail(data) {
   var dayShort = dayText_(date, 'EEE d MMM');
   var dayLong = dayText_(date, 'EEEE d MMMM');
   var subject = noData
-    ? 'WorkPulse · ' + dayShort + ' · no data yet'
-    : 'WorkPulse · ' + dayShort + ' · ' + fmtHM_(worked) + ' worked · ' + logs.length + (logs.length === 1 ? ' log' : ' logs');
+    ? 'WorkPulse \u00b7 ' + dayShort + ' \u00b7 no data yet'
+    : 'WorkPulse \u00b7 ' + dayShort + ' \u00b7 ' + fmtHM_(worked) + ' worked \u00b7 ' + logs.length + (logs.length === 1 ? ' log' : ' logs');
 
-  var footer = (data.isTest ? 'This is a test email. ' : '') + 'Sent by your WorkPulse script at ' + clockTime_(now, tz) + ' (' + tz +
-    '). Change the time or turn it off in WorkPulse Settings → Phone & evening email.';
+  var footer = (data.isTest ? 'This is a test email. ' : '') + 'Sent by your WorkPulse script' + (now ? ' at ' + clockTime_(now, tz) : '') + ' (' + tz +
+    '). Change the time or turn it off in WorkPulse Settings \u2192 Phone & evening email.';
 
   var model = {
     dayLong: dayLong, noData: noData, worked: worked, target: target, clockLine: clockLine, dataLine: dataLine,
@@ -284,7 +308,7 @@ function esc_(v) {
 
 // User text in the plain-text body: one line, and no angle brackets that could read as markup.
 function plain_(v) {
-  return String(v == null ? '' : v).replace(/\s+/g, ' ').replace(/</g, '‹').replace(/>/g, '›');
+  return String(v == null ? '' : v).replace(/\s+/g, ' ').replace(/</g, '\u2039').replace(/>/g, '\u203a');
 }
 
 function safeColor_(c) {
@@ -376,7 +400,7 @@ function emailHtml_(m) {
   } else {
     h.push('<div style="font-size:38px;font-weight:bold;color:#f2b705;margin-top:6px;line-height:1">' + esc_(fmtHM_(m.worked)) +
       ' <span style="font-size:15px;color:#f4f1e8;font-weight:normal">worked of ' + esc_(fmtHM_(m.target)) + '</span></div>');
-    h.push('<div style="font-size:14px;margin-top:8px;color:#f4f1e8">' + esc_(m.clockLine).replace(/ · /g, ' &nbsp;&middot;&nbsp; ') + '</div>');
+    h.push('<div style="font-size:14px;margin-top:8px;color:#f4f1e8">' + esc_(m.clockLine).replace(/ \u00b7 /g, ' &nbsp;&middot;&nbsp; ') + '</div>');
   }
   h.push('</td></tr>');
 
@@ -439,7 +463,7 @@ function emailHtml_(m) {
 
 function emailText_(m) {
   var t = [];
-  t.push('WorkPulse · ' + m.dayLong);
+  t.push('WorkPulse \u00b7 ' + m.dayLong);
   if (m.noData) {
     t.push('No data yet. Nothing logged and no clock-in so far today.');
   } else {
@@ -448,20 +472,20 @@ function emailText_(m) {
   }
   t.push(m.dataLine);
   t.push('');
-  t.push('LOGS · ' + m.logCount + ' · ' + fmtHM_(m.logMinutes));
+  t.push('LOGS \u00b7 ' + m.logCount + ' \u00b7 ' + fmtHM_(m.logMinutes));
   if (m.groups.length === 0) t.push('No logs yet today.');
   for (var g = 0; g < m.groups.length; g++) {
-    t.push(plain_(m.groups[g].name) + ' · ' + fmtHM_(m.groups[g].minutes));
+    t.push(plain_(m.groups[g].name) + ' \u00b7 ' + fmtHM_(m.groups[g].minutes));
     for (var k = 0; k < m.groups[g].logs.length; k++) {
       t.push('  - ' + plain_(m.groups[g].logs[k].description) + ' (' + fmtHM_(num_(m.groups[g].logs[k].minutes)) + ')');
     }
   }
   t.push('');
-  t.push('TASKS DONE TODAY · ' + m.done.length);
+  t.push('TASKS DONE TODAY \u00b7 ' + m.done.length);
   if (m.done.length === 0) t.push('None yet.');
   for (var d = 0; d < m.done.length; d++) t.push('  - ' + plain_(m.done[d].title));
   t.push('');
-  t.push('STILL OPEN · ' + m.openCount);
+  t.push('STILL OPEN \u00b7 ' + m.openCount);
   if (m.openGroups.length === 0) t.push('Nothing open.');
   for (var o = 0; o < m.openGroups.length; o++) {
     t.push(m.openGroups[o].label);
