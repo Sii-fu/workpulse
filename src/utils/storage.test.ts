@@ -47,6 +47,26 @@ describe('loadStoredData', () => {
     expect(localStorage.getItem('workpulse_logs')).toBe(before);
   });
 
+  it('keeps the optional phone and email settings and fromPhone on tasks; old data without them loads', () => {
+    localStorage.setItem('workpulse_backlog', JSON.stringify([{ ...task('ph'), fromPhone: true }, task('old')]));
+    localStorage.setItem(
+      'workpulse_settings',
+      JSON.stringify({ phoneToken: 'tok', phoneDeviceId: 'dev-abcdefghijkl', emailEnabled: true, emailTime: '18:30' }),
+    );
+    const r = loadStoredData();
+    expect(r.backlog.find((t) => t.id === 'ph')?.fromPhone).toBe(true);
+    expect(r.backlog.find((t) => t.id === 'old')?.fromPhone).toBeUndefined();
+    expect(r.settings.phoneToken).toBe('tok');
+    expect(r.settings.phoneDeviceId).toBe('dev-abcdefghijkl');
+    expect(r.settings.emailEnabled).toBe(true);
+    expect(r.settings.emailTime).toBe('18:30');
+
+    localStorage.setItem('workpulse_settings', JSON.stringify({}));
+    const old = loadStoredData();
+    expect(old.settings.phoneToken).toBeUndefined();
+    expect(old.settings.emailEnabled).toBeUndefined();
+  });
+
   it('a timer left running across midnight loads under today and is saved; a paused task keeps its date', () => {
     const yesterday = addDays(localDateStr(), -1);
     const open = [{ start: '2026-11-08T01:00:00.000Z' }];

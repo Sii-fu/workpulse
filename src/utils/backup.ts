@@ -4,9 +4,19 @@ import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isS
 import { isWorkdays, validWorkdayHours } from './workday';
 
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
-// lastBackupAt: that date belongs to this device, not to the data.
+// lastBackupAt: that date belongs to this device, not to the data. The same goes for the phone token,
+// last phone sync, device id and last phone error. The email settings are kept.
 export function buildBackup(d: BackupData): string {
-  const { geminiApiKey: _omit, lastBackupAt: _omitBackup, activityFolders: _omitFolders, ...settings } = d.settings;
+  const {
+    geminiApiKey: _omit,
+    lastBackupAt: _omitBackup,
+    activityFolders: _omitFolders,
+    phoneToken: _omitToken,
+    phoneSyncAt: _omitSyncAt,
+    phoneDeviceId: _omitDevice,
+    phoneLastError: _omitError,
+    ...settings
+  } = d.settings;
   return JSON.stringify(
     {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -53,6 +63,10 @@ export function parseBackup(text: string): ParseBackupResult {
     geminiApiKey: '',
     lastBackupAt: undefined,
     activityFolders: undefined,
+    phoneToken: undefined,
+    phoneSyncAt: undefined,
+    phoneDeviceId: undefined,
+    phoneLastError: undefined,
   };
   settings.workdayHours = validWorkdayHours(settings.workdayHours);
   return {

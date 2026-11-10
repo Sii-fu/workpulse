@@ -53,6 +53,8 @@ export interface BacklogTask {
   loggedSeconds?: number;
   // Each stretch the timer ran (ISO UTC). The last one is open (no `end`) while the task runs.
   segments?: { start: string; end?: string }[];
+  // True when the task was added from the phone page (it arrived through the Sheet inbox).
+  fromPhone?: boolean;
 }
 
 export interface Project {
@@ -98,6 +100,15 @@ export interface AppSettings {
   activityAi?: ActivityAi;
   // Length of the workday in hours, for the office clock. Absent = 8.
   workdayHours?: number;
+  // Phone page link. The token, last sync time, device id and last error belong to this device:
+  // none of them is written into backup files or replaced by an import.
+  phoneToken?: string;
+  phoneSyncAt?: string; // ISO
+  phoneDeviceId?: string;
+  phoneLastError?: string;
+  // Evening email from the Apps Script. emailTime is "HH:MM" local time; absent = 18:00.
+  emailEnabled?: boolean;
+  emailTime?: string;
 }
 
 // One day at the office. ISO timestamps (UTC).

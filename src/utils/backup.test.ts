@@ -102,6 +102,40 @@ describe('replaceAllData', () => {
   });
 });
 
+describe('phone settings in backups', () => {
+  const phoneSettings = () => ({
+    ...data().settings,
+    phoneToken: 'TOKEN-SECRET',
+    phoneSyncAt: '2026-11-11T10:00:00.000Z',
+    phoneDeviceId: 'dev-abcdefghijkl',
+    phoneLastError: 'It broke',
+    emailEnabled: true,
+    emailTime: '18:30',
+  });
+  it('buildBackup omits the four device-only keys but keeps the email settings', () => {
+    const text = buildBackup({ ...data(), settings: phoneSettings() });
+    for (const k of ['phoneToken', 'phoneSyncAt', 'phoneDeviceId', 'phoneLastError', 'TOKEN-SECRET']) {
+      expect(text).not.toContain(k);
+    }
+    const s = JSON.parse(text).settings;
+    expect(s.emailEnabled).toBe(true);
+    expect(s.emailTime).toBe('18:30');
+  });
+  it('parseBackup clears the device-only keys if a file carries them', () => {
+    const forged = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: phoneSettings() }));
+    expect(forged.ok).toBe(true);
+    if (forged.ok) {
+      const s = forged.data.settings;
+      expect(s.phoneToken).toBeUndefined();
+      expect(s.phoneSyncAt).toBeUndefined();
+      expect(s.phoneDeviceId).toBeUndefined();
+      expect(s.phoneLastError).toBeUndefined();
+      expect(s.emailEnabled).toBe(true);
+      expect(s.emailTime).toBe('18:30');
+    }
+  });
+});
+
 describe('activity folders stay on the device', () => {
   it('buildBackup never writes activityFolders and parseBackup never imports them', () => {
     const withFolders = { ...data(), settings: { ...data().settings, activityFolders: [{ path: 'E:/secret/proj', projectId: 'p' }] } };
