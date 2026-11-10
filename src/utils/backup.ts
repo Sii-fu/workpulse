@@ -1,7 +1,7 @@
 import { BackupData, AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seedData';
 import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isStringArray, isSettingsObject } from './storage';
-import { isWorkdays } from './workday';
+import { isWorkdays, validWorkdayHours } from './workday';
 
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
 // lastBackupAt: that date belongs to this device, not to the data.
@@ -54,6 +54,7 @@ export function parseBackup(text: string): ParseBackupResult {
     lastBackupAt: undefined,
     activityFolders: undefined,
   };
+  settings.workdayHours = validWorkdayHours(settings.workdayHours);
   return {
     ok: true,
     data: { logs: o.logs, backlog: o.backlog, projects: o.projects, tags: o.tags, settings, workdays: o.workdays },

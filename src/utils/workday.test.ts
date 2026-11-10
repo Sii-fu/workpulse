@@ -100,6 +100,10 @@ describe('isWorkdays', () => {
     expect(isWorkdays({ '2026-11-10': { clockIn: 5 } })).toBe(false);
     expect(isWorkdays({ '2026-11-10': { clockIn: IN, clockOut: 5 } })).toBe(false);
   });
+  it('rejects clock times that do not parse as dates', () => {
+    expect(isWorkdays({ '2026-11-10': { clockIn: 'a' } })).toBe(false);
+    expect(isWorkdays({ '2026-11-10': { clockIn: IN, clockOut: 'later' } })).toBe(false);
+  });
 });
 
 describe('currentWorkday', () => {

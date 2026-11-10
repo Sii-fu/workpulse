@@ -103,6 +103,15 @@ describe('loadStoredData', () => {
     expect(loadStoredData().settings.theme).toBe('timecard');
   });
 
+  it('a stored workdayHours outside 1-16 or not a number loads as undefined', () => {
+    for (const bad of [0, 17, -3, 'x', null, 1e999]) {
+      localStorage.setItem('workpulse_settings', JSON.stringify({ workdayHours: bad }));
+      expect(loadStoredData().settings.workdayHours).toBeUndefined();
+    }
+    localStorage.setItem('workpulse_settings', JSON.stringify({ workdayHours: 7.5 }));
+    expect(loadStoredData().settings.workdayHours).toBe(7.5);
+  });
+
   it('writes the schema version', () => {
     loadStoredData();
     expect(localStorage.getItem('workpulse_schema_version')).toBe(String(CURRENT_SCHEMA_VERSION));

@@ -86,6 +86,12 @@ export function resumeWorkday(workdays: Workdays, date: string): Workdays {
   return { ...workdays, [date]: open };
 }
 
+// A stored or imported workday length: a finite number of hours from 1 to 16 (as Settings allows),
+// else undefined, which means the default.
+export function validWorkdayHours(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 1 && v <= 16 ? v : undefined;
+}
+
 // 20280 -> "5:38". Negative counts as 0.
 export function formatHm(sec: number): string {
   const total = Math.max(0, Math.floor(sec));
@@ -102,6 +108,7 @@ export function isWorkdays(v: unknown): v is Workdays {
     if (!DATE_KEY.test(date)) return false;
     if (typeof rec !== 'object' || rec === null || Array.isArray(rec)) return false;
     const r = rec as Record<string, unknown>;
-    return typeof r.clockIn === 'string' && (r.clockOut === undefined || typeof r.clockOut === 'string');
+    const isTime = (x: unknown) => typeof x === 'string' && Number.isFinite(Date.parse(x));
+    return isTime(r.clockIn) && (r.clockOut === undefined || isTime(r.clockOut));
   });
 }

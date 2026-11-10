@@ -59,6 +59,18 @@ describe('workdays in backups', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.data.workdays).toBeUndefined();
   });
+  it('workdayHours outside 1-16 imports as undefined', () => {
+    for (const bad of [0, 40, 'eight']) {
+      const r = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { workdayHours: bad } }));
+      expect(r.ok && r.data.settings.workdayHours).toBeUndefined();
+    }
+    const ok = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { workdayHours: 9 } }));
+    expect(ok.ok && ok.data.settings.workdayHours).toBe(9);
+  });
+  it('rejects workdays whose clock times are not dates', () => {
+    const r = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), workdays: { '2026-11-10': { clockIn: 'nope' } } }));
+    expect(r.ok).toBe(false);
+  });
   it('rejects invalid workdays', () => {
     const r = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), workdays: [1] }));
     expect(r.ok).toBe(false);
