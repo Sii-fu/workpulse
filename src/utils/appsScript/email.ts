@@ -3,7 +3,7 @@
 // after SCRIPT_CORE in googleAppsScriptTemplate.ts (it uses the core's helpers: readTab_, getMeta_, ...).
 //
 // Callable from google.script.run (no "_"): sendEveningEmail (a time trigger needs it public; it sends
-// at most once per local date, only to the script owner) and buildEveningEmail (pure: it reads nothing
+// at most once per local date, only to the script owner, and only near the saved time) and buildEveningEmail (pure: it reads nothing
 // and sends nothing). Everything else ends with "_".
 // All user text is HTML-escaped in the HTML body; the plain-text body has no markup of its own.
 export const SCRIPT_EMAIL = String.raw`
@@ -27,7 +27,11 @@ function setEmailAction_(c) {
   if (c.enabled) {
     if (typeof hour !== 'number' || hour % 1 !== 0 || hour < 0 || hour > 23 ||
         typeof minute !== 'number' || minute % 1 !== 0 || minute < 0 || minute > 59) {
-      return badRequest_('Pick a time of day between 00:00 and 23:59.');
+      return badRequest_('Pick a time of day between 00:30 and 23:29.');
+    }
+    // A trigger set close to midnight can fire after midnight, when the day has no data yet.
+    if (hour * 60 + minute < 30 || hour * 60 + minute > 23 * 60 + 29) {
+      return badRequest_('Pick a time of day between 00:30 and 23:29.');
     }
     if (!validZone_(tz)) return badRequest_('That time zone is not known.');
   }
@@ -104,6 +108,9 @@ function sendEveningEmail() {
     if (settings.enabled !== true) return { sent: false };
     var now = new Date();
     var meta = getMeta_();
+    // Anyone with the link can call this function, so it only sends near the saved time. Calling it early
+    // must not use up the day's once-a-day guard.
+    if (!nearSavedTime_(now, settings, meta)) return { sent: false };
     var today = Utilities.formatDate(now, userTz_(meta), 'yyyy-MM-dd');
     if (props.getProperty('lastEmailDate') === today) return { sent: false };
     var mail = composeEmail_(false, now, meta);
@@ -112,6 +119,16 @@ function sendEveningEmail() {
     props.setProperty('lastEmailDate', today);
     return { sent: true };
   });
+}
+
+// True when now, on the clock of the saved zone, is within 45 minutes of the saved hour and minute.
+function nearSavedTime_(now, settings, meta) {
+  var tz = settings.tz && validZone_(settings.tz) ? settings.tz : userTz_(meta);
+  var clock = Utilities.formatDate(now, tz, 'HH:mm').split(':');
+  var nowMin = Number(clock[0]) * 60 + Number(clock[1]);
+  var savedMin = Number(settings.hour) * 60 + Number(settings.minute);
+  if (isNaN(savedMin)) return false;
+  return Math.abs(nowMin - savedMin) <= 45;
 }
 
 function sendMail_(mail) {

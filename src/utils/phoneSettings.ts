@@ -9,6 +9,15 @@ export function parseEmailTime(v: unknown): { hour: number; minute: number } | n
   return m ? { hour: Number(m[1]), minute: Number(m[2]) } : null;
 }
 
+// The evening email may be scheduled from 00:30 to 23:29: a trigger close to midnight can fire after
+// midnight, when the new day has no data yet.
+export function emailTimeAllowed(hhmm: string): boolean {
+  const t = parseEmailTime(hhmm);
+  if (!t) return false;
+  const minutes = t.hour * 60 + t.minute;
+  return minutes >= 30 && minutes <= 23 * 60 + 29;
+}
+
 const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 function randomId(length: number): string {

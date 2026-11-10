@@ -243,7 +243,7 @@ describe('evening email: when it is sent', () => {
     const h = createScriptHarness({ spreadsheetTz: 'America/New_York', now: zonedTime(DHAKA, 2026, 11, 10, 17, 52) });
     const token = h.call('setPin', { pin: '1234' }).token as string;
     h.call('pushState', { token, ...state() });
-    h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA });
+    h.call('setEmail', { token, enabled: true, hour: 2, minute: 0, tz: DHAKA });
     // 02:00 on Wed 11 Nov in Dhaka is still Tue 10 Nov in New York.
     h.setNow(zonedTime(DHAKA, 2026, 11, 11, 2, 0));
     h.run('sendEveningEmail');
@@ -398,5 +398,48 @@ describe('evening email: setEmail and sendTestEmail', () => {
     expect(fresh.h.props.lastEmailDate).toBeUndefined();
     fresh.h.run('sendEveningEmail');
     expect(fresh.h.mails).toHaveLength(2);
+  });
+});
+
+describe('evening email: send window and allowed times', () => {
+  it('called early does nothing and does not burn the day; called near the time sends', () => {
+    const { h } = evening();
+    h.setNow(at(10, 9, 0));
+    expect(h.run('sendEveningEmail')).toEqual({ sent: false });
+    expect(h.mails).toHaveLength(0);
+    expect(h.props.lastEmailDate).toBeUndefined();
+
+    h.setNow(at(10, 17, 10)); // 50 minutes early
+    expect(h.run('sendEveningEmail')).toEqual({ sent: false });
+    expect(h.props.lastEmailDate).toBeUndefined();
+
+    h.setNow(at(10, 17, 20)); // 40 minutes early
+    expect(h.run('sendEveningEmail')).toEqual({ sent: true });
+    expect(h.props.lastEmailDate).toBe('2026-11-10');
+  });
+
+  it('a late trigger (20 minutes) still sends, an hour late does not', () => {
+    const { h } = evening();
+    h.setNow(at(10, 18, 20));
+    expect(h.run('sendEveningEmail')).toEqual({ sent: true });
+
+    const late = evening();
+    late.h.setNow(at(10, 19, 0));
+    expect(late.h.run('sendEveningEmail')).toEqual({ sent: false });
+    expect(late.h.props.lastEmailDate).toBeUndefined();
+  });
+
+  it('setEmail rejects times outside 00:30-23:29 and accepts the edges', () => {
+    const { h, token } = evening({}, false);
+    for (const [hour, minute] of [[23, 50], [0, 10], [23, 30], [0, 0], [0, 29]]) {
+      const r = h.call('setEmail', { token, enabled: true, hour, minute, tz: DHAKA });
+      expect(r).toMatchObject({ status: 'error', code: 'bad_request' });
+      expect(String(r.message)).toMatch(/00:30/);
+    }
+    expect(h.triggers).toHaveLength(0);
+    expect(h.call('setEmail', { token, enabled: true, hour: 0, minute: 30, tz: DHAKA }).status).toBe('ok');
+    expect(h.call('setEmail', { token, enabled: true, hour: 23, minute: 29, tz: DHAKA }).status).toBe('ok');
+    // Switching it off is never refused for its time.
+    expect(h.call('setEmail', { token, enabled: false }).status).toBe('ok');
   });
 });

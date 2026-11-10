@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_EMAIL_TIME, parseEmailTime, ensureDeviceId, phoneLink, keepDeviceSettings } from './phoneSettings';
+import { DEFAULT_EMAIL_TIME, parseEmailTime, emailTimeAllowed, ensureDeviceId, phoneLink, keepDeviceSettings } from './phoneSettings';
 import { DEFAULT_SETTINGS } from '../data/seedData';
 
 describe('parseEmailTime', () => {
@@ -17,6 +17,13 @@ describe('parseEmailTime', () => {
   it('the default time is valid', () => {
     expect(DEFAULT_EMAIL_TIME).toBe('18:00');
     expect(parseEmailTime(DEFAULT_EMAIL_TIME)).not.toBeNull();
+  });
+});
+
+describe('emailTimeAllowed', () => {
+  it('allows 00:30 to 23:29 only', () => {
+    for (const ok of ['00:30', '00:31', '18:00', '23:29']) expect(emailTimeAllowed(ok)).toBe(true);
+    for (const bad of ['00:00', '00:29', '23:30', '23:50', '23:59', '24:00', '', 'abc']) expect(emailTimeAllowed(bad)).toBe(false);
   });
 });
 

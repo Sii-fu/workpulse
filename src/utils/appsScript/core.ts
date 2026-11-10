@@ -30,7 +30,7 @@ var TAB_COLUMNS = {
 var MESSAGES = {
   no_pin: 'No phone PIN is set yet. Set one in WorkPulse Settings on your PC.',
   bad_pin: 'That PIN is not right.',
-  bad_token: 'This computer is not linked to the phone page any more. Set the PIN again in Settings.',
+  bad_token: 'This computer is not linked to the phone page any more. Use Reset phone access in Settings (it asks for your current PIN).',
   bad_request: 'The Sheet script did not understand the request.'
 };
 

@@ -103,6 +103,7 @@ describe('script v3: PIN and desktop token', () => {
     const token = withPin(h);
     expect(h.call('setPin', { pin: '5555' })).toMatchObject({ status: 'error', code: 'bad_token' });
     expect(h.call('setPin', { pin: '5555', token: 'wrong' })).toMatchObject({ status: 'error', code: 'bad_token' });
+    expect(String(h.call('setPin', { pin: '5555' }).message)).toContain('Use Reset phone access in Settings (it asks for your current PIN).');
 
     const r = h.call('setPin', { pin: '5555', token });
     expect(r.status).toBe('ok');

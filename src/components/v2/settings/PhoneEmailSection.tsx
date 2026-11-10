@@ -3,7 +3,7 @@ import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import type { AppSettings } from '../../../types';
 import type { PhoneSyncStatus } from '../../../hooks/usePhoneSync';
 import { getScriptVersion, resetPhoneAccess, sendTestEmail, setEmailSchedule, setPhonePin } from '../../../utils/phoneApi';
-import { DEFAULT_EMAIL_TIME, parseEmailTime, phoneLink } from '../../../utils/phoneSettings';
+import { DEFAULT_EMAIL_TIME, emailTimeAllowed, parseEmailTime, phoneLink } from '../../../utils/phoneSettings';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../../../utils/googleAppsScriptTemplate';
 import { localDateOfIso, localDateStr, localTimeStr } from '../../../utils/dates';
 import { dayLabelLong } from '../../../utils/taskSections';
@@ -173,6 +173,10 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
     const t = parseEmailTime(emailTime);
     if (emailOn && !t) {
       setEmailResult({ ok: false, message: 'Enter a time such as 18:00.' });
+      return;
+    }
+    if (emailOn && !emailTimeAllowed(emailTime)) {
+      setEmailResult({ ok: false, message: 'Pick a time between 00:30 and 23:29.' });
       return;
     }
     const time = t ?? parseEmailTime(DEFAULT_EMAIL_TIME)!;
@@ -433,6 +437,8 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
                 <input
                   id={`${uid}-time`}
                   type="time"
+                  min="00:30"
+                  max="23:29"
                   value={emailTime}
                   disabled={!emailOn}
                   onChange={(e) => {

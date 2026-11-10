@@ -60,6 +60,8 @@ describe('phoneApi', () => {
     const r = await pullInbox(URL_, 't');
     expect(r.code).toBe('bad_token');
     expect(r.message).toMatch(/not linked/);
+    expect(r.message).toContain('Use Reset phone access in Settings (it asks for your current PIN).');
+    expect(r.message).not.toMatch(/Set the PIN again/);
   });
 
   it('treats a proxy error body and a non-JSON answer as failures', async () => {
