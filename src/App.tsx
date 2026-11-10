@@ -608,7 +608,10 @@ export default function App() {
 
   // Marks a task done without writing a log. It waits for "Log it", a timesheet from the Tasks
   // screen, or End my day; only then does it become a log and sync to the Sheet.
-  const handleCompleteTask = (task: BacklogTask) => {
+  const handleCompleteTask = (passed: BacklogTask) => {
+    // The row passes a memoized copy whose elapsedSeconds can be stale: use the current task.
+    const task = backlog.find((t) => t.id === passed.id);
+    if (!task) return;
     // Reopened and finished again with no new tracked time: everything is already in a log.
     const alreadyLogged = loggedSecondsOf(task) > 0 && unloggedSeconds(task) === 0;
     const nowIso = new Date().toISOString();
@@ -635,7 +638,10 @@ export default function App() {
     );
   };
 
-  const handleConvertTaskToLog = (task: BacklogTask) => {
+  const handleConvertTaskToLog = (passed: BacklogTask) => {
+    // As in handleCompleteTask: the passed copy can have stale elapsedSeconds.
+    const task = backlog.find((t) => t.id === passed.id);
+    if (!task) return;
     // A deleted project is named "General" below; never borrow another project's name (B13).
     const project = projects.find((p) => p.id === task.projectId);
     const nowIso = new Date().toISOString();
