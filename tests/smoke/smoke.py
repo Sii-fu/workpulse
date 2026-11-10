@@ -117,8 +117,57 @@ def check(name):
 # ---------------------------------------------------------------------------
 # Plumbing
 # ---------------------------------------------------------------------------
+AI_PATH = re.compile(r"/api/(gemini/generate|synthesize-eod)(\?|$)")
+
+
+def _canned_eod(route):
+    """One synthesized log per project of the tasks sent, in the shape /api/synthesize-eod answers."""
+    body = json.loads(route.request.post_data or "{}")
+    groups = {}
+    for t in body.get("tasks") or []:
+        groups.setdefault(t.get("projectId") or "none", []).append(t)
+    names = {pr.get("id"): pr.get("name") for pr in body.get("projects") or []}
+    logs = [{
+        "id": f"{pid}_completed", "splitId": f"{pid}_completed", "projectId": pid,
+        "projectName": names.get(pid) or "General", "status": "completed",
+        "durationMinutes": sum((t.get("elapsedSeconds") or 0) for t in ts) // 60,
+        "summaryBullets": "Stub timesheet: " + "; ".join(t.get("title", "") for t in ts),
+        "tags": ["#deep-work"], "taskIds": [t["id"] for t in ts],
+        "underlyingTasks": [{"id": t["id"], "title": t.get("title", ""), "stage": "done",
+                             "elapsedSeconds": t.get("elapsedSeconds") or 0} for t in ts],
+    } for pid, ts in groups.items()]
+    route.fulfill(json={"synthesizedLogs": logs, "isAIGenerated": True, "modelUsed": "stub"})
+
+
+class AiGuard:
+    """The AI routes never reach the real server (a Gemini key in .env.local would cost money and
+    make runs vary): the context answers them with canned responses, and every request to them
+    must be answered by a stub. `check()` fails the run otherwise."""
+
+    def __init__(self, ctx):
+        self.seen, self.stubbed = 0, 0
+        ctx.on("request", self._on_request)
+        ctx.route("**/api/gemini/generate", self.stub(
+            lambda r: r.fulfill(json={"text": "Stub standup text.", "modelUsed": "stub"})))
+        ctx.route("**/api/synthesize-eod", self.stub(_canned_eod))
+
+    def _on_request(self, req):
+        if AI_PATH.search(req.url):
+            self.seen += 1
+
+    def stub(self, handler):
+        """Wrap a route handler so its requests count as stubbed. Tests use it for their own AI routes."""
+        def run(route):
+            self.stubbed += 1
+            handler(route)
+        return run
+
+    def check(self):
+        assert self.seen == self.stubbed,             f"{self.seen - self.stubbed} AI request(s) reached the real server (seen {self.seen}, stubbed {self.stubbed})"
+
+
 class Session:
-    """A fresh browser context with console-error capture."""
+    """A fresh browser context with console-error capture and stubbed AI routes."""
 
     def __init__(self, pw, url, theme="chase", width=1440, height=900, headed=False, touch=False, settings=None):
         self.url = url
@@ -130,6 +179,7 @@ class Session:
             "try{ if(!localStorage.getItem('workpulse_settings')) "
             "localStorage.setItem('workpulse_settings', %s) }catch(e){}" % json.dumps(json.dumps(seeded))
         )
+        self.ai = AiGuard(self.ctx)
         self.errors = []
         self.page = self.ctx.new_page()
         self.page.on("console", self._on_console)
@@ -551,7 +601,6 @@ def history_week(s):
 @check("end_my_day_steps")
 def end_my_day_steps(s):
     p = s.page
-    p.route("**/api/synthesize-eod", lambda r: r.fulfill(json={"items": [], "modelUsed": "stub"}))
     btn(p.get_by_role("region", name=SEL["todays_log"]), SEL["end_day"], exact=True).click()
     dlg = p.get_by_role("dialog", name=SEL["end_day"])
     expect(dlg).to_be_visible()
@@ -659,8 +708,17 @@ def palette_keyboard(s):
         "aria-activedescendant does not point at the highlighted option"
     p.keyboard.press("ArrowUp")
     assert selected() == 0, "ArrowUp did not move the highlight back"
+    log_id = p.locator("[role=option][aria-selected=true]").get_attribute("id").removeprefix("search-option-")
     p.keyboard.press("Enter")
     expect(p.get_by_role("dialog")).to_have_count(0)
+    # History opens on that log's day, with the log's row shown and focused
+    header_nav = p.get_by_role("navigation", name=SEL["main_nav"]).first
+    expect(header_nav.get_by_role("button", name=re.compile(r"^History"))).to_have_attribute("aria-current", "page")
+    row = p.locator(f'[data-log-id="{log_id}"]')
+    expect(row).to_be_visible()
+    expect(row).to_be_in_viewport()
+    _wait_for(s, lambda: p.evaluate("id => !!document.activeElement?.closest(`[data-log-id='${id}']`)", log_id), tries=30)
+    assert p.evaluate("id => !!document.activeElement?.closest(`[data-log-id='${id}']`)", log_id), "focus is not on the picked log"
     s.no_errors()
 
 
@@ -786,7 +844,8 @@ def sync_button(s):
 def eod_error_retry(s):
     """End my day, done tasks: when the synthesis request fails the message is plain and Try again works."""
     p = s.page
-    handler = lambda route: route.abort()
+    # a page route wins over the context's canned one; removing it falls back to the canned answer
+    handler = s.ai.stub(lambda route: route.abort())
     p.route("**/api/synthesize-eod", handler)
     row_menu(p, p.locator("li.v2-running").first, SEL["menu_done"])  # the sample's running task, with tracked time
     btn(p.get_by_role("region", name=SEL["todays_log"]), SEL["end_day"], exact=True).click()
@@ -795,7 +854,7 @@ def eod_error_retry(s):
     err = dlg.get_by_text(re.compile(r"could not reach its server"))
     expect(err).to_be_visible(timeout=5000)
     assert dlg.get_by_text("Failed to fetch").count() == 0, "raw browser error leaked into the UI"
-    p.unroute("**/api/synthesize-eod", handler)
+    p.unroute("**/api/synthesize-eod", handler)  # back to the canned (stubbed) answer, never the network
     btn(dlg, "Try again").first.click()
     expect(btn(dlg, SEL["eod_add"])).to_be_visible(timeout=8000)
     # the aborted request is logged by the browser and by the app on purpose
@@ -936,6 +995,16 @@ def activity_today_card(s):
     _wait_for(s, lambda: calls["scan"] == 2)
     assert calls["scan"] == 2, "Scan again did not read the activity"
     expect(card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))).to_have_count(2, timeout=5000)
+    # reload: the session is gone, the notice stays accepted. Still no scan on mount; "Check activity" reads at once
+    s.reload()
+    card = p.get_by_role("region", name=SEL["suggestions"])
+    expect(btn(card, "Check activity", exact=True)).to_be_visible()
+    p.wait_for_timeout(800)
+    assert calls["scan"] == 2, "the Today card read activity on mount after a reload"
+    btn(card, "Check activity", exact=True).click()
+    expect(card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))).to_have_count(2, timeout=5000)
+    assert calls["scan"] == 3, "Check activity did not read the activity"
+    expect(card).not_to_contain_text("Before the first scan")
     s.no_errors()
 
 
@@ -947,9 +1016,12 @@ def phone_pass(s):
         ctx = s.browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
         ctx.add_init_script("try{ localStorage.setItem('workpulse_settings', %s) }catch(e){}"
                             % json.dumps(json.dumps(dict(SEED_SETTINGS, theme=theme))))
+        guard = AiGuard(ctx)
         page = ctx.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
+        page.on("console", lambda m: m.type == "error" and not any(r.search(m.text) for r in IGNORED_CONSOLE)
+                and errors.append(f"console.error: {m.text}"))
         try:
             page.goto(s.url)
             page.wait_for_load_state("networkidle")
@@ -983,7 +1055,8 @@ def phone_pass(s):
                     if height == 0:
                         continue  # hidden
                     assert right <= 390, f"{theme}: top bar control '{label}' is cut off (right edge {right}px)"
-            assert not errors, f"{theme}: page errors {errors[:3]}"
+            assert not errors, f"{theme}: browser errors {errors[:3]}"
+            guard.check()
         finally:
             ctx.close()
 
@@ -1039,6 +1112,8 @@ def main():
                     fn(session, shots=args.shots or None)
                 else:
                     fn(session)
+                session.page.wait_for_timeout(100)  # let a last request reach its route handler
+                session.ai.check()
             except Exception as e:  # AssertionError, playwright timeouts, anything
                 err = e
                 if session and args.shots:
