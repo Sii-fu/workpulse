@@ -662,6 +662,111 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
 [data-theme="timecard"] .v2-brand { text-transform: uppercase; letter-spacing: 0.14em; }
 [data-theme="console"] .v2-brand { text-transform: lowercase; }
 
+/* V2 screens (Today, and the rows Tasks/History/End my day reuse). One layout; the theme decides
+   the dressing: Chase paper cards with a 1px line, Time Card ruled rows with no card, Console
+   panels split by 1px seams. */
+.v2-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-card);
+}
+[data-theme="timecard"] .v2-panel { background: transparent; border: 0; }
+/* Rows and panel insets: 16px in from a card's edge; Time Card rows run to the rule's ends. */
+.v2-inset { padding-inline: 16px; }
+[data-theme="timecard"] .v2-inset { padding-inline: 0; }
+.v2-row {
+  padding-block: var(--row-pad);
+  border-bottom: 1px solid var(--border-app);
+}
+.v2-panel > .v2-row:last-child,
+.v2-panel > ul > .v2-row:last-child { border-bottom: 0; }
+[data-theme="timecard"] .v2-panel > .v2-row:last-child,
+[data-theme="timecard"] .v2-panel > ul > .v2-row:last-child { border-bottom: 1px solid var(--border-app); }
+
+/* Section headings: rank by case and weight, not size. */
+.v2-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-main);
+}
+.v2-head-meta {
+  font-weight: 500;
+  font-size: var(--fs-small);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+}
+[data-theme="timecard"] .v2-head {
+  justify-content: space-between;
+  margin-bottom: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--text-main);
+  font-size: var(--fs-small);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+[data-theme="timecard"] .v2-head-meta { letter-spacing: 0.04em; }
+[data-theme="console"] .v2-head {
+  justify-content: space-between;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+[data-theme="console"] .v2-head-meta { font-family: var(--font-num); }
+
+/* The project ribbon at the start of a task or log row. */
+.v2-ribbon { width: 6px; border-radius: 3px; flex-shrink: 0; }
+[data-theme="timecard"] .v2-ribbon { border-radius: 0; }
+[data-theme="console"] .v2-ribbon { border-radius: 2px; }
+
+/* The running task's row. */
+.v2-running { background: #fff8e1; }
+[data-theme="timecard"] .v2-running { background: #fff7dc; }
+[data-theme="console"] .v2-running { background: #1e2a25; }
+
+/* Row buttons: outlined; the running row's button is filled with ink. */
+.v2-btn {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-btn);
+  background: var(--bg-surface-elevated);
+  color: var(--text-main);
+}
+.v2-btn:hover:not(:disabled) { background: var(--bg-subtle-hover); }
+.v2-btn-strong,
+.v2-btn-strong:hover:not(:disabled) { background: var(--text-main); border-color: var(--text-main); color: var(--bg-surface); }
+[data-theme="timecard"] .v2-btn {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  border: 1.5px solid var(--text-main);
+  background: transparent;
+}
+[data-theme="timecard"] .v2-btn-strong,
+[data-theme="timecard"] .v2-btn-strong:hover:not(:disabled) { background: var(--text-main); color: var(--bg-surface); }
+[data-theme="console"] .v2-btn { font-weight: 500; background: transparent; }
+[data-theme="console"] .v2-btn-strong,
+[data-theme="console"] .v2-btn-strong:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* Quick-add inputs. */
+.v2-input {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-btn);
+  color: var(--text-main);
+}
+.v2-input::placeholder { color: var(--text-muted); }
+.v2-input:focus { border-color: var(--border-focus); }
+
 /* Print Styles */
 @media print {
   body {
