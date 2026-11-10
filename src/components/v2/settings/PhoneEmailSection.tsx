@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import type { AppSettings } from '../../../types';
 import type { PhoneSyncStatus } from '../../../hooks/usePhoneSync';
@@ -10,8 +10,8 @@ import { dayLabelLong } from '../../../utils/taskSections';
 
 interface PhoneEmailSectionProps {
   settings: AppSettings;
-  /** Saves at once (the token, the email choice); the rest of Settings still waits for Save. */
-  onSaveSettings(next: AppSettings): void;
+  /** Saves only these fields at once, onto the newest settings; the rest of Settings still waits for Save. */
+  onUpdateSettings(patch: Partial<AppSettings>): void;
   status: PhoneSyncStatus;
   onNotify(msg: string, type?: 'success' | 'error' | 'info'): void;
 }
@@ -67,7 +67,7 @@ const SetupSteps: React.FC<{ onCopy(): void; copied: boolean }> = ({ onCopy, cop
   </ol>
 );
 
-export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onSaveSettings, status, onNotify }) => {
+export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onUpdateSettings, status, onNotify }) => {
   const uid = useId();
   const url = settings.googleScriptUrl || '';
   const token = settings.phoneToken || '';
@@ -90,13 +90,25 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
   const [emailBusy, setEmailBusy] = useState<'save' | 'test' | null>(null);
   const [emailResult, setEmailResult] = useState<Result>(null);
 
+  // Bumped on every check, so an answer for an older URL or an older check is ignored.
+  const checkId = useRef(0);
   const check = useCallback(() => {
+    const id = ++checkId.current;
     if (!url) return;
     setVersion(undefined);
-    getScriptVersion(url).then(setVersion);
+    getScriptVersion(url)
+      .catch(() => null)
+      .then((v) => {
+        if (id === checkId.current) setVersion(v);
+      });
   }, [url]);
 
-  useEffect(check, [check]);
+  useEffect(() => {
+    check();
+    return () => {
+      checkId.current++;
+    };
+  }, [check]);
 
   const copyScript = () => {
     navigator.clipboard?.writeText(GOOGLE_APPS_SCRIPT_CODE).then(
@@ -149,7 +161,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
       return;
     }
     // Only the returned token is kept; the PIN itself is never stored here.
-    onSaveSettings({ ...settings, phoneToken: newToken, phoneLastError: undefined });
+    onUpdateSettings({ phoneToken: newToken, phoneLastError: undefined });
     setMode('none');
     setPin('');
     setPin2('');
@@ -173,7 +185,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
       return;
     }
     const hhmm = `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
-    onSaveSettings({ ...settings, emailEnabled: emailOn, emailTime: hhmm });
+    onUpdateSettings({ emailEnabled: emailOn, emailTime: hhmm });
     setEmailResult({
       ok: true,
       message: emailOn

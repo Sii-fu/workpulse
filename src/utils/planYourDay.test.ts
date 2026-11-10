@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BacklogTask, Project } from '../types';
-import { planCandidates, applyPlan, parsePlanLines } from './planYourDay';
+import { planCandidates, applyPlan, parsePlanLines, planSummary } from './planYourDay';
 
 process.env.TZ = 'Asia/Dhaka';
 
@@ -86,5 +86,19 @@ describe('parsePlanLines', () => {
       { title: 'Run payroll', projectId: 'p2' },
       { title: 'Review PR #212', projectId: 'p1' },
     ]);
+  });
+});
+
+describe('planSummary', () => {
+  it('counts only the tasks that really moved', () => {
+    const before = [task('a', '2026-11-10'), task('b', '2026-11-09', { stage: 'done', completed: true })];
+    const after = applyPlan(before, ['a', 'b', 'gone'], TODAY);
+    expect(planSummary(before, after, 0)).toBe('Day planned: 1 carried to today.');
+  });
+
+  it('names the added tasks, or just starts the day', () => {
+    const before = [task('a', '2026-11-10')];
+    expect(planSummary(before, applyPlan(before, ['a'], TODAY), 2)).toBe('Day planned: 1 carried to today, 2 added.');
+    expect(planSummary(before, before, 0)).toBe('Day started.');
   });
 });

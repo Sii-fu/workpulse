@@ -45,6 +45,8 @@ interface SettingsViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
   /** The phone sync's state for the Phone & evening email section. */
   phoneStatus: PhoneSyncStatus;
+  /** Saves only these fields at once, onto the newest settings (the Phone & evening email section). */
+  onUpdateSettings: (patch: Partial<AppSettings>) => void;
 }
 
 const SECTIONS = [
@@ -113,6 +115,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onStartFresh,
   onNotify,
   phoneStatus,
+  onUpdateSettings,
 }) => {
   const uid = useId();
   const [current, setCurrent] = useState<SectionId>('appearance');
@@ -437,7 +440,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           </Section>
 
           <Section id="phone" title="Phone & evening email">
-            <PhoneEmailSection settings={settings} onSaveSettings={onSaveSettings} status={phoneStatus} onNotify={onNotify} />
+            <PhoneEmailSection settings={settings} onUpdateSettings={onUpdateSettings} status={phoneStatus} onNotify={onNotify} />
           </Section>
 
           <Section

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { BacklogTask, Project } from '../types';
 import { mergeInbox, type InboxItem } from '../utils/phoneSync';
-import { shouldPush, pullAndMerge, RUNNING_PUSH_MS } from './usePhoneSync';
+import { shouldPush, pullAndMerge, combinedError, RUNNING_PUSH_MS } from './usePhoneSync';
 
 process.env.TZ = 'Asia/Dhaka';
 
@@ -126,5 +126,17 @@ describe('pullAndMerge', () => {
     const out = await pullAndMerge(d.deps);
     expect(out.added.map((t) => t.id)).toEqual(['phone-1']);
     expect(d.deps.ack).toHaveBeenCalledWith(['phone-x', 'phone-1']);
+  });
+});
+
+describe('combinedError', () => {
+  it('a pull success does not hide a push failure', () => {
+    expect(combinedError({ push: 'Push failed.', pull: undefined })).toBe('Push failed.');
+  });
+  it('shows the pull failure when pushes work', () => {
+    expect(combinedError({ push: undefined, pull: 'Pull failed.' })).toBe('Pull failed.');
+  });
+  it('nothing when both work', () => {
+    expect(combinedError({})).toBeUndefined();
   });
 });

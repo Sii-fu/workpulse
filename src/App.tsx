@@ -51,7 +51,7 @@ import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
 import { usePhoneSync } from './hooks/usePhoneSync';
 import { keepDeviceSettings } from './utils/phoneSettings';
-import { applyPlan, planCandidates } from './utils/planYourDay';
+import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
 import { publishTimers } from './utils/timerStore';
 import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
 import type { ActivityFolder } from './utils/activity/types';
@@ -375,12 +375,26 @@ export default function App() {
     saveSettings(newSettings);
   };
 
+  // Writes only these fields onto the newest settings: the phone sync and the Phone section write
+  // after a network wait, while other fields may have changed. Nothing is written while the page
+  // reloads after a backup import (it would put the old settings back over the imported ones).
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const updateSettings = (patch: Partial<AppSettings>) => {
+    if (leavingRef.current) return;
+    const next = { ...settingsRef.current, ...patch };
+    settingsRef.current = next;
+    setSettings(next);
+    saveSettings(next);
+  };
+
   // The office clock. Functional updates, so two calls in a row both stick.
   const handleClockIn = (atIso?: string) => {
     const at = atIso ?? new Date().toISOString();
-    // The first clock-in of a date starts the day, so Plan your day follows (not after Resume, and
-    // not when that date already has a record).
-    const firstOfDate = !workdays[localDateOfIso(at)];
+    // The first clock-in of today starts the day, so Plan your day follows (not after Resume, not
+    // when the date already has a record, and not for "I came in yesterday at").
+    const date = localDateOfIso(at);
+    const firstOfDate = !workdays[date] && date === localDateStr();
     setWorkdays((prev) => {
       const next = clockIn(prev, at);
       if (next !== prev) saveWorkdays(next);
@@ -414,6 +428,8 @@ export default function App() {
     setPlan(null);
     const today = localDateStr();
     const created = newTasks.map((t, i) => makeTask(t.title, t.projectId, 'planned', today, i + 1));
+    const before = backlogRef.current;
+    const summary = planSummary(before, applyPlan(before, carryIds, today), created.length);
     setBacklog((prev) => {
       const moved = applyPlan(prev, carryIds, today);
       if (created.length === 0 && moved === prev) return prev;
@@ -421,11 +437,7 @@ export default function App() {
       saveBacklog(next);
       return next;
     });
-    const parts = [
-      carryIds.length > 0 ? `${carryIds.length} carried to today` : '',
-      created.length > 0 ? `${created.length} added` : '',
-    ].filter(Boolean);
-    addToast(parts.length > 0 ? `Day planned: ${parts.join(', ')}.` : 'Day started.');
+    addToast(summary);
   };
 
   const handleClockOut = (date: string) => {
@@ -1063,6 +1075,9 @@ export default function App() {
   // Phone tasks arrive here. Only the new ones are added, onto the newest backlog (the hook's copy can
   // be a timer tick behind); true means they are in storage, so the phone inbox may be cleared.
   const mergeAndSaveBacklog = (next: BacklogTask[]): boolean => {
+    // Reloading after a backup import: writing now would overwrite the imported tasks. False keeps
+    // the phone tasks waiting in the Sheet (no ack).
+    if (leavingRef.current) return false;
     let result: SaveResult = { ok: true };
     flushSync(() =>
       setBacklog((prev) => {
@@ -1085,11 +1100,9 @@ export default function App() {
   };
 
   const phone = usePhoneSync({
+    enabled: dataLoaded,
     settings,
-    saveSettings: (next) => {
-      setSettings(next);
-      saveSettings(next);
-    },
+    updateSettings,
     backlog,
     logs,
     projects,
@@ -1372,6 +1385,7 @@ export default function App() {
             onStartFresh={handleStartFresh}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
             phoneStatus={phone.status}
+            onUpdateSettings={updateSettings}
           />
         )}
       </main>

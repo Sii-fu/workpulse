@@ -78,6 +78,11 @@ export async function pullAndMerge(deps: PullDeps): Promise<{ added: BacklogTask
   return { added: merged.added };
 }
 
+/** What Settings shows: a failing push wins (the phone's view is getting old), else a failing pull. */
+export function combinedError(e: { push?: string; pull?: string }): string | undefined {
+  return e.push ?? e.pull;
+}
+
 export interface PhoneSyncStatus {
   /** ISO time of the last successful push from this computer. */
   lastPushAt?: string;
@@ -88,8 +93,11 @@ export interface PhoneSyncStatus {
 }
 
 export interface PhoneSyncArgs {
+  /** False until the stored data has loaded: nothing is pushed or pulled before that. */
+  enabled: boolean;
   settings: AppSettings;
-  saveSettings(next: AppSettings): void;
+  /** Writes only these fields onto the latest settings. */
+  updateSettings(patch: Partial<AppSettings>): void;
   backlog: BacklogTask[];
   logs: WorkLog[];
   projects: Project[];
@@ -124,7 +132,7 @@ export function usePhoneSync(args: PhoneSyncArgs): {
   const { settings } = args;
   const url = settings.googleScriptUrl || '';
   const token = settings.phoneToken || '';
-  const active = Boolean(url && token);
+  const active = Boolean(args.enabled && url && token);
 
   const [busy, setBusy] = useState(false);
   const [deviceChanged, setDeviceChanged] = useState(false);
@@ -133,6 +141,7 @@ export function usePhoneSync(args: PhoneSyncArgs): {
   const lastSig = useRef<string | null>(null);
   const lastPushAt = useRef<number | null>(null);
   const lastPullAt = useRef(0);
+  const errors = useRef<{ push?: string; pull?: string }>({});
 
   // The signature only changes when the phone's view does; computing it is skipped while only the
   // running timers' seconds move (App re-renders every second then).
@@ -161,10 +170,18 @@ export function usePhoneSync(args: PhoneSyncArgs): {
   const record = useCallback((patch: Partial<AppSettings>) => {
     const s = latest.current.settings;
     if ((Object.keys(patch) as (keyof AppSettings)[]).every((k) => s[k] === patch[k])) return;
-    const next = { ...s, ...patch };
-    latest.current = { ...latest.current, settings: next };
-    latest.current.saveSettings(next);
+    latest.current = { ...latest.current, settings: { ...s, ...patch } };
+    latest.current.updateSettings(patch);
   }, []);
+
+  // A push result clears or sets only the push error, a pull result only the pull error.
+  const setError = useCallback(
+    (kind: 'push' | 'pull', message: string | undefined) => {
+      errors.current = { ...errors.current, [kind]: message };
+      record({ phoneLastError: combinedError(errors.current) });
+    },
+    [record],
+  );
 
   // One pull or push in flight at a time.
   const run = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
@@ -199,12 +216,13 @@ export function usePhoneSync(args: PhoneSyncArgs): {
           lastSig.current = sig;
           lastPushAt.current = nowMs;
           setDeviceChanged((r.data as { deviceChanged?: unknown } | undefined)?.deviceChanged === true);
-          record({ phoneSyncAt: new Date(nowMs).toISOString(), phoneLastError: undefined });
+          record({ phoneSyncAt: new Date(nowMs).toISOString() });
+          setError('push', undefined);
         } else {
-          record({ phoneLastError: r.message });
+          setError('push', r.message);
         }
       }),
-    [run, record],
+    [run, record, setError],
   );
 
   const pull = useCallback(
@@ -229,17 +247,18 @@ export function usePhoneSync(args: PhoneSyncArgs): {
         } catch {
           out = { added: [], error: PULL_FAILED };
         }
-        record({ phoneLastError: out.error });
+        setError('pull', out.error);
         if (out.added.length > 0) latest.current.onTasksAdded(out.added);
         return out.added;
       }),
-    [run, record],
+    [run, setError],
   );
 
   // A new script or token: push the full state again.
   useEffect(() => {
     lastSig.current = null;
     lastPushAt.current = null;
+    errors.current = {};
   }, [url, token]);
 
   // Pull once at load (or when the link is first set up).

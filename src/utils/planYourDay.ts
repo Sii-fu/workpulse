@@ -29,3 +29,10 @@ export function parsePlanLines(text: string, projects: Project[]): { title: stri
     .filter((p) => p.text.length > 0)
     .map((p) => ({ title: p.text, projectId: p.project?.id ?? fallback }));
 }
+
+/** The toast after "Start the day": counts the tasks that really moved (one done or deleted meanwhile is not counted). */
+export function planSummary(before: BacklogTask[], after: BacklogTask[], added: number): string {
+  const carried = after.filter((t, i) => t !== before[i]).length;
+  const parts = [carried > 0 ? `${carried} carried to today` : '', added > 0 ? `${added} added` : ''].filter(Boolean);
+  return parts.length > 0 ? `Day planned: ${parts.join(', ')}.` : 'Day started.';
+}
