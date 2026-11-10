@@ -1,5 +1,6 @@
 """How much main-thread time does the 1-second timer cost? Runs with a task timer going and reads
-Chrome's own counters (script time and task time) over a fixed window, per theme and screen.
+Chrome's own counters (script time and task time) over a fixed window, per theme (chase, timecard,
+console) on the Today and Tasks screens. The sample data has one task running.
 
 Usage (server already running):  python tests/smoke/tick_cost.py [--url URL] [--seconds 8]
 Or with its own server:          python .claude/skills/webapp-testing/scripts/with_server.py --server "npm run dev" --port 3000 --timeout 60 -- python tests/smoke/tick_cost.py
@@ -33,8 +34,8 @@ def main():
     print(f"{'theme/screen':24} {'script ms/s':>12} {'task ms/s':>10} {'layout':>8} {'style':>8}")
     with sync_playwright() as pw:
         for theme in smoke.THEMES:
-            for tab in ("feed", "backlog"):
-                s = smoke.Session(pw, a.url, theme=theme, mode="dark")
+            for tab in ("today", "tasks"):
+                s = smoke.Session(pw, a.url, theme=theme)
                 s.tab(tab)
                 r = measure(s.page, a.seconds)
                 print(f"{theme + '/' + tab:24} {r['ScriptDuration']:12.1f} {r['TaskDuration']:10.1f} {r['LayoutDuration']:8.1f} {r['RecalcStyleDuration']:8.1f}")

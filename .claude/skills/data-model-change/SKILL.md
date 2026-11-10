@@ -1,6 +1,6 @@
 ---
 name: data-model-change
-description: Use whenever a field is added, removed, renamed, or retyped in src/types.ts (WorkLog, BacklogTask, Project, AppSettings, or related types). Walks every place the field must be handled so existing users' localStorage data keeps loading, seed data and Google Sheets sync stay consistent, and all 4 theme layouts display it.
+description: Use whenever a field is added, removed, renamed, or retyped in src/types.ts (WorkLog, BacklogTask, Project, AppSettings, or related types). Walks every place the field must be handled so existing users' localStorage data keeps loading, seed data and Google Sheets sync stay consistent, and the v2 screens display it.
 ---
 
 # Data model change checklist (WorkPulse)
@@ -13,10 +13,11 @@ don't apply, and say which ones you skipped and why.
 - Update the interface (`WorkLog`, `BacklogTask`, `Project`, `AppSettings`, or the unions `TaskStatus`, `TaskStage`, `ThemeId`, …).
 - Prefer an **optional** field (`foo?: T`) for new data; old records won't have it.
 - For a rename or retype, note the old shape: you will need it for the migration in step 2.
-- `ActiveDraft` (the unsaved logger draft) lives in `src/utils/storage.ts`, not `types.ts`.
+- `ActiveDraft` (the old logger's unsaved draft) lives in `src/utils/storage.ts`, not `types.ts`; nothing in the v2 UI reads or writes it.
 
 ## 2. Migration — `src/utils/storage.ts` → `loadStoredData()`
-- Keys: `workpulse_logs`, `workpulse_backlog`, `workpulse_projects`, `workpulse_tags`, `workpulse_settings`, `workpulse_active_draft` (`KEYS` object).
+- Keys: `workpulse_logs`, `workpulse_backlog`, `workpulse_projects`, `workpulse_tags`, `workpulse_settings`, `workpulse_workdays`, `workpulse_active_draft` (`KEYS` object).
+- **Workdays** are validated by `isWorkdays` (`src/utils/workday.ts`); a new `WorkdayRecord` field must pass it. Settings' `theme` goes through `normalizeTheme` (`src/utils/theme.ts`).
 - **Backlog** already has a normalisation pass (`backlog.map(...)` that fills `stage`, `elapsedSeconds`, `isRunning`, and does rollover). Add defaults / rename handling there.
 - **Logs and projects** are parsed with a bare `JSON.parse` cast and **no** normalisation. If old records need a default, rename or type conversion, add a `.map()` after parsing.
 - **Settings** are merged as `{ ...DEFAULT_SETTINGS, ...stored }`, so a new `AppSettings` field gets its default automatically once it's in `DEFAULT_SETTINGS` (step 3). Renames still need explicit handling.
@@ -26,16 +27,18 @@ don't apply, and say which ones you skipped and why.
 ## 3. Seed and default data — `src/data/seedData.ts`
 - `INITIAL_PROJECTS`, `INITIAL_TAGS`, `DEFAULT_SETTINGS`, and `getInitialSeedData()` (sample logs and backlog tasks with dates relative to today).
 - Add realistic values to the sample records if the field should show up in the demo.
-- **Also** update the hard-coded initial `settings` in `useState<AppSettings>({...})` at the top of `src/App.tsx`, which duplicates `DEFAULT_SETTINGS`.
+- `src/App.tsx` starts from `useState<AppSettings>(DEFAULT_SETTINGS)`, so nothing is duplicated there.
+- Backups: `src/utils/backup.ts` (`buildBackup`, `parseBackup`) if the data belongs in the backup file (device-only settings do not).
 
 ## 4. Places that create records — `src/App.tsx` and components
 New `WorkLog` objects are built in several places. Set the field (or leave it undefined on purpose) in each:
-- `App.tsx`: `handleAddLog`, `handleDuplicateLog`, `handleConvertTaskToLog`, `handleConfirmEodPush`
-- `components/DailyLogger.tsx` (main form, plus the `ActiveDraft` it saves)
-- `components/themes/MinimalistZenLayout.tsx`, `CompactConsoleLayout.tsx`, `MatrixTuiLayout.tsx` (each has its own quick-log input; Matrix parses `log -m "..." -s <status>`)
+- `App.tsx`: `handleAddLog`, `handleAddLogs` (activity suggestions), `handleUpdateLog`, `handleDuplicateLog`, `handleConvertTaskToLog`, `handleConfirmEodPush`
+- `components/v2/LogFormDialog.tsx` (the add/edit form; it copies fields it does not edit from `editing`)
+- `components/v2/today/TodayLog.tsx` (the one-line quick log on Today)
+- `components/activity/ActivitySuggestionsDialog.tsx` (`ActivitySuggestionsPanel` builds the logs it adds) and `src/utils/activity/suggestions.ts`
 - `components/EodSynthesizerModal.tsx` (`SynthesizedLogItem`, mapped into `WorkLog` in `handleConfirmEodPush`)
 
-`BacklogTask` objects: `handleAddBacklogTask`, `handleUpdateTaskStage`, `handleReopenTask`, `handleToggleBacklogTask` in `App.tsx`.
+`BacklogTask` objects: `handleAddBacklogTask`, `handleUpdateTaskStage`, `handleReopenTask`, `handleCompleteTask`, `handlePauseTask` in `App.tsx` (timer `segments` go through `src/utils/segments.ts`). Workdays: `handleClockIn`, `handleClockOut`, `handleResume`.
 
 ## 5. Google Sheets sync (only `WorkLog`s sync)
 - `src/utils/sheetsSync.ts` (`syncSingleLogToSheet`, `syncBatchLogsToSheet`) spreads the whole log, so a new field is **sent** automatically. Only `imageBase64` is rewritten. Exclude or transform large or sensitive fields here.
@@ -46,13 +49,14 @@ New `WorkLog` objects are built in several places. Set the field (or leave it un
   Keep the `Id` column **last** (12th): the script upserts rows by it (`upsertRows`, `ID_COL`), so new columns go before it only if `ID_COL` moves too. `WorkLog.syncedAt` is set by the app after a confirmed sync, and manual Sync sends only logs that need it (`src/utils/syncStatus.ts`).
 - Tell the user: an already-deployed Apps Script must be **re-pasted and redeployed**. An existing `WorkPulse_Logs` sheet keeps its old header row, because headers are only written when the sheet is first created, so the header needs adding manually.
 
-## 6. Display (check every theme)
-- `components/TimelineFeed.tsx`: three separate render branches (compact table, Matrix CRT log, card view).
-- `components/themes/MinimalistZenLayout.tsx`, `CompactConsoleLayout.tsx`, `MatrixTuiLayout.tsx`: each renders its own feed.
-- `components/BacklogSection.tsx` (~2,900 lines: **search it**, don't read it whole) for `BacklogTask` fields.
-- `components/AnalyticsView.tsx`: stats `useMemo` and `handleExportMarkdown`.
+## 6. Display (one layout; check it in all three themes)
+- `components/v2/today/LogRow.tsx` (every log list: Today, History, End my day) and `TaskRow.tsx` (`metaFor`; Today and Tasks).
+- `components/v2/LogFormDialog.tsx` if the field should be editable.
+- `components/v2/tasks/TasksScreen.tsx` and `src/utils/taskSections.ts` for `BacklogTask` fields that change grouping.
+- `components/v2/history/HistoryScreen.tsx`, `WeekStrip.tsx` (`src/utils/weekTotals.ts`) and the exports in `src/utils/exportLogs.ts` (CSV, Markdown).
+- `components/v2/ClockBand.tsx` and `src/utils/workday.ts` for workday fields; `components/v2/endday/EndDayDialog.tsx` for anything End my day shows.
 - `components/SearchPaletteModal.tsx`: add the field to the search filter if it's text worth searching.
-- `components/CommandSidebar.tsx` for backlog and project fields.
+- `components/SettingsView.tsx` (and `components/v2/settings/ProjectsSection.tsx` for project fields).
 
 ## 7. AI reports (if the field should influence them)
 - `src/utils/aiGenerator.ts`: `generateAiReport` (the `logsSummary` line builder) and `generateFallbackTemplate` (offline templates).
@@ -60,5 +64,6 @@ New `WorkLog` objects are built in several places. Set the field (or leave it un
 
 ## 8. Verify
 - `npm run lint` must pass (tsc --noEmit).
-- In the browser at http://localhost:3000 (`npm run dev`), **keep your existing localStorage data**: confirm old records still load and render in all 4 themes (Settings → Appearance), and that new records save the field.
+- In the browser at http://localhost:3000 (`npm run dev`), **keep your existing localStorage data**: confirm old records still load and render in all three themes (Settings → Appearance), and that new records save the field.
+- Run `npm run test:smoke` (port 3000 free) and add a check to `tests/smoke/smoke.py` if the field adds a flow.
 - If sync changed, test it against a scratch Google Sheet.
