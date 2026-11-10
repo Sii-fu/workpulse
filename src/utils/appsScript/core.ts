@@ -103,7 +103,8 @@ function handleCoreAction_(action, c) {
   if (action === 'pushState') return pushStateAction_(c);
   if (action === 'pullInbox') return pullInboxAction_(c);
   if (action === 'ackInbox') return ackInboxAction_(c);
-  if (action === 'setEmail' || action === 'sendTestEmail') return emailAction_(c);
+  if (action === 'setEmail') return setEmailAction_(c);
+  if (action === 'sendTestEmail') return sendTestEmailAction_(c);
   return null;
 }
 
@@ -338,13 +339,6 @@ function ackInboxAction_(c) {
     }
     return { status: 'ok', taken: taken };
   });
-}
-
-// setEmail and sendTestEmail: the token is checked; the evening email comes in a later version.
-function emailAction_(c) {
-  var check = checkToken(c.token);
-  if (!check.ok) return errorOf_(check);
-  return badRequest_('Email is not set up in this script version.');
 }
 
 // ---- Phone page functions (google.script.run) ----

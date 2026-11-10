@@ -74,6 +74,8 @@ export function zonedTime(tz: string, y: number, mo: number, d: number, h = 0, m
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const FULL_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Utilities.formatDate for the SimpleDateFormat letters the script uses.
@@ -84,11 +86,13 @@ export function formatDate(date: Date, tz: string, pattern: string): string {
   return pattern.replace(/yyyy|MMMM|MMM|MM|M|dd|d|EEEE|EEE|HH|H|mm|ss/g, (tok) => {
     switch (tok) {
       case 'yyyy': return String(w.getUTCFullYear());
+      case 'MMMM': return FULL_MONTH_NAMES[w.getUTCMonth()];
       case 'MMM': return MONTH_NAMES[w.getUTCMonth()];
       case 'MM': return pad(w.getUTCMonth() + 1);
       case 'M': return String(w.getUTCMonth() + 1);
       case 'dd': return pad(w.getUTCDate());
       case 'd': return String(w.getUTCDate());
+      case 'EEEE': return FULL_DAY_NAMES[w.getUTCDay()];
       case 'EEE': return DAY_NAMES[w.getUTCDay()];
       case 'HH': return pad(w.getUTCHours());
       case 'H': return String(w.getUTCHours());

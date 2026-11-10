@@ -459,21 +459,13 @@ describe('script v3: locking', () => {
   });
 });
 
-describe('script v3: email stubs and exposure', () => {
-  it('setEmail and sendTestEmail check the token and say email is not set up yet', () => {
-    const h = createScriptHarness();
-    const token = withPin(h);
-    expect(h.call('setEmail', { token: 'bad', enabled: true, hour: 18, minute: 0, tz: 'Asia/Dhaka' }).code).toBe('bad_token');
-    expect(h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: 'Asia/Dhaka' })).toEqual({ status: 'error', code: 'bad_request', message: 'Email is not set up in this script version.' });
-    expect(h.call('sendTestEmail', { token })).toMatchObject({ status: 'error', code: 'bad_request' });
-  });
-
+describe('script v3: exposure and style', () => {
   it('only the intended functions are callable from google.script.run (helpers end with _)', () => {
     const names = [...GOOGLE_APPS_SCRIPT_CODE.matchAll(/^function ([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]);
     const exposed = names.filter((n) => !n.endsWith('_')).sort();
     expect(exposed).toEqual([
-      'checkPin', 'checkToken', 'doGet', 'doPost', 'getOrCreateLogsSheet', 'hashSecret',
-      'phoneAddTask', 'phoneData', 'phoneOlderLogs', 'servePhonePage', 'upsertRows', 'withLock',
+      'buildEveningEmail', 'checkPin', 'checkToken', 'doGet', 'doPost', 'getOrCreateLogsSheet', 'hashSecret',
+      'phoneAddTask', 'phoneData', 'phoneOlderLogs', 'sendEveningEmail', 'servePhonePage', 'upsertRows', 'withLock',
     ]);
   });
 
