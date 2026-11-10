@@ -26,8 +26,8 @@ import {
 } from './utils/storage';
 import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged } from './utils/taskLogging';
-import { advanceClock } from './utils/timer';
-import { startSegment, endSegment } from './utils/segments';
+import { advanceClock, MAX_TICK_GAP_SECONDS } from './utils/timer';
+import { startSegment, endSegment, splitSegmentsAtGap } from './utils/segments';
 import { minutesFromSeconds } from './utils/duration';
 import { unsyncedLogs } from './utils/syncStatus';
 import { applyDateFixes, DateFix } from './utils/logDates';
@@ -280,8 +280,19 @@ export default function App() {
       timerLastSaveAt.current = Date.now();
     };
     const timerInterval = setInterval(() => {
-      const { seconds, nextMs } = advanceClock(lastTickMs, Date.now());
+      const nowMs = Date.now();
+      const prevTickMs = lastTickMs;
+      const { seconds, nextMs } = advanceClock(prevTickMs, nowMs);
       lastTickMs = nextMs;
+      if (nowMs - prevTickMs > MAX_TICK_GAP_SECONDS * 1000) {
+        // Slept or frozen: no seconds were added, and the open segments must not cover the gap either.
+        setBacklog((prev) => {
+          const split = splitSegmentsAtGap(prev, prevTickMs, nowMs);
+          if (split !== prev) timerDirty.current = true;
+          return split;
+        });
+        return;
+      }
       if (seconds === 0) return;
       setBacklog((prev) => {
         let changed = false;

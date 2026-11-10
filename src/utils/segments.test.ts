@@ -1,6 +1,6 @@
 process.env.TZ = 'Asia/Dhaka';
 import { describe, it, expect } from 'vitest';
-import { startSegment, endSegment, ensureOpenSegment, buildOvers } from './segments';
+import { startSegment, endSegment, ensureOpenSegment, buildOvers, splitSegmentsAtGap } from './segments';
 import type { BacklogTask, Project } from '../types';
 
 const task = (over: Partial<BacklogTask> = {}): BacklogTask => ({
@@ -117,5 +117,27 @@ describe('buildOvers', () => {
     const balls = buildOvers(rec, 8, [], projects, ms('10:25')).flatMap((o) => o.balls);
     expect(balls.filter((b) => b.kind === 'now')).toHaveLength(1);
     expect(balls.filter((b) => b.kind === 'empty')).toHaveLength(47);
+  });
+});
+
+describe('splitSegmentsAtGap', () => {
+  it('closes an open segment at the last tick and reopens it at now after a long gap', () => {
+    const tasks = [task({ segments: [{ start: at('09:00') }] })];
+    const out = splitSegmentsAtGap(tasks, ms('10:00'), ms('11:30'));
+    expect(out[0].segments).toEqual([
+      { start: at('09:00'), end: at('10:00') },
+      { start: at('11:30') },
+    ]);
+  });
+  it('does nothing on a normal 1 s tick', () => {
+    const tasks = [task({ segments: [{ start: at('09:00') }] })];
+    expect(splitSegmentsAtGap(tasks, ms('10:00'), ms('10:00') + 1000)).toBe(tasks);
+  });
+  it('leaves a task with no open segment untouched', () => {
+    const closed = task({ segments: [{ start: at('09:00'), end: at('09:30') }] });
+    const none = task({ id: 't2' });
+    const out = splitSegmentsAtGap([closed, none], ms('10:00'), ms('11:30'));
+    expect(out[0]).toBe(closed);
+    expect(out[1]).toBe(none);
   });
 });

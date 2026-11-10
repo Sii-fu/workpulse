@@ -1,4 +1,5 @@
 import { BacklogTask, Project, WorkdayRecord } from '../types';
+import { MAX_TICK_GAP_SECONDS } from './timer';
 
 const SLOT_MS = 10 * 60_000;
 const BALLS_PER_OVER = 6;
@@ -28,6 +29,27 @@ export function endSegment(t: BacklogTask, nowIso: string): BacklogTask {
 // A running task with no open segment (its clock ran before segments existed) gets one starting now.
 export function ensureOpenSegment(t: BacklogTask, nowIso: string): BacklogTask {
   return hasOpenSegment(t.segments) ? t : startSegment(t, nowIso);
+}
+
+// The computer slept (or the tab froze) between two timer ticks: the clocks add nothing for the gap
+// (advanceClock), so the open segments must not span it either. Each open segment ends at the last
+// tick and a new one starts now. Returns the same array when the gap is a normal tick.
+export function splitSegmentsAtGap(
+  tasks: BacklogTask[],
+  lastTickMs: number,
+  nowMs: number,
+  maxGapSeconds = MAX_TICK_GAP_SECONDS,
+): BacklogTask[] {
+  if (nowMs - lastTickMs <= maxGapSeconds * 1000) return tasks;
+  const lastIso = new Date(lastTickMs).toISOString();
+  const nowIso = new Date(nowMs).toISOString();
+  let changed = false;
+  const out = tasks.map((t) => {
+    if (!hasOpenSegment(t.segments)) return t;
+    changed = true;
+    return startSegment(endSegment(t, lastIso), nowIso);
+  });
+  return changed ? out : tasks;
 }
 
 export type Ball =
