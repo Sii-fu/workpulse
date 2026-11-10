@@ -17,6 +17,7 @@ import { unloggedSeconds } from '../../../utils/taskLogging';
 import { isRunningTask, sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import { plainSheetMessage } from '../../../utils/aiErrors';
 import { localTimeStr } from '../../../utils/dates';
+import { StepEmpty, StepId, StepStatus, nextOpenStep, prevOpenStep, stepAfterDoneTasks, stepStatus } from '../../../utils/endDaySteps';
 
 export interface EndDayDialogProps {
   isOpen: boolean;
@@ -39,9 +40,6 @@ export interface EndDayDialogProps {
   onPauseTask(id: string): void;
   onClockOut(): void;
 }
-
-type StepId = 'activity' | 'tasks' | 'log' | 'sync' | 'clock';
-type StepStatus = 'todo' | 'done' | 'skipped';
 
 const STEPS: { id: StepId; label: string; title: string }[] = [
   { id: 'activity', label: 'Activity', title: 'From your activity' },
@@ -110,25 +108,17 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   const unsynced = sheetUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0;
   const running = backlog.filter(isRunningTask);
 
-  const empty: Record<StepId, boolean> = {
+  const empty: StepEmpty = {
     activity: activityProps.folders.length === 0,
     tasks: snapshot.length === 0,
     log: todayLogs.length === 0,
     sync: !sheetUrl || unsynced === 0,
     clock: false,
   };
-  const statusOf = (s: StepId): StepStatus => {
-    if (empty[s]) return 'done';
-    if (s === 'activity' && checked && pending === 0) return 'done';
-    if (s === 'tasks' && tasksAdded) return 'done';
-    return marks[s] ?? 'todo';
-  };
+  const statusOf = (s: StepId): StepStatus =>
+    stepStatus(s, empty, marks, (s === 'activity' && checked && pending === 0) || (s === 'tasks' && tasksAdded));
 
-  const firstOpen = (from: number) => {
-    for (let i = from; i < STEPS.length; i++) if (!empty[STEPS[i].id]) return i;
-    return STEPS.length - 1;
-  };
-  const [current, setCurrent] = useState(() => firstOpen(0));
+  const [current, setCurrent] = useState(() => nextOpenStep(empty, 0));
   const [visited, setVisited] = useState<Set<number>>(() => new Set([current]));
   const step = STEPS[current];
 
@@ -136,13 +126,10 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
     setCurrent(i);
     setVisited((v) => (v.has(i) ? v : new Set(v).add(i)));
   };
-  const prevOpen = (() => {
-    for (let i = current - 1; i >= 0; i--) if (!empty[STEPS[i].id]) return i;
-    return -1;
-  })();
+  const prevOpen = prevOpenStep(empty, current);
   const leave = (mark: StepStatus) => {
     if (statusOf(step.id) === 'todo') setMarks((m) => ({ ...m, [step.id]: mark }));
-    go(firstOpen(current + 1));
+    go(nextOpenStep(empty, current + 1));
   };
 
   // Move focus to the step's heading on each change, so the new step is announced.
@@ -225,7 +212,8 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
               onConfirmAndPush={onConfirmEodPush}
               onDone={() => {
                 setTasksAdded(true);
-                go(firstOpen(STEPS.findIndex((x) => x.id === 'tasks') + 1));
+                // Not nextOpenStep(empty, …): this closure's `empty` predates the logs just added.
+                go(stepAfterDoneTasks());
               }}
             />
           </div>
@@ -426,14 +414,13 @@ const ClockOutStep: React.FC<{
 
   const c = clockState(workday, hours, now);
   const out = c.phase === 'out';
-  const rest =
-    c.overSec > 0
+  const rest = out
+    ? `You clocked out at ${localTimeStr(new Date(workday.clockOut as string))}.`
+    : c.overSec > 0
       ? `${formatHm(c.overSec)} over the target.`
-      : c.leftSec > 0 && !out
+      : c.leftSec > 0
         ? `${formatHm(c.leftSec)} to go.`
-        : out
-          ? `You clocked out at ${localTimeStr(new Date(workday.clockOut as string))}.`
-          : 'Target reached.';
+        : 'Target reached.';
 
   return (
     <div className="space-y-6">
