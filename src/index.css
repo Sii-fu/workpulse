@@ -413,6 +413,198 @@ html[data-theme="matrix"][data-crt="on"] .matrix-glow {
   --info-solid-hover: #026326;
 }
 
+/* =========================================================================
+   V2 THEMES: The Chase, Time Card, Graphite Console.
+   Each block sets every token itself (status colours included), so it does not depend on
+   data-mode. They sit after the role-colour rules above so they win over [data-mode] at equal
+   specificity. The old four blocks above go in Task 11.
+   Band tokens colour the top band (clock strip); --band-edge is its bottom rule.
+   ========================================================================= */
+
+/* THE CHASE: pitch green band with scoreboard numerals over a light chalk body.
+   AA checked: text-main 13.06 app / 14.12 surface / 11.93 subtle-hover; text-muted and text-subtle
+   4.96 app / 5.36 surface / 4.71 subtle / 4.53 subtle-hover; accent-text 10.77 app / 9.83 subtle-hover;
+   on-accent 9.59 on accent / 7.86 on accent-hover; border-control 3.52 app / 3.34 subtle (3:1).
+   Band: band-ink 10.77, band-muted (chalk 70% = #afbbb0) 6.11; clock (large numerals, 3:1)
+   calm 6.69, near 6.83, due 5.18, over 4.34. Status text 5.73 or better on every ground;
+   white on each -solid 5.02 or better. accent-text is pitch green, so it does not show on the band:
+   controls on the band need their own focus colour (gold, 6.69). */
+[data-theme="chase"] {
+  --bg-app: #f4f1e8;
+  --bg-surface: #fbfaf5;
+  --bg-surface-elevated: #ffffff;
+  --bg-subtle: #efebe1;
+  --bg-subtle-hover: #ebe7db;
+  --border-app: #dcd8cb;
+  --border-control: #83806f;
+  --border-focus: #0f3d2e;
+  --text-main: #1d2b24;
+  --text-muted: #5d6b63;
+  --text-subtle: #5d6b63;
+  --accent: #f2b705;
+  --accent-hover: #dba603;
+  --accent-text: #0f3d2e;
+  --on-accent: #1d1a0a;
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --shadow-card: none;
+  --font-display: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-num: 'Archivo', 'Noto Sans Bengali', system-ui, sans-serif;
+  --num-stretch: 72%;
+  --band-bg: #0f3d2e;
+  --band-ink: #f4f1e8;
+  --band-muted: rgb(244 241 232 / 0.7);
+  --band-line: rgb(255 255 255 / 0.1);
+  --band-edge: 1px solid var(--band-line);
+  --clock-calm: #f2b705;
+  --clock-near: #ffb347;
+  --clock-due: #ff8a3d;
+  --clock-over: #ff6b5a;
+  --fs-body: 15px;
+  --fs-small: 13px;
+  --fs-num: 64px;
+  --row-pad: 14px;
+  --success: #065f46;
+  --warning: #7a3e0c;
+  --danger: #a8252c;
+  --info: #1e40af;
+  --success-solid: #047857;
+  --success-solid-hover: #065f46;
+  --warning-solid: #b45309;
+  --warning-solid-hover: #92400e;
+  --danger-solid: #be123c;
+  --danger-solid-hover: #9f1239;
+  --info-solid: #1d4ed8;
+  --info-solid-hover: #1e40af;
+  color-scheme: light;
+}
+
+/* TIME CARD: the punch-clock card. Manila band, black stamped figures, red for the leave mark.
+   AA checked: text-main 15.40 app / 17.06 surface / 12.61 subtle-hover; text-muted and text-subtle
+   5.75 app / 6.37 surface / 4.71 subtle-hover; on-accent 13.96 on accent / 9.66 on accent-hover;
+   border-control 3.59 app / 3.25 subtle (3:1). Band: band-ink 13.96, band-muted 5.21;
+   clock (large numerals, 3:1) calm 13.96, near 4.36, due/over 4.44. The red #c4302b is 4.44 on the
+   band, so small red text uses --danger (#b02a25: 5.27 band, 4.76 subtle-hover). --clock-near on
+   app 4.81 / surface 5.33. Status text 4.70 or better everywhere; white on each -solid 5.43 or better. */
+[data-theme="timecard"] {
+  --bg-app: #f7f1e1;
+  --bg-surface: #fffdf6;
+  --bg-surface-elevated: #fffdf6;
+  --bg-subtle: #efe6cf;
+  --bg-subtle-hover: #e6dbbf;
+  --border-app: #c9bc9c;
+  --border-control: #8a7d62;
+  --border-focus: #1c1a17;
+  --text-main: #1c1a17;
+  --text-muted: #665d4e;
+  --text-subtle: #665d4e;
+  --accent: #1c1a17;
+  --accent-hover: #3a362f;
+  --accent-text: #1c1a17;
+  --on-accent: #efe6cf;
+  --radius-card: 0px;
+  --radius-btn: 0px;
+  --shadow-card: none;
+  --font-display: 'Libre Franklin', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'Libre Franklin', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'Courier Prime', 'Noto Sans Bengali', ui-monospace, monospace;
+  --font-num: 'Courier Prime', 'Noto Sans Bengali', ui-monospace, monospace;
+  --num-stretch: 100%;
+  --band-bg: #efe6cf;
+  --band-ink: #1c1a17;
+  --band-muted: #665d4e;
+  --band-line: #c9bc9c;
+  --band-edge: 2px solid #1c1a17;
+  --clock-calm: #1c1a17;
+  --clock-near: #9a5b00;
+  --clock-due: #c4302b;
+  --clock-over: #c4302b;
+  --fs-body: 15px;
+  --fs-small: 13px;
+  --fs-num: 40px;
+  --row-pad: 13px;
+  --success: #2f6a3c;
+  --warning: #7a4600;
+  --danger: #b02a25;
+  --info: #2f5d8a;
+  --success-solid: #2f6a3c;
+  --success-solid-hover: #24532f;
+  --warning-solid: #9a5b00;
+  --warning-solid-hover: #7a4600;
+  --danger-solid: #b02a25;
+  --danger-solid-hover: #8f221e;
+  --info-solid: #2f5d8a;
+  --info-solid-hover: #244a6e;
+  color-scheme: light;
+}
+
+/* GRAPHITE CONSOLE: dark graphite panels split by hairline seams; colour only means state.
+   AA checked: text-main 14.47 app / 13.45 surface / 11.73 subtle-hover; text-muted, text-subtle and
+   band-muted 5.66 app / 5.26 surface / 4.84 subtle / 4.59 subtle-hover; accent 8.70 app / 7.06
+   subtle-hover; on-accent 8.76 on accent / 10.45 on accent-hover; border-control 3.71 app / 3.17
+   elevated (3:1). Clock on app (normal text size here, 4.5:1): calm 8.70, near 8.49, due 7.14,
+   over 5.39 (5.01 surface). Status text 4.97 or better everywhere; white on each -solid 5.02 or better. */
+[data-theme="console"] {
+  --bg-app: #16181d;
+  --bg-surface: #1c1f25;
+  --bg-surface-elevated: #22262d;
+  --bg-subtle: #22262d;
+  --bg-subtle-hover: #262a31;
+  --border-app: #2c3038;
+  --border-control: #6c737e;
+  --border-focus: #7cc4a4;
+  --text-main: #e6e8eb;
+  --text-muted: #8b929c;
+  --text-subtle: #8b929c;
+  --accent: #7cc4a4;
+  --accent-hover: #95d3b7;
+  --accent-text: #7cc4a4;
+  --on-accent: #0d1a14;
+  --radius-card: 6px;
+  --radius-btn: 6px;
+  --shadow-card: none;
+  --font-display: 'Geist', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-body: 'Geist', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Noto Sans Bengali', ui-monospace, monospace;
+  --font-num: 'Geist Mono', 'Noto Sans Bengali', ui-monospace, monospace;
+  --num-stretch: 100%;
+  --band-bg: #16181d;
+  --band-ink: #e6e8eb;
+  --band-muted: #8b929c;
+  --band-line: #2c3038;
+  --band-edge: 1px solid #2c3038;
+  --clock-calm: #7cc4a4;
+  --clock-near: #e5a84b;
+  --clock-due: #f08a4b;
+  --clock-over: #e2685f;
+  --fs-body: 15px;
+  --fs-small: 13px;
+  --fs-num: 15px;
+  --row-pad: 13px;
+  --success: #7cc4a4;
+  --warning: #e5a84b;
+  --danger: #e8766d;
+  --info: #6aa8f0;
+  --success-solid: #047857;
+  --success-solid-hover: #065f46;
+  --warning-solid: #b45309;
+  --warning-solid-hover: #92400e;
+  --danger-solid: #be123c;
+  --danger-solid-hover: #9f1239;
+  --info-solid: #1d4ed8;
+  --info-solid-hover: #1e40af;
+  color-scheme: dark;
+}
+
+/* Phones: the band numerals step down. */
+@media (max-width: 639px) {
+  [data-theme="chase"] { --fs-num: 40px; }
+  [data-theme="timecard"] { --fs-num: 28px; }
+  [data-theme="console"] { --fs-num: 15px; }
+}
+
 /* Print Styles */
 @media print {
   body {
