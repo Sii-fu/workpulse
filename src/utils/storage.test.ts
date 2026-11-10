@@ -136,4 +136,25 @@ describe('rollOverTasks (C3)', () => {
     expect(tasks[0]).toMatchObject({ dueDate: '2026-11-08', isRolledOver: true, isRunning: true });
     expect(tasks[1].dueDate).toBe('2026-11-01');
   });
+  it('a running task with no open segment gets one starting now, and that counts as changed', () => {
+    const now = '2026-11-08T05:00:00.000Z';
+    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'in_progress' }], '2026-11-08', now);
+    expect(changed).toBe(true);
+    expect(tasks[0].segments).toEqual([{ start: now }]);
+  });
+  it('a running task that already has an open segment is left alone and is not a change', () => {
+    const segments = [{ start: '2026-11-08T01:00:00.000Z' }];
+    const { tasks, changed } = rollOverTasks(
+      [{ ...base, completed: false, stage: 'in_progress', segments }],
+      '2026-11-08',
+      '2026-11-08T05:00:00.000Z',
+    );
+    expect(changed).toBe(false);
+    expect(tasks[0].segments).toEqual(segments);
+  });
+  it('tasks that are not running get no segment', () => {
+    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'paused' }], '2026-11-08');
+    expect(changed).toBe(false);
+    expect(tasks[0].segments).toBeUndefined();
+  });
 });

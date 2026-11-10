@@ -1,6 +1,7 @@
 import { WorkLog, BacklogTask, Project, AppSettings, BackupData, Workdays } from '../types';
 import { localDateStr } from './dates';
 import { isWorkdays } from './workday';
+import { ensureOpenSegment } from './segments';
 import { getInitialSeedData, DEFAULT_SETTINGS } from '../data/seedData';
 
 const KEYS = {
@@ -86,6 +87,7 @@ function runMigrations(_storedVersion: number): void {
 export function rollOverTasks(
   backlog: BacklogTask[],
   todayStr: string,
+  nowIso: string = new Date().toISOString(),
 ): { tasks: BacklogTask[]; changed: boolean } {
   let changed = false;
   const tasks = backlog.map((task) => {
@@ -94,9 +96,10 @@ export function rollOverTasks(
     const isDone = task.stage === 'done' || task.completed === true;
     const normalizedStage = isDone ? 'done' : task.stage || 'planned';
 
+    let next: BacklogTask;
     if (!isDone && task.dueDate < todayStr) {
       changed = true;
-      return {
+      next = {
         ...task,
         stage: normalizedStage,
         completed: false,
@@ -105,14 +108,22 @@ export function rollOverTasks(
         elapsedSeconds: task.elapsedSeconds ?? 0,
         isRunning: normalizedStage === 'in_progress',
       };
+    } else {
+      next = {
+        ...task,
+        stage: normalizedStage,
+        completed: isDone,
+        elapsedSeconds: task.elapsedSeconds ?? 0,
+        isRunning: normalizedStage === 'in_progress',
+      };
     }
-    return {
-      ...task,
-      stage: normalizedStage,
-      completed: isDone,
-      elapsedSeconds: task.elapsedSeconds ?? 0,
-      isRunning: normalizedStage === 'in_progress',
-    };
+    // A clock that ran before segments existed gets an open one, so the overs strip can show it.
+    if (next.isRunning) {
+      const withSegment = ensureOpenSegment(next, nowIso);
+      if (withSegment !== next) changed = true;
+      next = withSegment;
+    }
+    return next;
   });
   return { tasks, changed };
 }

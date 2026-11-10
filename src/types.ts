@@ -51,6 +51,8 @@ export interface BacklogTask {
   synthesizedAt?: string;
   // Seconds of this task's tracked time already written into a log (undefined = nothing yet).
   loggedSeconds?: number;
+  // Each stretch the timer ran (ISO UTC). The last one is open (no `end`) while the task runs.
+  segments?: { start: string; end?: string }[];
 }
 
 export interface Project {

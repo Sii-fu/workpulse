@@ -27,6 +27,7 @@ import {
 import { buildBackup, downloadTextFile } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds } from './utils/taskLogging';
 import { advanceClock } from './utils/timer';
+import { startSegment, endSegment } from './utils/segments';
 import { minutesFromSeconds } from './utils/duration';
 import { unsyncedLogs } from './utils/syncStatus';
 import { applyDateFixes, DateFix } from './utils/logDates';
@@ -495,7 +496,8 @@ export default function App() {
     projectId: string,
     stage: TaskStage = 'planned'
   ) => {
-    const newTask: BacklogTask = {
+    const nowIso = new Date().toISOString();
+    const created: BacklogTask = {
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       projectId,
@@ -504,8 +506,9 @@ export default function App() {
       stage,
       originalDate: localDateStr(),
       isRolledOver: false,
-      startedAt: stage === 'in_progress' ? new Date().toISOString() : undefined,
+      startedAt: stage === 'in_progress' ? nowIso : undefined,
     };
+    const newTask = stage === 'in_progress' ? startSegment(created, nowIso) : created;
     const updated = [newTask, ...backlog];
     setBacklog(updated);
     saveBacklog(updated);
@@ -530,18 +533,20 @@ export default function App() {
       return;
     }
 
+    const nowIso = new Date().toISOString();
     const updated = backlog.map((t) => {
       if (t.id === taskId) {
         const isNowInProgress = stage === 'in_progress';
-        return {
+        const moved: BacklogTask = {
           ...t,
           stage,
           completed: false,
           isRunning: isNowInProgress,
-          startedAt: isNowInProgress ? t.startedAt || new Date().toISOString() : t.startedAt,
+          startedAt: isNowInProgress ? t.startedAt || nowIso : t.startedAt,
           blockReason:
             blockReason !== undefined ? blockReason : stage === 'in_progress' ? undefined : t.blockReason,
         };
+        return isNowInProgress ? startSegment(moved, nowIso) : endSegment(moved, nowIso);
       }
       return t;
     });
@@ -561,19 +566,21 @@ export default function App() {
   };
 
   const handleReopenTask = (taskId: string, targetStage: TaskStage = 'in_progress') => {
+    const nowIso = new Date().toISOString();
     const updated = backlog.map((t) => {
       if (t.id === taskId) {
-        return {
+        const reopened: BacklogTask = {
           ...t,
           completed: false,
           stage: targetStage,
           isRunning: targetStage === 'in_progress',
           completedAt: undefined,
-          startedAt: targetStage === 'in_progress' ? new Date().toISOString() : t.startedAt,
+          startedAt: targetStage === 'in_progress' ? nowIso : t.startedAt,
           // New work after reopening can be logged again; loggedSeconds keeps what was already logged.
           isSynthesized: false,
           synthesizedAt: undefined,
         };
+        return targetStage === 'in_progress' ? startSegment(reopened, nowIso) : reopened;
       }
       return t;
     });
@@ -608,14 +615,17 @@ export default function App() {
     const nowIso = new Date().toISOString();
     const updated = backlog.map((t) =>
       t.id === task.id
-        ? {
-            ...t,
-            completed: true,
-            stage: 'done' as TaskStage,
-            isRunning: false,
-            completedAt: nowIso,
-            isSynthesized: alreadyLogged,
-          }
+        ? endSegment(
+            {
+              ...t,
+              completed: true,
+              stage: 'done' as TaskStage,
+              isRunning: false,
+              completedAt: nowIso,
+              isSynthesized: alreadyLogged,
+            },
+            nowIso,
+          )
         : t,
     );
     setBacklog(updated);
@@ -635,16 +645,20 @@ export default function App() {
     const newSeconds = unloggedSeconds(task);
 
     // Mark the task as logged so the EOD synthesizer does not log it a second time (B3).
-    const markDone = (t: BacklogTask): BacklogTask => ({
-      ...t,
-      completed: true,
-      stage: 'done' as TaskStage,
-      isRunning: false,
-      completedAt: nowIso,
-      isSynthesized: true,
-      synthesizedAt: nowIso,
-      loggedSeconds: task.elapsedSeconds || 0,
-    });
+    const markDone = (t: BacklogTask): BacklogTask =>
+      endSegment(
+        {
+          ...t,
+          completed: true,
+          stage: 'done' as TaskStage,
+          isRunning: false,
+          completedAt: nowIso,
+          isSynthesized: true,
+          synthesizedAt: nowIso,
+          loggedSeconds: task.elapsedSeconds || 0,
+        },
+        nowIso,
+      );
 
     // Completed again after a reopen with no new tracked time: nothing new to log.
     if (loggedSecondsOf(task) > 0 && newSeconds === 0) {
