@@ -1,13 +1,18 @@
-import React, { useId, useState } from 'react';
+import React, { useId, useSyncExternalStore } from 'react';
 import { ActivitySuggestionsPanel, ActivitySuggestionsPanelProps } from '../../activity/ActivitySuggestionsDialog';
+import { getActivitySession, subscribeActivitySession } from '../../../utils/activity/sessionStore';
+import { localDateStr } from '../../../utils/dates';
 
 export type SuggestionsCardProps = Omit<ActivitySuggestionsPanelProps, 'compact' | 'titleId' | 'headerEnd'>;
 
 /** "Suggested from your activity" on the Today screen: the activity panel in compact mode. */
 export const SuggestionsCard: React.FC<SuggestionsCardProps> = (props) => {
   const id = useId();
-  const [pending, setPending] = useState<number | null>(null);
-  const { folders, sources, onOpenSettings, onPendingChange } = props;
+  const { folders, sources, onOpenSettings } = props;
+  const date = props.date ?? localDateStr();
+  // The count comes from the day's kept check, so it survives leaving and coming back to Today.
+  const session = useSyncExternalStore(subscribeActivitySession, () => getActivitySession(date));
+  const pending = session ? session.rows.length : null;
 
   const sourceNames = [sources.git && 'git', sources.claude && 'Claude Code'].filter(Boolean).join(' + ');
 
@@ -36,14 +41,7 @@ export const SuggestionsCard: React.FC<SuggestionsCardProps> = (props) => {
             </button>
           </p>
         ) : (
-          <ActivitySuggestionsPanel
-            {...props}
-            compact
-            onPendingChange={(n) => {
-              setPending(n);
-              onPendingChange?.(n);
-            }}
-          />
+          <ActivitySuggestionsPanel {...props} date={date} compact />
         )}
       </div>
     </section>

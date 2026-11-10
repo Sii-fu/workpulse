@@ -972,9 +972,21 @@ def activity_suggestions(s):
     expect(p.get_by_role("dialog", name="Suggest logs from my activity")).to_have_count(0)
     expect(p.get_by_text("Stub task a").first).to_be_visible()
 
-    # reopening offers only what no log has used
+    # reopening shows what is still waiting from this session's check, without reading activity again
+    scans_before = calls["scan"]
     dlg = open_dialog()
     expect(dlg.get_by_label("Log text")).to_have_count(1, timeout=5000)
+    p.wait_for_timeout(500)
+    assert calls["scan"] == scans_before, "reopening the dialog read the activity again"
+    # a new check offers only what no log has used
+    suggests_before = len(calls["suggest"])
+    btn(dlg, "Scan again").click()
+    for _ in range(50):
+        if len(calls["suggest"]) > suggests_before:
+            break
+        p.wait_for_timeout(100)
+    expect(dlg.get_by_label("Log text")).to_have_count(1, timeout=5000)
+    assert calls["scan"] == scans_before + 1, "Scan again did not read the activity"
     assert calls["suggest"][-1] == ["git:b"], f"used activity was offered again: {calls['suggest'][-1]}"
     # Claude Code is the default AI, and the Gemini key is not sent unless Gemini is chosen
     assert calls["providers"][0] == ("claude", ""), f"unexpected AI request: {calls['providers'][0]}"

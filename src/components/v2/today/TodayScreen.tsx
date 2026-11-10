@@ -75,6 +75,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
     <div className="order-3 lg:order-none lg:col-span-5 min-w-0">
       <SuggestionsCard
         {...activityProps}
+        date={today}
         logs={logs}
         backlog={backlog}
         projects={projects}

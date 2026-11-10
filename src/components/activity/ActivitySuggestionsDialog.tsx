@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, Loader2, RotateCw, Sparkles, X } from 'lucide-react';
 import { ModalShell } from '../ui/ModalShell';
 import { IconButton } from '../ui/IconButton';
 import { localDateStr } from '../../utils/dates';
-import { describeSources, loadSuggestions, noticeSignature, PipelineResult } from '../../utils/activity/pipeline';
+import { describeSources, loadSuggestions, noticeSignature } from '../../utils/activity/pipeline';
+import { ActivitySessionRow, getActivitySession, setActivitySession, subscribeActivitySession } from '../../utils/activity/sessionStore';
 import { suggestionToLogData, trackedMinutesFor } from '../../utils/activity/suggestions';
 import { formatEstimate, formatMinutes } from '../../utils/activity/time';
 import type { BacklogTask, Project, WorkLog } from '../../types';
-import type { ActivityAi, ActivityFolder, ActivitySources, Suggestion } from '../../utils/activity/types';
+import type { ActivityAi, ActivityFolder, ActivitySources } from '../../utils/activity/types';
 
 export interface ActivitySuggestionsPanelProps {
   logs: WorkLog[];
@@ -24,28 +25,25 @@ export interface ActivitySuggestionsPanelProps {
   onPendingChange?: (count: number) => void;
   /** Called when a scan has finished and its suggestions are on screen. */
   onScanned?: () => void;
-  /** Embedded on a screen: today only, one line per suggestion, edits open on demand. */
+  /**
+   * Embedded on a screen: one line per suggestion, edits open on demand, and nothing is read until
+   * the user presses "Check activity" (full mode scans on open: opening the dialog is the asking).
+   */
   compact?: boolean;
+  /** The day to check (local YYYY-MM-DD). Compact mode follows it; full mode starts on it and has a day picker. Default: today. */
+  date?: string;
   /** id for the heading (full mode), so a dialog can name itself after it. */
   titleId?: string;
   /** Extra controls at the end of the heading row (full mode), e.g. a close button. */
   headerEnd?: React.ReactNode;
 }
 
-interface ActivitySuggestionsDialogProps extends Omit<ActivitySuggestionsPanelProps, 'onPendingChange' | 'onScanned' | 'compact' | 'titleId' | 'headerEnd'> {
+interface ActivitySuggestionsDialogProps extends Omit<ActivitySuggestionsPanelProps, 'onPendingChange' | 'onScanned' | 'compact' | 'date' | 'titleId' | 'headerEnd'> {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface Row {
-  suggestion: Suggestion;
-  checked: boolean;
-  text: string;
-  projectId: string;
-  minutes: string;
-  /** One sub-task per line. */
-  subtasks: string;
-}
+type Row = ActivitySessionRow;
 
 const NOTICE_KEY = 'workpulse_activity_notice';
 const readAck = (): string => {
@@ -69,8 +67,9 @@ const FIELD =
 const PRIMARY =
   'px-4 py-2 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--accent)] text-[var(--on-accent)] hover:bg-[var(--accent-hover)] cursor-pointer';
 
-// 'idle' is the state before the panel has decided between 'notice' (first use, or a new source
-// was switched on) and 'loading': nothing is read while it lasts.
+// 'idle': nothing has been asked for yet, and nothing is read while it lasts. Full mode leaves it at
+// once for 'notice' (first use, or a new source was switched on) or 'loading'; compact mode waits
+// for "Check activity". 'ready' shows the day's session from the store (sessionStore).
 type Phase = 'idle' | 'notice' | 'loading' | 'ready' | 'error';
 
 /** The dialog: a ModalShell around the panel. Closing unmounts the panel, which drops any scan still running. */
@@ -114,17 +113,21 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
   onPendingChange,
   onScanned,
   compact = false,
+  date: dateProp,
   titleId,
   headerEnd,
 }) => {
   const fallbackId = useId();
-  const [date, setDate] = useState(localDateStr());
+  const [pickedDate, setPickedDate] = useState(() => dateProp ?? localDateStr());
+  const date = compact && dateProp ? dateProp : pickedDate;
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState('');
-  const [result, setResult] = useState<PipelineResult | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [addedCount, setAddedCount] = useState(0);
   const [runId, setRunId] = useState(0);
+  // The day's check lives in the session store, shared with every other activity panel.
+  const session = useSyncExternalStore(subscribeActivitySession, () => getActivitySession(date));
+  const result = session?.result ?? null;
+  const rows = session?.rows ?? [];
+  const addedCount = session?.addedCount ?? 0;
   // Compact mode: the suggestion whose editor is open.
   const [editingKey, setEditingKey] = useState<string | null>(null);
 
@@ -142,11 +145,18 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
   // Only the newest scan may write its result: a slower, older one (date changed twice) is dropped.
   const scanSeq = useRef(0);
 
-  // Fresh start on mount. Unmounting drops any scan still running, so a reopened panel can never
-  // act on a stale phase before the notice is decided.
-  useEffect(() => {
+  // Asks to read the day's activity: through the notice when it has not been accepted for these sources.
+  const start = () => {
     setPhase(readAck() === signature ? 'loading' : 'notice');
     setRunId((n) => n + 1);
+  };
+
+  // On mount: a day already checked this session shows its kept suggestions; otherwise full mode
+  // starts a check (opening the dialog is the user asking) and compact mode waits for the button.
+  // Unmounting drops any scan still running, so a reopened panel never acts on a stale phase.
+  useEffect(() => {
+    if (getActivitySession(date)) setPhase('ready');
+    else if (!compact) start();
     return () => {
       scanSeq.current++;
     };
@@ -160,10 +170,12 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
       const l = latest.current;
       const r = await loadSuggestions({ date: forDate, folders: l.folders, sources: l.sources, projects: l.projects, logs: l.logs, backlog: l.backlog, geminiApiKey: l.geminiApiKey, ai: l.ai });
       if (seq !== scanSeq.current) return;
-      setResult(r);
-      setRows(
-        r.suggestions.map((s) => ({ suggestion: s, checked: false, text: s.text, projectId: s.projectId, minutes: String(s.minutes), subtasks: s.subtasks.join('\n') })),
-      );
+      setActivitySession(forDate, {
+        result: r,
+        rows: r.suggestions.map((s) => ({ suggestion: s, checked: false, text: s.text, projectId: s.projectId, minutes: String(s.minutes), subtasks: s.subtasks.join('\n') })),
+        addedCount: 0,
+        checked: true,
+      });
       setEditingKey(null);
       setPhase('ready');
       callbacks.current.onScanned?.();
@@ -174,20 +186,33 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
     }
   }, []);
 
-  // Runs whenever the panel is loading: on mount, on a different day, on retry, and once the
+  // Runs whenever the panel is loading: on a check, on a different day, on retry, and once the
   // notice is accepted.
   useEffect(() => {
     if (hasSetup && phase === 'loading') void run(date);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSetup, date, runId, phase === 'loading']);
 
-  // Suggestions still waiting, for the app's next action. Only a finished scan has a count.
+  // What is on screen: a check in progress or waiting for the notice, an error, the day's kept
+  // session, or (no session) the "Check activity" button in compact mode / the spinner while full
+  // mode decides.
+  const view: Phase | 'check' =
+    phase === 'notice' || phase === 'loading' || phase === 'error' ? phase : session ? 'ready' : compact ? 'check' : 'idle';
+
+  // Suggestions still waiting. App reads pendingCount() from the store; this is for a screen's own use.
   useEffect(() => {
-    if (phase === 'ready') callbacks.current.onPendingChange?.(rows.length);
-  }, [phase, rows.length]);
+    if (view === 'ready') callbacks.current.onPendingChange?.(rows.length);
+  }, [view, rows.length]);
+
+  // Every change goes to the store, so other panels (and a later visit) see the same rows and edits.
+  const writeRows = (next: (prev: Row[]) => Row[], added = 0) => {
+    const cur = getActivitySession(date);
+    if (!cur) return;
+    setActivitySession(date, { ...cur, rows: next(cur.rows), addedCount: cur.addedCount + added });
+  };
 
   const update = (key: string, patch: Partial<Row>) =>
-    setRows((prev) => prev.map((r) => (r.suggestion.key === key ? { ...r, ...patch } : r)));
+    writeRows((prev) => prev.map((r) => (r.suggestion.key === key ? { ...r, ...patch } : r)));
 
   const chosen = rows.filter((r) => r.checked);
   const canAdd = chosen.length > 0 && chosen.every((r) => r.text.trim().length > 0);
@@ -202,8 +227,7 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
         return suggestionToLogData(r.suggestion, date, minutes, r.text.trim(), r.projectId, name, r.subtasks.split('\n'));
       }),
     );
-    setAddedCount((n) => n + chosen.length);
-    setRows((prev) => prev.filter((r) => !r.checked));
+    writeRows((prev) => prev.filter((r) => !r.checked), chosen.length);
   };
 
   const acceptNotice = () => {
@@ -212,11 +236,6 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
     setRunId((n) => n + 1);
   };
 
-  const rescan = () => {
-    setAddedCount(0);
-    setPhase('loading');
-    setRunId((n) => n + 1);
-  };
 
   const sourceLines = result ? describeSources(sources, result.status) : [];
 
@@ -269,6 +288,18 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
     );
   };
 
+  // A new check of the same day: replaces the kept suggestions (and any edits) with a fresh scan.
+  const scanAgain = (
+    <button
+      type="button"
+      onClick={start}
+      className="shrink-0 inline-flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 px-2 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+    >
+      <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
+      Scan again
+    </button>
+  );
+
   const settingsButton = (
     <button type="button" onClick={onOpenSettings} className={PRIMARY}>
       Open Settings
@@ -285,7 +316,16 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
       </p>
       {settingsButton}
     </div>
-  ) : phase === 'notice' ? (
+  ) : view === 'check' ? (
+    <div className="py-1 space-y-3">
+      <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">
+        Turn today's commits{sources.claude ? ' and Claude Code prompts' : ''} into log lines you can tick and add. Nothing is read until you ask.
+      </p>
+      <button type="button" onClick={start} className={PRIMARY}>
+        Check activity
+      </button>
+    </div>
+  ) : view === 'notice' ? (
     <div className={compact ? 'py-1 space-y-3' : 'py-8 max-w-lg mx-auto space-y-4'}>
       <h3 className="text-sm font-bold">Before the first scan</h3>
       <ul className="text-xs text-[var(--text-muted)] space-y-1.5 list-disc pl-5">
@@ -307,12 +347,12 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
         Continue
       </button>
     </div>
-  ) : phase === 'loading' || phase === 'idle' ? (
+  ) : view === 'loading' || view === 'idle' ? (
     <div className={compact ? 'py-3 flex items-center gap-2' : 'py-16 text-center space-y-3'} role="status">
       <Loader2 className={`${compact ? 'w-4 h-4' : 'w-9 h-9 mx-auto'} text-[var(--accent-text)] animate-spin`} aria-hidden="true" />
       <p className="text-sm font-semibold">Reading your activity...</p>
     </div>
-  ) : phase === 'error' ? (
+  ) : view === 'error' ? (
     <div className={`${compact ? 'p-3 space-y-2' : 'p-6 text-center space-y-3'} border border-danger/30 bg-danger/10 rounded-[var(--radius-card)]`}>
       {!compact && <AlertTriangle className="w-8 h-8 text-danger mx-auto" aria-hidden="true" />}
       <p className="text-sm font-semibold text-danger">{error}</p>
@@ -340,12 +380,15 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
           {result.notice}
         </p>
       )}
-      {!compact && sourceLines.length > 0 && (
-        <ul className="text-xs text-[var(--text-muted)] space-y-0.5">
-          {sourceLines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+      {!compact && (
+        <div className="flex items-start justify-between gap-3">
+          <ul className="text-xs text-[var(--text-muted)] space-y-0.5">
+            {sourceLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          {scanAgain}
+        </div>
       )}
 
       {rows.length === 0 ? (
@@ -412,7 +455,7 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
             <input
               type="checkbox"
               checked={allChecked}
-              onChange={(e) => setRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))}
+              onChange={(e) => writeRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))}
             />
             <span>Select all ({rows.length})</span>
           </label>
@@ -447,7 +490,7 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
     </>
   );
 
-  const footer = hasSetup && phase === 'ready' && rows.length > 0 && (
+  const footer = hasSetup && view === 'ready' && rows.length > 0 && (
     <div className={`flex items-center justify-between gap-3 shrink-0 ${compact ? 'pt-3' : 'p-4 border-t border-[var(--border-app)]'}`}>
       <span className="text-xs text-[var(--text-muted)]">
         {compact ? `${chosen.length} of ${rows.length} selected` : `${chosen.length} selected`}
@@ -474,18 +517,7 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
       <div>
         {body}
         {footer}
-        {hasSetup && (phase === 'ready' || phase === 'error') && (
-          <div className="pt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={rescan}
-              className="inline-flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 px-2 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-            >
-              <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
-              Scan again
-            </button>
-          </div>
-        )}
+        {hasSetup && (view === 'ready' || view === 'error') && <div className="pt-2 flex justify-end">{scanAgain}</div>}
       </div>
     );
   }
@@ -511,9 +543,11 @@ export const ActivitySuggestionsPanel: React.FC<ActivitySuggestionsPanelProps> =
               max={localDateStr()}
               onChange={(e) => {
                 if (!e.target.value) return;
-                setDate(e.target.value);
-                setAddedCount(0);
-                if (phase !== 'notice') setPhase('loading');
+                const next = e.target.value;
+                setPickedDate(next);
+                // A day already checked this session shows what was kept; any other day is read now.
+                if (getActivitySession(next)) setPhase('ready');
+                else if (phase !== 'notice') setPhase('loading');
               }}
               className={FIELD}
             />
