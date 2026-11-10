@@ -54,6 +54,13 @@ describe('buildOvers', () => {
     { id: 'pb', name: 'Beta', color: '#222222', isArchived: false },
   ];
 
+  it("an earlier day's segments draw nothing", () => {
+    const day = 24 * 3600_000;
+    const old = task({ segments: [{ start: new Date(ms('09:00') - day).toISOString(), end: new Date(ms('12:00') - day).toISOString() }] });
+    const balls = buildOvers(rec, 8, [old], projects, ms('12:05')).flatMap((o) => o.balls);
+    expect(balls.some((b) => b.kind === 'project')).toBe(false);
+  });
+
   it('8h day at 10:25 has 8 overs of 6 balls, labelled by hour', () => {
     const overs = buildOvers(rec, 8, [], projects, ms('10:25'));
     expect(overs).toHaveLength(8);

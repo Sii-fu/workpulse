@@ -79,12 +79,16 @@ export function buildOvers(
   const slotCount = Math.max(1, Math.ceil((endMs - startMs) / SLOT_MS), nowSlot + 1);
   const overCount = Math.ceil(slotCount / BALLS_PER_OVER);
 
+  // Only segments that overlap this workday's slots count, so old days' segments cost nothing in the slot loop.
+  const windowEnd = startMs + slotCount * SLOT_MS;
   const spans: { projectId: string; from: number; to: number }[] = [];
   for (const t of tasks) {
     for (const s of t.segments ?? []) {
       const from = Date.parse(s.start);
       const to = s.end ? Date.parse(s.end) : nowMs;
-      if (Number.isFinite(from) && Number.isFinite(to) && to > from) spans.push({ projectId: t.projectId, from, to });
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) continue;
+      if (to <= startMs || from >= windowEnd) continue;
+      spans.push({ projectId: t.projectId, from, to });
     }
   }
 
