@@ -1,5 +1,6 @@
 import { SCRIPT_CORE } from './appsScript/core';
 import { SCRIPT_EMAIL } from './appsScript/email';
+import { SCRIPT_PHONE } from './appsScript/phonePage';
 
 const HEADER = `/**
  * =========================================================================
@@ -168,4 +169,4 @@ function upsertRows(sheet, rows) {
 }
 `;
 
-export const GOOGLE_APPS_SCRIPT_CODE = HEADER + LOGS_SCRIPT + SCRIPT_CORE + SCRIPT_EMAIL;
+export const GOOGLE_APPS_SCRIPT_CODE = HEADER + LOGS_SCRIPT + SCRIPT_CORE + SCRIPT_EMAIL + SCRIPT_PHONE;

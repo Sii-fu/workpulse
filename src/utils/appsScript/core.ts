@@ -76,12 +76,7 @@ function doPost(e) {
   }
 }
 
-// Replaced by the real phone page in a later version of this file.
-function servePhonePage() {
-  return HtmlService.createHtmlOutput('<p>WorkPulse phone page</p>')
-    .setTitle('WorkPulse')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
+// servePhonePage() lives in SCRIPT_PHONE (phonePage.ts), appended after this code.
 
 function pingOutput_() {
   return jsonOut_({
