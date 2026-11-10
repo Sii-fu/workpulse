@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { ModalShell } from '../ui/ModalShell';
 import { IconButton } from '../ui/IconButton';
+import { SWATCHES, Swatches } from './ProjectSwatches';
 import type { Project, TaskStatus, WorkLog } from '../../types';
 import { activeProjectsOf, defaultProject } from '../../utils/projects';
 import { localDateStr, localTimeStr } from '../../utils/dates';
@@ -61,7 +62,10 @@ const LogForm: React.FC<Omit<LogFormDialogProps, 'isOpen'>> = ({ projects, tags,
 
   const [addingProject, setAddingProject] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#2e86de');
+  // The first of the eight colours no project uses yet.
+  const [newColor, setNewColor] = useState(
+    () => (SWATCHES.find((s) => !projects.some((p) => p.color.toLowerCase() === s.hex)) ?? SWATCHES[0]).hex,
+  );
   const [pendingName, setPendingName] = useState('');
   const descRef = useRef<HTMLTextAreaElement>(null);
 
@@ -230,15 +234,14 @@ const LogForm: React.FC<Omit<LogFormDialogProps, 'isOpen'>> = ({ projects, tags,
                       e.preventDefault();
                       addProject();
                     }
+                    // Escape cancels only this row, not the whole form.
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setAddingProject(false);
+                    }
                   }}
                   className={`${FIELD} flex-1 min-w-40 w-auto`}
-                />
-                <input
-                  type="color"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  aria-label="Project colour"
-                  className="h-10 w-12 shrink-0 rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-transparent cursor-pointer"
                 />
                 <button type="button" onClick={addProject} disabled={!newName.trim()} className="v2-btn v2-btn-strong min-h-10 px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   Add project
@@ -247,6 +250,7 @@ const LogForm: React.FC<Omit<LogFormDialogProps, 'isOpen'>> = ({ projects, tags,
                   Cancel
                 </button>
               </div>
+              <Swatches value={newColor} label="Project colour" onPick={setNewColor} />
             </div>
           )}
 

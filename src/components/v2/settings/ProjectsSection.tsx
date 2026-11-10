@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Project } from '../../../types';
 import { IconButton } from '../../ui/IconButton';
+import { SWATCHES, Swatches } from '../ProjectSwatches';
 
 interface ProjectsSectionProps {
   projects: Project[];
@@ -10,45 +11,11 @@ interface ProjectsSectionProps {
   onUpdateTags(t: string[]): void;
 }
 
-export const SWATCHES: { hex: string; name: string }[] = [
-  { hex: '#2e86de', name: 'Blue' },
-  { hex: '#e07a2f', name: 'Orange' },
-  { hex: '#8e5bd6', name: 'Purple' },
-  { hex: '#2aa876', name: 'Green' },
-  { hex: '#d6455d', name: 'Red' },
-  { hex: '#c9a227', name: 'Gold' },
-  { hex: '#3a9ca8', name: 'Teal' },
-  { hex: '#8a6d5b', name: 'Brown' },
-];
-
 const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
 const FIELD = 'v2-input w-full h-11 px-3 text-[length:var(--fs-body)]';
 const BTN = 'v2-btn inline-flex items-center justify-center gap-1.5 min-h-11 px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 const TEXT_BTN =
   'min-h-8 pointer-coarse:min-h-11 px-1 text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed';
-
-// Eight colours to pick from. The chosen one gets a ring that does not depend on colour to be seen.
-const Swatches: React.FC<{ value: string; label: string; onPick(hex: string): void }> = ({ value, label, onPick }) => (
-  <div role="group" aria-label={label} className="flex flex-wrap gap-2">
-    {SWATCHES.map((s) => {
-      const on = s.hex.toLowerCase() === value.toLowerCase();
-      return (
-        <button
-          key={s.hex}
-          type="button"
-          aria-label={s.name}
-          aria-pressed={on}
-          title={s.name}
-          onClick={() => onPick(s.hex)}
-          className={`h-7 w-7 pointer-coarse:h-11 pointer-coarse:w-11 rounded-[var(--radius-btn)] cursor-pointer ${
-            on ? 'shadow-[0_0_0_2px_var(--bg-app),0_0_0_4px_var(--text-main)]' : ''
-          }`}
-          style={{ backgroundColor: s.hex }}
-        />
-      );
-    })}
-  </div>
-);
 
 interface ProjectRowProps {
   project: Project;
