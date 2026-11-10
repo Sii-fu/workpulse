@@ -101,7 +101,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
 
 // activityProps is compared field by field, so App may build it inline, along with `sources`
 // (two flags) and an empty `folders` fallback. Its functions must be stable (useStableCallback).
-const sameActivityProps = (a: TodayActivityProps, b: TodayActivityProps): boolean =>
+export const sameActivityProps = (a: TodayActivityProps, b: TodayActivityProps): boolean =>
   a === b ||
   (a.ai === b.ai &&
     a.geminiApiKey === b.geminiApiKey &&

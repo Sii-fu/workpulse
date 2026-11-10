@@ -71,9 +71,42 @@ function formatDurationSeconds(sec: number): string {
   return `${m}m ${s.toString().padStart(2, '0')}s`;
 }
 
-export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
-  isOpen,
-  onClose,
+export interface EodPanelProps extends Omit<EodSynthesizerModalProps, 'isOpen' | 'onClose'> {
+  /** Called after the chosen logs were confirmed (onConfirmAndPush resolved). */
+  onDone?(): void;
+  /** Shows the Close / Cancel buttons (the modal wrapper passes its onClose). */
+  onCancel?(): void;
+  /** id for the heading (full mode). */
+  titleId?: string;
+  /** Inside End my day: no dialog heading or Sheet status line, and the confirm button reads "Add N logs". */
+  embedded?: boolean;
+}
+
+// The modal keeps its old props. The body is mounted on each open, so the synthesis runs once per open.
+export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({ isOpen, onClose, ...rest }) => {
+  if (!isOpen) return null;
+  const isMatrix = rest.activeTheme === 'matrix';
+  const isMinimalist = rest.activeTheme === 'minimalist';
+  return (
+    <ModalShell
+      onClose={onClose}
+      labelledBy="eod-title"
+      backdropClassName="p-3 sm:p-4"
+      className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden shadow-2xl ${
+        isMatrix
+          ? 'bg-[var(--bg-app)] border-[var(--accent)] text-[var(--text-main)] font-mono shadow-[0_0_30px_rgba(0,255,102,0.2)]'
+          : isMinimalist
+          ? 'bg-[var(--bg-app)] border-[var(--border-app)] text-[var(--text-main)]'
+          : 'bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)] '
+      }`}
+    >
+      <EodPanel {...rest} titleId="eod-title" onCancel={onClose} onDone={onClose} />
+    </ModalShell>
+  );
+};
+
+/** The end-of-day synthesis body: builds one log per project and status from the tasks, then confirms the chosen ones. */
+export const EodPanel: React.FC<EodPanelProps> = ({
   tasksSnapshot,
   isCustomSelection = false,
   backlog,
@@ -83,6 +116,10 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   hasGoogleSheetLinked,
   onConfirmAndPush,
   onOpenActivity,
+  onDone,
+  onCancel,
+  titleId,
+  embedded = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -186,28 +223,20 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
     }
   };
 
-  // Trigger synthesis strictly ONCE per modal opening session
+  // Trigger synthesis strictly ONCE per mount (one modal opening, or one End my day session)
   useEffect(() => {
-    if (!isOpen) {
-      hasRunRef.current = false;
-      setIsLoading(false);
-      return;
-    }
-
     if (hasRunRef.current) return;
     hasRunRef.current = true;
 
     // Freeze snapshot at opening time
     frozenTasksRef.current = [...tasksSource];
     runSynthesis(frozenTasksRef.current);
-  }, [isOpen]);
+  }, []);
 
   const handleManualResynthesize = () => {
     const tasksToUse = frozenTasksRef.current.length > 0 ? frozenTasksRef.current : tasksSource;
     runSynthesis(tasksToUse);
   };
-
-  if (!isOpen) return null;
 
   const toggleSelectLog = (logId: string) => {
     setSelectedLogIds((prev) => {
@@ -283,7 +312,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
     setIsSubmitting(true);
     try {
       await onConfirmAndPush(toPush);
-      onClose();
+      onDone?.();
     } catch (e: any) {
       setPushError(`Could not push the logs: ${e?.message || 'unknown error'}. Nothing was lost; press the button to try again.`);
     } finally {
@@ -292,27 +321,34 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
   };
 
   return (
-    <ModalShell
-      onClose={onClose}
-      labelledBy="eod-title"
-      backdropClassName="p-3 sm:p-4"
-      className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[var(--radius-card)] border overflow-hidden shadow-2xl ${
-        isMatrix
-          ? 'bg-[var(--bg-app)] border-[var(--accent)] text-[var(--text-main)] font-mono shadow-[0_0_30px_rgba(0,255,102,0.2)]'
-          : isMinimalist
-          ? 'bg-[var(--bg-app)] border-[var(--border-app)] text-[var(--text-main)]'
-          : 'bg-[var(--bg-surface-elevated)] border-[var(--border-app)] text-[var(--text-main)] '
-      }`}
-    >
       <>
         {/* Modal Header */}
+        {embedded ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--border-app)] shrink-0">
+            <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">
+              One log per project and status from these tasks. Check the text and minutes, then add them.
+              <span className="ml-2 font-semibold uppercase">{activeModelName}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualResynthesize}
+                disabled={isLoading}
+                className="v2-btn inline-flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 px-3 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+              >
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />}
+                <span>Rebuild</span>
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-app)] shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-[var(--accent)]/10 text-[var(--accent-text)] border border-[var(--accent)]/30">
               <ClipboardCheck className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <h2 id="eod-title" className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <h2 id={titleId} className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <span>End-of-day timesheet</span>
                 <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-warning/15 text-warning border border-warning/30 uppercase">
                   {activeModelName}
@@ -334,14 +370,17 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
               {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">Rebuild</span>
             </button>
-            <IconButton label="Close" onClick={onClose}>
-              <X className="w-5 h-5" />
-            </IconButton>
+            {onCancel && (
+              <IconButton label="Close" onClick={onCancel}>
+                <X className="w-5 h-5" />
+              </IconButton>
+            )}
           </div>
         </div>
+        )}
 
         {/* Modal Body / Review Console */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <div className={embedded ? 'py-4 space-y-5' : 'flex-1 overflow-y-auto p-4 sm:p-6 space-y-5'}>
           {onOpenActivity && (
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-[var(--radius-card)] border border-[var(--border-control)] bg-[var(--bg-subtle)]">
               <p className="text-xs text-[var(--text-muted)]">
@@ -379,12 +418,14 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
                   Try again
                 </button>
               )}
-              <button
-                onClick={onClose}
-                className="px-4 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)] cursor-pointer"
-              >
-                Close
-              </button>
+              {onCancel && (
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-subtle-hover)] cursor-pointer"
+                >
+                  Close
+                </button>
+              )}
             </div>
           ) : synthesizedItems.length === 0 ? (
             <div className="py-12 text-center text-xs text-[var(--text-muted)] font-mono">
@@ -619,6 +660,21 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
         </div>
 
         {/* Modal Footer / Commit Actions */}
+        {embedded ? (
+          <div className="pt-3 border-t border-[var(--border-app)] flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isSubmitting || isLoading || !!errorMsg || selectedLogIds.size === 0}
+              className="v2-btn v2-btn-strong inline-flex items-center gap-2 min-h-11 px-4 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+            >
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              <span>
+                {isSubmitting ? 'Adding…' : `Add ${selectedLogIds.size} ${selectedLogIds.size === 1 ? 'log' : 'logs'}`}
+              </span>
+            </button>
+          </div>
+        ) : (
         <div className="p-4 sm:p-5 border-t border-[var(--border-app)] bg-[var(--bg-subtle)]/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-[var(--text-muted)] font-mono">
             {hasGoogleSheetLinked ? (
@@ -635,14 +691,16 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onCancel && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={onCancel}
               disabled={isSubmitting}
               className="px-4 py-2 text-xs font-semibold rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-subtle)] cursor-pointer"
             >
               Cancel
             </button>
+            )}
 
             <button
               type="button"
@@ -664,7 +722,7 @@ export const EodSynthesizerModal: React.FC<EodSynthesizerModalProps> = ({
             </button>
           </div>
         </div>
+        )}
       </>
-    </ModalShell>
   );
 };
