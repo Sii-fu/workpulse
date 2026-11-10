@@ -50,7 +50,7 @@ SEL = {
     "clock_out": "Clock out",
     "resume_day": "Resume",
     "clock_in_dialog": "Clock in",                        # dialog name
-    "came_in_at": re.compile(r"^I came in at"),
+    "came_in_at": re.compile(r"^I came in (yesterday )?at"),
     # Today
     "task_quick_add": "Add a task for today",             # textbox; Enter = planned
     "log_quick_add": "What did you just finish?",         # textbox; Enter = log
@@ -548,17 +548,15 @@ def office_clock(s):
 
 @check("office_clock_came_in_at")
 def office_clock_came_in_at(s):
-    """Forgot to clock in: "I came in at" takes an earlier time; a future time is refused."""
+    """Forgot to clock in: "I came in at" takes an earlier time; a time later than now means yesterday."""
     p = s.page
     btn(p.get_by_role("region", name=SEL["clock_band"]), SEL["clock_in"], exact=True).click()
     dlg = p.get_by_role("dialog", name=SEL["clock_in_dialog"])
     field = dlg.locator("input[type=time]")
     now_min = p.evaluate("() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }")
-    if now_min < 23 * 60 + 58:  # a time later today is refused
+    if now_min < 23 * 60 + 58:  # a time later than now is read as yesterday, and the button says so
         field.fill(hm(now_min + 2).zfill(5))
-        btn(dlg, SEL["came_in_at"]).click()
-        expect(dlg.get_by_role("alert")).to_be_visible()
-        assert not s.ls("workpulse_workdays"), "a future clock-in was saved"
+        expect(btn(dlg, SEL["came_in_at"])).to_contain_text("yesterday")
     earlier = max(0, now_min - 30)
     stamp = hm(earlier).zfill(5)
     field.fill(stamp)
