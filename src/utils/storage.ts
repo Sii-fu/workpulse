@@ -1,5 +1,6 @@
 import { WorkLog, BacklogTask, Project, AppSettings, BackupData, Workdays } from '../types';
 import { localDateStr } from './dates';
+import { moveRunningToDay } from './taskDates';
 import { isWorkdays, validWorkdayHours } from './workday';
 import { ensureOpenSegment } from './segments';
 import { normalizeTheme } from './theme';
@@ -75,7 +76,6 @@ function runMigrations(_storedVersion: number): void {
 // segment. It never changes a task's dueDate: pending tasks stay under their own day.
 export function rollOverTasks(
   backlog: BacklogTask[],
-  todayStr: string,
   nowIso: string = new Date().toISOString(),
 ): { tasks: BacklogTask[]; changed: boolean } {
   let changed = false;
@@ -127,10 +127,12 @@ export function loadStoredData() {
   };
   const workdays = readKey<Workdays>(KEYS.WORKDAYS, isWorkdays, {}, {}, warnings);
 
-  // Normalise tasks; due dates are left alone.
-  const rolled = rollOverTasks(backlog, localDateStr());
-  backlog = rolled.tasks;
-  const updatedBacklog = rolled.changed;
+  // Normalise tasks (pending ones keep their own day). A timer left running across midnight while the
+  // app was closed belongs to today: it moves here, since the live midnight check never saw the change.
+  const rolled = rollOverTasks(backlog);
+  const withRunningToday = moveRunningToDay(rolled.tasks, localDateStr());
+  backlog = withRunningToday;
+  const updatedBacklog = rolled.changed || withRunningToday !== rolled.tasks;
 
   try {
     if (updatedBacklog) {

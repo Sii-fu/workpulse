@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { addDays, localDateStr } from './dates';
 import { loadStoredData, saveLogs, saveWorkdays, rollOverTasks, CURRENT_SCHEMA_VERSION } from './storage';
 
 const log = (id: string) => ({
@@ -44,6 +45,23 @@ describe('loadStoredData', () => {
     expect(corruptKeys('workpulse_tags_corrupt_')).toHaveLength(1);
     expect(localStorage.getItem(corruptKeys('workpulse_tags_corrupt_')[0])).toBe('{bad');
     expect(localStorage.getItem('workpulse_logs')).toBe(before);
+  });
+
+  it('a timer left running across midnight loads under today and is saved; a paused task keeps its date', () => {
+    const yesterday = addDays(localDateStr(), -1);
+    const open = [{ start: '2026-11-08T01:00:00.000Z' }];
+    localStorage.setItem(
+      'workpulse_backlog',
+      JSON.stringify([
+        { ...task('run'), dueDate: yesterday, stage: 'in_progress', isRunning: true, segments: open },
+        { ...task('paused'), dueDate: yesterday, stage: 'paused' },
+      ]),
+    );
+    const r = loadStoredData();
+    expect(r.backlog.find((t) => t.id === 'run')?.dueDate).toBe(localDateStr());
+    expect(r.backlog.find((t) => t.id === 'paused')?.dueDate).toBe(yesterday);
+    const saved = JSON.parse(localStorage.getItem('workpulse_backlog') as string);
+    expect(saved.find((t: { id: string }) => t.id === 'run').dueDate).toBe(localDateStr());
   });
 
   it('valid JSON of the wrong type is treated as corrupt, without throwing', () => {
@@ -133,32 +151,30 @@ describe('save*', () => {
 describe('rollOverTasks (C3)', () => {
   const base = { id: 't', title: 'T', projectId: 'p', dueDate: '2999-01-01', originalDate: '2026-01-01', isRolledOver: false } as any;
   it('completed:true with a stale stage becomes stage done', () => {
-    const { tasks } = rollOverTasks([{ ...base, completed: true, stage: 'in_progress' }], '2026-11-08');
+    const { tasks } = rollOverTasks([{ ...base, completed: true, stage: 'in_progress' }]);
     expect(tasks[0]).toMatchObject({ stage: 'done', completed: true, isRunning: false });
   });
   it('stage done with completed:false becomes completed', () => {
-    const { tasks } = rollOverTasks([{ ...base, completed: false, stage: 'done' }], '2026-11-08');
+    const { tasks } = rollOverTasks([{ ...base, completed: false, stage: 'done' }]);
     expect(tasks[0]).toMatchObject({ stage: 'done', completed: true });
   });
   it('a task with no stage gets one from completed', () => {
-    expect(rollOverTasks([{ ...base, completed: false }], '2026-11-08').tasks[0]).toMatchObject({ stage: 'planned', completed: false });
+    expect(rollOverTasks([{ ...base, completed: false }]).tasks[0]).toMatchObject({ stage: 'planned', completed: false });
   });
   it('never changes dueDate: a planned task due yesterday stays there and is not a change', () => {
-    const { tasks, changed } = rollOverTasks([{ ...base, dueDate: '2026-11-09', completed: false, stage: 'planned' }], '2026-11-10');
+    const { tasks, changed } = rollOverTasks([{ ...base, dueDate: '2026-11-09', completed: false, stage: 'planned' }]);
     expect(tasks[0].dueDate).toBe('2026-11-09');
     expect(changed).toBe(false);
   });
   it('a task already marked rolled over keeps its current date', () => {
     const { tasks } = rollOverTasks(
       [{ ...base, dueDate: '2026-11-10', isRolledOver: true, originalDate: '2026-11-08', completed: false, stage: 'planned' }],
-      '2026-11-10',
     );
     expect(tasks[0].dueDate).toBe('2026-11-10');
   });
   it('a running task due on an earlier day keeps that date but still gets an open segment', () => {
     const { tasks, changed } = rollOverTasks(
       [{ ...base, dueDate: '2026-11-01', completed: false, stage: 'in_progress' }],
-      '2026-11-08',
       '2026-11-08T05:00:00.000Z',
     );
     expect(changed).toBe(true);
@@ -166,7 +182,7 @@ describe('rollOverTasks (C3)', () => {
   });
   it('a running task with no open segment gets one starting now, and that counts as changed', () => {
     const now = '2026-11-08T05:00:00.000Z';
-    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'in_progress' }], '2026-11-08', now);
+    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'in_progress' }], now);
     expect(changed).toBe(true);
     expect(tasks[0].segments).toEqual([{ start: now }]);
   });
@@ -174,14 +190,13 @@ describe('rollOverTasks (C3)', () => {
     const segments = [{ start: '2026-11-08T01:00:00.000Z' }];
     const { tasks, changed } = rollOverTasks(
       [{ ...base, completed: false, stage: 'in_progress', segments }],
-      '2026-11-08',
       '2026-11-08T05:00:00.000Z',
     );
     expect(changed).toBe(false);
     expect(tasks[0].segments).toEqual(segments);
   });
   it('tasks that are not running get no segment', () => {
-    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'paused' }], '2026-11-08');
+    const { tasks, changed } = rollOverTasks([{ ...base, completed: false, stage: 'paused' }]);
     expect(changed).toBe(false);
     expect(tasks[0].segments).toBeUndefined();
   });

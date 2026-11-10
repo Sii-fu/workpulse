@@ -185,7 +185,7 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // 1. Initial load from localStorage (the loader maps old theme ids and rolls tasks over).
+  // 1. Initial load from localStorage (the loader maps old theme ids, normalises tasks and moves a timer left running past midnight to today).
   useEffect(() => {
     const loaded = loadStoredData();
     setLogs(loaded.logs);
@@ -265,7 +265,7 @@ export default function App() {
       }
     };
     // The page is going away: the saved copy closes every open timer segment, so the overs strip never
-    // shows time while the app was closed. On the next load rollOverTasks reopens them for running tasks.
+    // shows time while the app was closed. On the next load rollOverTasks reopens a segment for each running task.
     // State keeps the open segment, in case the page comes back from the back/forward cache.
     // Writes only when there is something to write (before the data has loaded the ref is empty,
     // and saving it would wipe the stored tasks).
