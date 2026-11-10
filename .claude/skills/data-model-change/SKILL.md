@@ -17,9 +17,9 @@ don't apply, and say which ones you skipped and why.
 ## 2. Migration — `src/utils/storage.ts` → `loadStoredData()`
 - Keys: `workpulse_logs`, `workpulse_backlog`, `workpulse_projects`, `workpulse_tags`, `workpulse_settings`, `workpulse_workdays` (`KEYS` object in `src/utils/storage.ts`; the old `workpulse_active_draft` key is no longer used).
 - **Workdays** are validated by `isWorkdays` (`src/utils/workday.ts`); a new `WorkdayRecord` field must pass it. Settings' `theme` goes through `normalizeTheme` (`src/utils/theme.ts`).
-- **Backlog** already has a normalisation pass (`backlog.map(...)` that fills `stage`, `elapsedSeconds`, `isRunning`, and does rollover). Add defaults / rename handling there.
+- **Backlog** already has a normalisation pass (`backlog.map(...)` that fills `stage`, `elapsedSeconds`, `isRunning`, and reopens segments for running tasks). It does not roll `dueDate` forward: pending tasks keep their date. Add defaults / rename handling there.
 - **Logs and projects** are parsed with a bare `JSON.parse` cast and **no** normalisation. If old records need a default, rename or type conversion, add a `.map()` after parsing.
-- **Settings** are merged as `{ ...DEFAULT_SETTINGS, ...stored }`, so a new `AppSettings` field gets its default automatically once it's in `DEFAULT_SETTINGS` (step 3). Renames still need explicit handling.
+- **Settings** are merged as `{ ...DEFAULT_SETTINGS, ...stored }`, so a new `AppSettings` field gets its default automatically once it's in `DEFAULT_SETTINGS` (step 3). Renames still need explicit handling. The optional fields added for the phone page and email (`BacklogTask.fromPhone`; `AppSettings.phoneToken`, `phoneSyncAt`, `phoneDeviceId`, `phoneLastError`, `emailEnabled`, `emailTime`) have no default: absent means off / 18:00, and `storage.test.ts` checks they survive a load.
 - If you migrate, write the result back (as the backlog branch does with `localStorage.setItem`) so it only runs once.
 - Never throw: the `catch` falls back to seed data, which would look like data loss to the user.
 
@@ -27,7 +27,7 @@ don't apply, and say which ones you skipped and why.
 - `INITIAL_PROJECTS`, `INITIAL_TAGS`, `DEFAULT_SETTINGS`, and `getInitialSeedData()` (sample logs and backlog tasks with dates relative to today).
 - Add realistic values to the sample records if the field should show up in the demo.
 - `src/App.tsx` starts from `useState<AppSettings>(DEFAULT_SETTINGS)`, so nothing is duplicated there.
-- Backups: `src/utils/backup.ts` (`buildBackup`, `parseBackup`) if the data belongs in the backup file (device-only settings do not).
+- Backups: `src/utils/backup.ts` (`buildBackup`, `parseBackup`) if the data belongs in the backup file (device-only settings do not). Device-only today: `geminiApiKey`, `lastBackupAt`, `activityFolders` and the phone fields `phoneToken`, `phoneDeviceId`, `phoneSyncAt`, `phoneLastError`; `buildBackup` omits them, `parseBackup` clears them, and `keepDeviceSettings` (`src/utils/phoneSettings.ts`, used by `handleImportBackup`) keeps this computer's own over an import. A new device-only field goes in all three places.
 
 ## 4. Places that create records — `src/App.tsx` and components
 New `WorkLog` objects are built in several places. Set the field (or leave it undefined on purpose) in each:
@@ -46,7 +46,8 @@ New `WorkLog` objects are built in several places. Set the field (or leave it un
   2. `rows.push([...])` in the `batchSync` branch
   3. the `headers` array in `getOrCreateLogsSheet()`
   Keep the `Id` column **last** (12th): the script upserts rows by it (`upsertRows`, `ID_COL`), so new columns go before it only if `ID_COL` moves too. `WorkLog.syncedAt` is set by the app after a confirmed sync, and manual Sync sends only logs that need it (`src/utils/syncStatus.ts`).
-- Tell the user: an already-deployed Apps Script must be **re-pasted and redeployed**. An existing `WorkPulse_Logs` sheet keeps its old header row, because headers are only written when the sheet is first created, so the header needs adding manually.
+- The script is composed from `googleAppsScriptTemplate.ts` (header and the v2 log code), `src/utils/appsScript/core.ts` (PIN, token, state and inbox tabs, phone data), `email.ts` (evening email) and `phonePage.ts` (phone page). A field that the phone page, the snapshot or the email reads goes through `src/utils/phoneSync.ts` (`buildSnapshot`, `mergeInbox`) and the matching script code, and is tested with the Node harness `src/test/appsScriptHarness.ts` (`npx vitest run src/utils/appsScript`). Script helpers end in `_`; any top-level name without `_` is callable from the public phone page, and `core.test.ts` pins that list. Sheet dates are normalised with `Utilities.formatDate` and date columns written as text.
+- Tell the user: an already-deployed Apps Script must be **re-pasted and redeployed** (edit the existing deployment, New version, so the URL stays; see `docs/phone-and-email-setup.md`). An existing `WorkPulse_Logs` sheet keeps its old header row, because headers are only written when the sheet is first created, so the header needs adding manually.
 
 ## 6. Display (one layout; check it in all three themes)
 - `components/v2/today/LogRow.tsx` (every log list: Today, History, End my day) and `TaskRow.tsx` (`metaFor`; Today and Tasks).

@@ -17,6 +17,10 @@ Options:  --only NAME[,NAME]   run only these checks      --list   list checks
           --shots DIR          save a screenshot on failure and after theme switches
           --headed             show the browser
 
+The Gemini routes and the Google Sheet are always stubbed: `AiGuard` and `SheetGuard` fail a run when a request
+reaches the real AI server, or when anything touches a script.google.com host. Checks that need a Sheet use
+`ScriptStub` (ping, setPin, pushState, pullInbox, ackInbox, setEmail, sendTestEmail).
+
 Exit code: 0 when every check passes (or fails only as an expected failure), 1 otherwise.
 Expected failures are listed in EXPECTED_FAIL with the reason. When one starts passing it
 is reported as XPASS: delete it from EXPECTED_FAIL so a regression is caught.
@@ -53,6 +57,10 @@ SEL = {
     "came_in_at": re.compile(r"^I came in (yesterday )?at"),
     "plan_day_dialog": "Plan your day",                   # dialog after a date's first clock-in
     "plan_skip": "Skip",
+    "plan_start": "Start the day",                        # footer button of Plan your day
+    "plan_new_tasks": "Add today's tasks",                # textarea, one task per line
+    "move_all": re.compile(r"^Move all to today"),        # per date group; the sr-only suffix adds " from <date>"
+    "menu_move_today": "Move to today",                   # row menu
     # Today
     "task_quick_add": "Add a task for today",             # textbox; Enter = planned
     "log_quick_add": "What did you just finish?",         # textbox; Enter = log
@@ -83,6 +91,10 @@ SEL = {
     "theme_tiles": {"chase": "The Chase", "timecard": "Time Card", "console": "Graphite Console"},
     "workday_hours": "Hours in your workday",
     "settings_save": "Save All Settings",
+    "phone_section": "#settings-phone",                   # CSS: Settings > Phone & evening email
+    "set_pin": "Set PIN", "change_pin": "Change PIN", "reset_access": "Reset phone access",
+    "pin_new": "New PIN", "pin_again": "New PIN again", "phone_link": "Phone link",
+    "email_on": "Send me an evening email", "email_save": "Save", "email_test": "Send a test email",
     # dialogs
     "palette_trigger_key": "Control+k",
     "palette_input": "input[role=combobox]",              # CSS
@@ -168,8 +180,89 @@ class AiGuard:
         assert self.seen == self.stubbed,             f"{self.seen - self.stubbed} AI request(s) reached the real server (seen {self.seen}, stubbed {self.stubbed})"
 
 
+REAL_SCRIPT_HOST = re.compile(r"^https?://([^/]*\.)?(script\.google\.com|script\.googleusercontent\.com)(/|$)", re.I)
+SHEETS_PATH = re.compile(r"/api/sheets/proxy(\?|$)")
+SCRIPT_URL = "https://script.google.com/macros/s/AKfycbSMOKE/exec"   # a made-up deployment; nothing ever answers it
+PHONE_TOKEN = "a" * 64
+
+
+class SheetGuard:
+    """The Google Sheet never gets a real request. The page only reaches the Sheet through the local
+    /api/sheets/proxy route, so that route is stubbed (by default with a harmless failure, by a check with its
+    own `ScriptStub`), and any request straight to a script.google.com host is aborted and fails the run.
+    `check()` fails the run when a proxy request was not answered by a stub, or a real host was asked."""
+
+    def __init__(self, ctx):
+        self.seen, self.stubbed, self.real = 0, 0, []
+        ctx.on("request", self._on_request)
+        ctx.route(REAL_SCRIPT_HOST, lambda route: route.abort())
+        ctx.route("**/api/sheets/proxy", self.stub(
+            lambda r: r.fulfill(json={"status": "error", "message": "No Sheet in the smoke test"})))
+
+    def _on_request(self, req):
+        if REAL_SCRIPT_HOST.search(req.url):
+            self.real.append(req.url)
+        elif SHEETS_PATH.search(req.url):
+            self.seen += 1
+
+    def stub(self, handler):
+        """Wrap a route handler so its requests count as stubbed. Checks use it for their own proxy routes."""
+        def run(route):
+            self.stubbed += 1
+            handler(route)
+        return run
+
+    def check(self):
+        assert not self.real, f"a request reached a real Google script host: {self.real[:2]}"
+        assert self.seen == self.stubbed, \
+            f"{self.seen - self.stubbed} Sheet proxy request(s) were not answered by a stub (seen {self.seen}, stubbed {self.stubbed})"
+
+
+class ScriptStub:
+    """A fake Google script behind /api/sheets/proxy: ping, setPin, pushState, pullInbox, ackInbox, setEmail and
+    sendTestEmail. `inbox` items are served until acked, unless `serve_again` (an ack that was lost: the same items
+    come back on the next pull). `calls` holds (action, payload) in order."""
+
+    def __init__(self, s, version=3, inbox=None, serve_again=False):
+        self.version, self.serve_again = version, serve_again
+        self.inbox = list(inbox or [])
+        self.calls, self.taken = [], set()
+        s.page.route("**/api/sheets/proxy", s.sheets.stub(self.handle))
+
+    def actions(self):
+        return [a for a, _ in self.calls]
+
+    def payloads(self, action):
+        return [p for a, p in self.calls if a == action]
+
+    def handle(self, route):
+        body = json.loads(route.request.post_data or "{}")
+        assert body.get("scriptUrl") == SCRIPT_URL, f"unexpected script URL {body.get('scriptUrl')}"
+        action, p = body.get("action"), body.get("payload") or {}
+        self.calls.append((action, p))
+        if action == "ping":
+            res = {"status": "ok", "version": self.version}
+        elif action == "setPin":
+            res = {"status": "ok", "token": PHONE_TOKEN}
+        elif action == "pullInbox":
+            res = {"status": "ok", "items": [i for i in self.inbox if self.serve_again or i["id"] not in self.taken]}
+        elif action == "ackInbox":
+            self.taken.update(p.get("ids", []))
+            res = {"status": "ok", "taken": len(p.get("ids", []))}
+        elif action == "pushState":
+            res = {"status": "ok", "pushedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                   "deviceChanged": False}
+        elif action == "setEmail":
+            res = {"status": "ok", "enabled": p.get("enabled"), "hour": p.get("hour"), "minute": p.get("minute"), "tz": p.get("tz")}
+        elif action == "sendTestEmail":
+            res = {"status": "ok", "sent": True, "to": "owner@gmail.com"}
+        else:
+            res = {"status": "error", "message": "Unknown action in the smoke stub"}
+        route.fulfill(json=res)
+
+
 class Session:
-    """A fresh browser context with console-error capture and stubbed AI routes."""
+    """A fresh browser context with console-error capture, stubbed AI routes and a stubbed Sheet."""
 
     def __init__(self, pw, url, theme="chase", width=1440, height=900, headed=False, touch=False, settings=None):
         self.url = url
@@ -182,6 +275,7 @@ class Session:
             "localStorage.setItem('workpulse_settings', %s) }catch(e){}" % json.dumps(json.dumps(seeded))
         )
         self.ai = AiGuard(self.ctx)
+        self.sheets = SheetGuard(self.ctx)
         self.errors = []
         self.page = self.ctx.new_page()
         self.page.on("console", self._on_console)
@@ -214,6 +308,12 @@ class Session:
         return self.page.evaluate(
             "() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')"
             " + '-' + String(d.getDate()).padStart(2, '0'); }")
+
+    def day(self, offset=0):
+        """The local date `offset` days from today, as YYYY-MM-DD."""
+        return self.page.evaluate(
+            "n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' +"
+            " String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }", offset)
 
     def tab(self, name):
         """Header tabs on a wide screen, the bottom nav on a phone (both are nav "Main")."""
@@ -843,9 +943,9 @@ def sync_button(s):
         # the automatic sync after adding a log fails; the manual Sync then succeeds
         route.fulfill(json={"status": "ok"} if calls["n"] > 1 else {"status": "error", "message": "stub failure"})
 
-    p.route("**/api/sheets/proxy", proxy)
+    p.route("**/api/sheets/proxy", s.sheets.stub(proxy))
     settings = s.ls("workpulse_settings") or dict(SEED_SETTINGS, theme="chase")
-    settings["googleScriptUrl"] = "https://script.google.com/macros/s/AKfycbSMOKE/exec"
+    settings["googleScriptUrl"] = SCRIPT_URL
     s.set_ls("workpulse_settings", settings)
     s.reload()
     quick_log(s, "Smoke sync entry")
@@ -1027,6 +1127,221 @@ def activity_today_card(s):
     s.no_errors()
 
 
+# -- task dates, Plan your day, phone sync and the Phone & evening email settings (the Sheet is stubbed) ----
+def _seed_tasks(s, *specs):
+    """Write pending tasks to storage and reload. Each spec is (key, title, day offset, extra fields)."""
+    tasks = []
+    for key, title, offset, extra in specs:
+        day = s.day(offset)
+        tasks.append(dict({"id": f"task-1700000000000-{key}", "title": title, "projectId": "proj-1", "dueDate": day,
+                           "originalDate": day, "isRolledOver": False, "completed": False, "stage": "planned"}, **extra))
+    # a reload saves the tasks in memory first (pagehide), which would overwrite a plain localStorage write:
+    # an init script plants them once, before the app starts
+    s.ctx.add_init_script(
+        "try{ if(!sessionStorage.getItem('smoke_seeded')){ sessionStorage.setItem('smoke_seeded','1');"
+        " localStorage.setItem('workpulse_backlog', %s) } }catch(e){}" % json.dumps(json.dumps(tasks)))
+    s.reload()
+
+
+def _due(s, title):
+    t = next((t for t in (s.ls("workpulse_backlog") or []) if t.get("title") == title), None)
+    assert t is not None, f"task '{title}' not found in workpulse_backlog"
+    return t.get("dueDate")
+
+
+def _link_phone(s, **extra):
+    """Settings for a linked Sheet (URL and desktop token). Nothing is read until the page reloads."""
+    settings = s.ls("workpulse_settings") or dict(SEED_SETTINGS, theme="chase")
+    settings.update(googleScriptUrl=SCRIPT_URL, phoneToken=PHONE_TOKEN, **extra)
+    s.set_ls("workpulse_settings", settings)
+
+
+@check("task_dates_move_to_today")
+def task_dates_move_to_today(s):
+    """Pending tasks stay under their own date (also after a reload and a save); Move all to today and a row's
+    Move to today change the date, and Undo puts it back."""
+    p = s.page
+    old, yest, soon = "Smoke old report", "Smoke review invoices", "Smoke tomorrow prep"
+    _seed_tasks(s, ("old", old, -3, {}), ("yest", yest, -1, {}), ("soon", soon, 1, {}))
+    s.tab("tasks")
+    expect(p.get_by_role("heading", name=re.compile(r"^Yesterday"))).to_be_visible()
+    expect(p.get_by_role("region", name=re.compile(r"^Upcoming")).get_by_text(soon, exact=True)).to_be_visible()
+    assert p.locator("main").get_by_text(old, exact=True).count() == 1, "the old task is not listed under its date"
+    # something saves the backlog, then a reload: nothing moved to today by itself
+    form = p.get_by_role("form", name="Add a task")
+    form.get_by_role("textbox", name="Task").fill("Smoke saver task")
+    btn(form, "Add", exact=True).click()
+    p.wait_for_timeout(400)
+    s.reload()
+    assert [_due(s, old), _due(s, yest), _due(s, soon)] == [s.day(-3), s.day(-1), s.day(1)], "a task lost its own date"
+    s.tab("tasks")
+    # one group: Move all to today, then Undo
+    btn(p, re.compile(r"^Move all to today from Yesterday")).click()
+    p.wait_for_timeout(400)
+    assert _due(s, yest) == s.day(0) and _due(s, old) == s.day(-3), "Move all moved the wrong tasks"
+    btn(p.get_by_role("region", name="Notifications"), "Undo", exact=True).click()
+    p.wait_for_timeout(400)
+    assert _due(s, yest) == s.day(-1), "Undo did not bring the date back"
+    # one row: the row menu
+    row_menu(p, task_row(p, old), SEL["menu_move_today"])
+    assert _due(s, old) == s.day(0), "Move to today did not change the date"
+    expect(task_row(p, old)).to_be_visible()
+    s.no_errors()
+
+
+@check("plan_your_day")
+def plan_your_day(s):
+    """The first clock-in of a date opens Plan your day; Skip changes nothing; a later visit to the same date does not
+    open it again; the Today button does, and Start the day carries ticked tasks and adds the typed ones."""
+    p = s.page
+    carry, blocked = "Smoke carry me", "Smoke blocked one"
+    _seed_tasks(s, ("carry", carry, -1, {}), ("blocked", blocked, -2, {"stage": "blocked", "blockReason": "waiting on a key"}))
+    before = [(t["title"], t["dueDate"], t["stage"]) for t in s.ls("workpulse_backlog")]
+    band = p.get_by_role("region", name=SEL["clock_band"])
+    btn(band, SEL["clock_in"], exact=True).click()
+    btn(p.get_by_role("dialog", name=SEL["clock_in_dialog"]), SEL["clock_in"], exact=True).click()
+    plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
+    expect(plan).to_be_visible(timeout=5000)
+    expect(plan.get_by_role("checkbox", name=re.compile(carry))).to_be_checked()
+    expect(plan.get_by_role("checkbox", name=re.compile(blocked))).not_to_be_checked()
+    btn(plan, SEL["plan_skip"], exact=True).click()
+    expect(plan).to_have_count(0)
+    p.wait_for_timeout(400)
+    assert before == [(t["title"], t["dueDate"], t["stage"]) for t in s.ls("workpulse_backlog")], "Skip changed the tasks"
+    # the date already has its clock-in: a reload, or clocking out and resuming, does not ask again
+    s.reload()
+    btn(band, SEL["clock_out"], exact=True).click()
+    btn(band, SEL["resume_day"], exact=True).click()
+    p.wait_for_timeout(600)
+    expect(p.get_by_role("dialog", name=SEL["plan_day_dialog"])).to_have_count(0)
+    # the Today card button opens it any time
+    btn(p.get_by_role("region", name=SEL["todays_tasks"]), SEL["plan_day_dialog"], exact=True).click()
+    plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
+    expect(plan).to_be_visible()
+    plan.get_by_role("textbox", name=SEL["plan_new_tasks"]).fill("Smoke planned A\nSmoke planned B\n")
+    btn(plan, SEL["plan_start"], exact=True).click()
+    expect(plan).to_have_count(0)
+    p.wait_for_timeout(400)
+    assert _due(s, carry) == s.day(0), "the ticked task was not carried to today"
+    assert _due(s, blocked) == s.day(-2), "the unticked blocked task moved"
+    assert _due(s, "Smoke planned A") == s.day(0) and _due(s, "Smoke planned B") == s.day(0), "typed tasks were not added for today"
+    s.no_errors()
+
+
+@check("phone_inbox_pull")
+def phone_inbox_pull(s):
+    """With a linked Sheet the tasks typed on the phone arrive once ("from phone"), even when the same items are
+    served again, show up in Plan your day, and the desktop pushes its state with the token (never a PIN)."""
+    p = s.page
+    items = [{"id": f"phone-17000000000{n}-abcd123{n}", "title": title, "projectId": "proj-1", "projectName": "",
+              "dueDate": "", "createdAt": "2026-11-11T02:00:00.000Z"}
+             for n, title in ((1, "Smoke phone paper"), (2, "Smoke phone call"))]
+    stub = ScriptStub(s, inbox=items, serve_again=True)
+    _link_phone(s)
+    s.reload()
+    count = lambda title: sum(1 for t in s.ls("workpulse_backlog") if t["title"] == title)
+    _wait_for(s, lambda: count("Smoke phone paper") == 1 and count("Smoke phone call") == 1)
+    assert count("Smoke phone paper") == 1 and count("Smoke phone call") == 1, "the phone tasks were not added"
+    task = next(t for t in s.ls("workpulse_backlog") if t["title"] == "Smoke phone paper")
+    assert task.get("fromPhone") is True and task["dueDate"] == s.day(0), f"phone task not stored as expected: {task}"
+    acked = stub.payloads("ackInbox")
+    assert acked and sorted(acked[0]["ids"]) == sorted(i["id"] for i in items), "the tasks were not acknowledged after saving"
+    # the first clock-in pulls again; the stub serves the same items, which must not be added twice
+    btn(p.get_by_role("region", name=SEL["clock_band"]), SEL["clock_in"], exact=True).click()
+    btn(p.get_by_role("dialog", name=SEL["clock_in_dialog"]), SEL["clock_in"], exact=True).click()
+    plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
+    expect(plan).to_be_visible(timeout=5000)
+    expect(plan).to_contain_text("Smoke phone paper")
+    btn(plan, SEL["plan_skip"], exact=True).click()
+    expect(plan).to_have_count(0)
+    assert stub.actions().count("pullInbox") >= 2, "clock-in did not pull the inbox again"
+    assert count("Smoke phone paper") == 1 and count("Smoke phone call") == 1, "a served-again item was added twice"
+    expect(task_row(p, "Smoke phone paper")).to_contain_text("from phone")
+    # the desktop sends its state after a short pause, with the token and without a PIN
+    _wait_for(s, lambda: stub.payloads("pushState"), tries=100)
+    pushes = stub.payloads("pushState")
+    assert pushes and pushes[-1]["token"] == PHONE_TOKEN, "no state was sent to the Sheet with the token"
+    assert all("pin" not in sent for _, sent in stub.calls), "a PIN was sent in a desktop call"
+    assert PHONE_TOKEN not in p.locator("body").inner_text(), "the token is shown on the page"
+    s.no_errors()
+
+
+@check("phone_email_settings")
+def phone_email_settings(s):
+    """Settings > Phone & evening email: Set PIN stores only the token, the phone link appears, Change PIN and Reset
+    phone access become available, the evening email saves, and the test email shows its result sentence."""
+    p = s.page
+    stub = ScriptStub(s)
+    settings = s.ls("workpulse_settings") or dict(SEED_SETTINGS, theme="chase")
+    settings["googleScriptUrl"] = SCRIPT_URL
+    s.set_ls("workpulse_settings", settings)
+    s.reload()
+    s.tab("settings")
+    sec = p.locator(SEL["phone_section"])
+    sec.scroll_into_view_if_needed()
+    expect(btn(sec, SEL["set_pin"], exact=True)).to_be_visible(timeout=5000)
+    btn(sec, SEL["set_pin"], exact=True).click()
+    form = sec.get_by_role("form", name=SEL["set_pin"])
+    form.get_by_label(SEL["pin_new"], exact=True).fill("4821")
+    form.get_by_label(SEL["pin_again"], exact=True).fill("4821")
+    btn(form, SEL["set_pin"], exact=True).click()
+    expect(sec).to_contain_text("PIN saved. Open the phone link and enter it once.", timeout=5000)
+    saved = s.ls("workpulse_settings")
+    assert saved.get("phoneToken") == PHONE_TOKEN, "the token was not stored"
+    assert "4821" not in json.dumps(saved), "the PIN was stored on this computer"
+    first = stub.payloads("setPin")[0]
+    assert first["pin"] == "4821" and "token" not in first, f"unexpected setPin request {first}"
+    assert sec.get_by_label(SEL["phone_link"]).input_value() == SCRIPT_URL + "?page=phone", "wrong phone link"
+    expect(btn(sec, SEL["change_pin"], exact=True)).to_be_visible()
+    expect(btn(sec, SEL["reset_access"], exact=True)).to_be_visible()
+    # the evening email
+    sec.get_by_label(SEL["email_on"]).check()
+    btn(sec, SEL["email_save"], exact=True).click()
+    expect(sec).to_contain_text("18:00", timeout=5000)
+    saved = s.ls("workpulse_settings")
+    assert saved.get("emailEnabled") is True and saved.get("emailTime") == "18:00", "email settings not saved"
+    mail = stub.payloads("setEmail")[0]
+    assert (mail["token"], mail["enabled"], mail["hour"], mail["minute"]) == (PHONE_TOKEN, True, 18, 0) and mail["tz"], \
+        f"unexpected setEmail request {mail}"
+    btn(sec, SEL["email_test"], exact=True).click()
+    expect(sec).to_contain_text("Test email sent to owner@gmail.com.", timeout=5000)
+    s.no_overflow("Settings")
+    s.no_errors()
+
+
+@check("phone_old_script")
+def phone_old_script(s):
+    """A script older than version 3 gets only the update steps, no PIN or email controls."""
+    p = s.page
+    ScriptStub(s, version=2)
+    settings = s.ls("workpulse_settings") or dict(SEED_SETTINGS, theme="chase")
+    settings["googleScriptUrl"] = SCRIPT_URL
+    s.set_ls("workpulse_settings", settings)
+    s.reload()
+    s.tab("settings")
+    sec = p.locator(SEL["phone_section"])
+    sec.scroll_into_view_if_needed()
+    expect(sec).to_contain_text("version 2", timeout=5000)
+    expect(sec).to_contain_text("New version")
+    expect(btn(sec, SEL["set_pin"])).to_have_count(0)
+    expect(sec.get_by_label(SEL["email_on"])).to_have_count(0)
+    s.no_errors()
+
+
+@check("sheet_safety_net")
+def sheet_safety_net(s):
+    """The guard itself: a request straight to a script.google.com host is aborted and recorded, and fails the run."""
+    reached = s.page.evaluate("() => fetch('https://script.google.com/macros/s/AKfycbNOPE/exec').then(() => true, () => false)")
+    assert reached is False, "a request to a real script host was not blocked"
+    assert s.sheets.real, "the safety net did not record the request"
+    try:
+        s.sheets.check()
+    except AssertionError:
+        s.sheets.real.clear()          # expected: the net works; clear it so the run does not fail
+    else:
+        raise AssertionError("the safety net did not fail the run")
+
+
 # -- phones ----------------------------------------------------------------------------------------
 @check("phone_pass")
 def phone_pass(s):
@@ -1036,6 +1351,7 @@ def phone_pass(s):
         ctx.add_init_script("try{ localStorage.setItem('workpulse_settings', %s) }catch(e){}"
                             % json.dumps(json.dumps(dict(SEED_SETTINGS, theme=theme))))
         guard = AiGuard(ctx)
+        sheet_guard = SheetGuard(ctx)
         page = ctx.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
@@ -1080,6 +1396,7 @@ def phone_pass(s):
                     assert right <= 390, f"{theme}: top bar control '{label}' is cut off (right edge {right}px)"
             assert not errors, f"{theme}: browser errors {errors[:3]}"
             guard.check()
+            sheet_guard.check()
         finally:
             ctx.close()
 
@@ -1137,6 +1454,7 @@ def main():
                     fn(session)
                 session.page.wait_for_timeout(100)  # let a last request reach its route handler
                 session.ai.check()
+                session.sheets.check()
             except Exception as e:  # AssertionError, playwright timeouts, anything
                 err = e
                 if session and args.shots:
