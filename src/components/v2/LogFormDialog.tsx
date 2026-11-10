@@ -13,6 +13,8 @@ export interface LogFormPrefill {
   description: string;
   projectId: string;
   status?: TaskStatus;
+  /** Called after the new log is saved (not on Cancel), e.g. to clear the quick-log text it came from. */
+  onSaved?(): void;
 }
 
 export interface LogFormDialogProps {
@@ -107,6 +109,7 @@ const LogForm: React.FC<Omit<LogFormDialogProps, 'isOpen'>> = ({ projects, tags,
       imageBase64: editing?.imageBase64,
     };
     onSave(data, editing?.id);
+    if (!editing) prefill?.onSaved?.();
     onClose();
   };
 

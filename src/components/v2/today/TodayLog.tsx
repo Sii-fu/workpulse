@@ -52,8 +52,12 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
 
   const openDetails = () => {
     const text = parsed.text.trim();
-    onOpenLogForm(text || parsed.project ? { description: text, projectId: target?.id ?? '', status: 'completed' } : null);
-    setDraft('');
+    // The text stays in the quick log until the dialog saves it, so Cancel loses nothing.
+    onOpenLogForm(
+      text || parsed.project
+        ? { description: text, projectId: target?.id ?? '', status: 'completed', onSaved: () => setDraft('') }
+        : null,
+    );
   };
 
   return (

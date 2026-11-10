@@ -408,14 +408,22 @@ def log_form_details(s):
     """"Details" opens the full form with what was typed in the quick log."""
     p = s.page
     text = "Smoke detailed entry"
-    p.get_by_role("textbox", name=SEL["log_quick_add"]).fill(text)
-    btn(p, SEL["log_details"], exact=True).click()
+    quick = p.get_by_role("textbox", name=SEL["log_quick_add"])
+    quick.fill(text)
     dlg = p.get_by_role("dialog", name=SEL["log_form_new"])
+    # Cancel (Escape) keeps the quick-log text.
+    btn(p, SEL["log_details"], exact=True).click()
+    expect(dlg).to_be_visible()
+    p.keyboard.press("Escape")
+    expect(dlg).to_have_count(0)
+    expect(quick).to_have_value(text)
+    btn(p, SEL["log_details"], exact=True).click()
     expect(dlg).to_be_visible()
     expect(dlg.get_by_role("textbox", name=SEL["log_form_text"])).to_have_value(text)
     btn(dlg, SEL["log_form_add"], exact=True).click()
     expect(dlg).to_have_count(0)
     assert any(l["description"] == text for l in s.ls("workpulse_logs")), "log from the form not saved"
+    expect(quick).to_have_value("")
     s.no_errors()
 
 
