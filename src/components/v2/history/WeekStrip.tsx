@@ -17,7 +17,7 @@ export interface WeekStripProps {
   onNextWeek(): void;
   /** The week in words: "This week · 9 – 15 Nov". */
   label: string;
-  /** Days with a workday record get a target line at `hours`. */
+  /** When any day of the week has a workday record, one target line runs across the chart at `hours`. */
   workdays?: Workdays;
   hours?: number;
   /** The week holds today: there is nothing ahead to show. */
@@ -81,14 +81,13 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
         </IconButton>
       </div>
 
-      <div role="group" aria-label={`Logged time per day, ${label}`} className="v2-inset grid grid-cols-7 gap-1 sm:gap-2 pt-3 pb-2">
-        {days.map((d) => {
+      <div role="group" aria-label={`Logged time per day, ${label}${hasTarget ? `, ${hours} hour workday` : ''}`} className="v2-inset grid grid-cols-7 gap-[var(--wk-gap)] [--wk-gap:4px] sm:[--wk-gap:8px] pt-3 pb-2">
+        {days.map((d, i) => {
           const date = parseLocalDate(d.date);
           const dayName = WEEKDAY[date.getDay()];
           const spokenDay = `${dayName} ${date.getDate()} ${MONTH[date.getMonth()]}`;
           const isSelected = selected === d.date;
           const isToday = d.date === today;
-          const target = workdays[d.date] ? targetMin : 0;
           const segs = [...d.byProject]
             .filter((p) => p.minutes > 0)
             .sort((a, b) => (order.get(a.projectId) ?? 1e9) - (order.get(b.projectId) ?? 1e9));
@@ -124,12 +123,17 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
                     />
                   ))}
                 </span>
-                {target > 0 && (
+                {/* The workday target: one line across all seven columns, drawn from the first. */}
+                {hasTarget && i === 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-0 border-t border-dashed border-[var(--text-muted)]"
-                    style={{ bottom: `${(target / max) * 100}%` }}
-                  />
+                    className="absolute left-0 z-10 border-t border-dashed border-[var(--text-muted)] pointer-events-none"
+                    style={{ bottom: `${(targetMin / max) * 100}%`, width: 'calc(700% + 6 * var(--wk-gap))' }}
+                  >
+                    <span className="absolute right-0 top-full mt-1 text-xs leading-none text-[var(--text-muted)] whitespace-nowrap">
+                      {hours} h workday
+                    </span>
+                  </span>
                 )}
               </span>
               <span className="flex flex-col items-center gap-1 leading-tight">
@@ -162,12 +166,6 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
             <span className="num">{formatMinutes(m)}</span>
           </span>
         ))}
-        {hasTarget && (
-          <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="w-4 border-t border-dashed border-[var(--text-muted)]" />
-            <span>{hours} h workday</span>
-          </span>
-        )}
       </div>
     </div>
   );

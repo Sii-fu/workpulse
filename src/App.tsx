@@ -1117,7 +1117,7 @@ export default function App() {
         />
       </AppHeader>
 
-      <main className="pb-[calc(56px+env(safe-area-inset-bottom))] sm:pb-0">
+      <main className="pb-[calc(57px+16px+env(safe-area-inset-bottom))] sm:pb-0">
         <div className={`mx-auto ${noticeWidth} px-4 sm:px-8 pt-5 flex flex-col gap-3 empty:hidden`}>
           <OfflineNotice />
           {showNotices && samples.total > 0 && (

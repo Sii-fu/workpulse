@@ -115,7 +115,7 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
   return (
     <div className="mx-auto max-w-[960px] px-4 sm:px-8 py-6 sm:py-7 flex flex-col gap-7">
       <form onSubmit={submit} aria-label="Add a task" className="v2-panel v2-inset py-[var(--row-pad)]">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_10rem_auto] sm:items-end">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,15rem)_10rem_auto] sm:items-end">
           <div>
             <label htmlFor={`${id}-title`} className={LABEL}>
               Task

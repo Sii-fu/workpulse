@@ -58,13 +58,22 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
 
   return (
     <section aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`} className="v2-head">
-        <span>Today's log</span>
-        <span className="v2-head-meta num">
-          {todays.length} {todays.length === 1 ? 'entry' : 'entries'} · {formatMinutes(total)}
-          <span className="sr-only"> logged</span>
-        </span>
-      </h2>
+      <div className="v2-head v2-head-split">
+        <h2 id={`${id}-h`} className="v2-head-group">
+          <span>Today's log</span>
+          <span className="v2-head-meta num">
+            {todays.length} {todays.length === 1 ? 'entry' : 'entries'} · {formatMinutes(total)}
+            <span className="sr-only"> logged</span>
+          </span>
+        </h2>
+        <button
+          type="button"
+          onClick={onEndDay}
+          className="v2-btn v2-btn-strong w-full sm:w-auto min-h-9 pointer-coarse:min-h-11 px-4 normal-case tracking-normal cursor-pointer transition-colors"
+        >
+          End my day
+        </button>
+      </div>
       <div className="v2-panel">
         <div className="v2-row v2-inset">
           <div className="flex gap-2">
@@ -123,13 +132,6 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
             Standup
           </button>
         )}
-        <button
-          type="button"
-          onClick={onEndDay}
-          className="min-h-8 pointer-coarse:min-h-11 px-2 text-[length:var(--fs-body)] font-semibold text-[var(--accent-text)] underline-offset-4 hover:underline cursor-pointer"
-        >
-          End my day
-        </button>
       </div>
     </section>
   );

@@ -41,6 +41,24 @@
     font-family: var(--font-display);
   }
 
+  /* Browser-drawn parts follow the theme: checkboxes, radios and range fill in the accent; the
+     caret and text selection use the theme's ink. color-scheme (set on each theme block) picks
+     the light or dark date-picker icon and select chevron. */
+  :root {
+    accent-color: var(--accent);
+    caret-color: var(--accent-text);
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--text-main);
+  }
+  /* A long option ends in "…" instead of being cut mid-word. */
+  select {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
   body {
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
@@ -426,6 +444,29 @@
   text-transform: none;
   color: var(--text-muted);
 }
+/* One line on every width: the title never wraps, the meta gives way first and ends in "…". */
+.v2-head > span,
+.v2-head-group > span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-head > span:not(.v2-head-meta),
+.v2-head-group > span:not(.v2-head-meta) { flex: 0 1 auto; }
+.v2-head-meta { flex: 0 1000 auto; }
+/* A heading with an action beside it (Today's log + End my day): the <h2> is the group, the
+   button sits at the end. Under 640px the button drops to its own full-width line. */
+.v2-head-split { align-items: center; flex-wrap: wrap; row-gap: 8px; }
+.v2-head-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+[data-theme="timecard"] .v2-head-group,
+[data-theme="console"] .v2-head-group { justify-content: space-between; }
 [data-theme="timecard"] .v2-head {
   justify-content: space-between;
   margin-bottom: 0;
