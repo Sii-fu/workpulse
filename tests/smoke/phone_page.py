@@ -116,7 +116,7 @@ STUB = r"""
       setTimeout(function () {
         if (window.__answers.fail) { bad && bad(new Error('NetworkError')); return; }
         ok && ok(JSON.parse(JSON.stringify(value())));
-      }, 60);
+      }, window.__answers.delay || 60);
     }
     r.phoneData = function (pin) {
       var a = window.__answers;
@@ -320,6 +320,37 @@ def main():
         shot(page, "13-many-tasks-full", True)
         no_hscroll(page, "30 tasks")
         check(not errors, "no page errors: %s" % errors)
+        ctx.close()
+
+        # ---- Lock pressed while requests are still pending ----
+        ctx, page, errors = new_page(browser, html, FULL)
+        enter(page, PIN)
+        expect(page.locator("#mainView")).to_be_visible()
+        page.evaluate("window.__answers.delay = 500")
+        page.click("#tab-add")
+        page.fill("#addTitle", "Secret task typed before Lock")
+        # Add, Earlier and Refresh all wait for their reply, then Lock is pressed.
+        page.evaluate("document.getElementById('addBtn').click(); document.getElementById('moreBtn').click(); document.getElementById('refreshBtn').click();")
+        sent = page.evaluate("window.__calls.map(function (c) { return c.fn; })")
+        check("phoneAddTask" in sent and "phoneOlderLogs" in sent and sent.count("phoneData") == 2,
+              "Add, Earlier and Refresh are all waiting for a reply when Lock is pressed: %s" % sent)
+        page.click("#lockBtn")
+        expect(page.locator("#pinView")).to_be_visible()
+        page.wait_for_timeout(900)  # every delayed reply has arrived by now
+        check(not errors, "Lock with pending requests: no page errors: %s" % errors)
+        check(page.locator("#pinView").is_visible() and page.locator("#mainView").is_hidden(), "still on the PIN screen after the late replies")
+        check(page.locator("#tasksList").inner_html() == "" and page.locator("#logList").inner_html() == "",
+              "late replies did not refill the hidden lists")
+        body = page.inner_text("body") + page.evaluate("document.getElementById('tasksList').textContent + document.getElementById('logList').textContent")
+        check("Fix date filter" not in body and "Reviewed search PR" not in body and "Secret task" not in body,
+              "no private text is left in the page after Lock")
+        check(page.locator("#refreshBtn").is_enabled() and page.inner_text("#refreshBtn") == "Refresh",
+              "Refresh button is not left stuck after Lock")
+        page.evaluate("window.__answers.delay = 60")
+        enter(page, PIN)
+        expect(page.locator("#mainView")).to_be_visible()
+        check(page.locator("#tasksList .ti").count() > 0, "the page opens normally again after unlocking")
+        check(not errors, "no page errors after unlocking again: %s" % errors)
         ctx.close()
 
         # ---- Offline ----

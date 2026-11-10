@@ -248,7 +248,7 @@ button { background: none; border: 0; cursor: pointer; }
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   var S = {
-    pin: '', entry: '', checking: false, lockedUntil: 0, lockTimer: null,
+    gen: 0, pin: '', entry: '', checking: false, lockedUntil: 0, lockTimer: null,
     data: null, tab: 'tasks', flash: '', adding: false, refreshing: false,
     older: [], olderNext: '', olderMore: true, olderBusy: false, olderDone: false
   };
@@ -388,9 +388,24 @@ button { background: none; border: 0; cursor: pointer; }
     $('keys').className = 'keys' + (S.checking ? ' wait' : '');
   }
 
+  // Every request remembers the generation it started in. showPin (Lock, a wrong PIN, a lock-out) bumps
+  // it and clears what was waiting, so a reply that arrives later is ignored instead of crashing on the
+  // cleared data or filling the lists again.
+  function stale(g) { return g !== S.gen || !S.pin; }
+
   function showPin(reason) {
+    S.gen++;
     S.pin = '';
     S.data = null;
+    S.refreshing = false;
+    S.olderBusy = false;
+    S.adding = false;
+    $('refreshBtn').disabled = false;
+    $('refreshBtn').textContent = 'Refresh';
+    $('moreBtn').disabled = false;
+    $('moreBtn').textContent = 'Show earlier days';
+    $('addBtn').disabled = false;
+    $('addBtn').textContent = 'Add task';
     S.entry = '';
     S.checking = false;
     clear($('tasksList'));
@@ -443,7 +458,9 @@ button { background: none; border: 0; cursor: pointer; }
 
   // ---- Opening with a PIN ----
   function open(pin, remembered) {
+    var g = S.gen;
     var call = server(function (r) {
+      if (g !== S.gen) return;
       if (r.ok) {
         S.pin = pin;
         writeStore(PIN_KEY, pin);
@@ -488,7 +505,9 @@ button { background: none; border: 0; cursor: pointer; }
     S.refreshing = true;
     $('refreshBtn').disabled = true;
     $('refreshBtn').textContent = 'Refreshing...';
+    var g = S.gen;
     var call = server(function (r) {
+      if (stale(g)) return;
       S.refreshing = false;
       $('refreshBtn').disabled = false;
       $('refreshBtn').textContent = 'Refresh';
@@ -741,7 +760,9 @@ button { background: none; border: 0; cursor: pointer; }
     btn.textContent = 'Loading...';
     setMsg($('moreMsg'), '', '');
     var before = S.olderNext || firstOlderDate();
+    var g = S.gen;
     var call = server(function (r) {
+      if (stale(g)) return;
       S.olderBusy = false;
       btn.disabled = false;
       btn.textContent = 'Show earlier days';
@@ -832,7 +853,9 @@ button { background: none; border: 0; cursor: pointer; }
     btn.disabled = true;
     btn.textContent = 'Adding...';
     setMsg(msg, '', '');
+    var g = S.gen;
     var call = server(function (r) {
+      if (stale(g)) return;
       S.adding = false;
       btn.disabled = false;
       btn.textContent = 'Add task';
@@ -907,7 +930,7 @@ button { background: none; border: 0; cursor: pointer; }
 // The page as a script string literal: JSON-escaped and ASCII-only (\uXXXX for anything else), so no
 // quote, backslash, line break or unusual character in the HTML can end or break the script string.
 function scriptString(s: string): string {
-  return JSON.stringify(s).replace(/[\u007f-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+  return JSON.stringify(s).replace(/[\u007f-\uffff]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 }
 
 export const SCRIPT_PHONE = `
