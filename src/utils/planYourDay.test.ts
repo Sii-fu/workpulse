@@ -88,6 +88,15 @@ describe('parsePlanLines', () => {
   });
 });
 
+describe('parsePlanLines with a default project', () => {
+  it('uses the given default for lines without a tag, and the tag for the rest', () => {
+    expect(parsePlanLines('Write report\nRun payroll #pay', projects, 'p1')).toEqual([
+      { title: 'Write report', projectId: 'p1' },
+      { title: 'Run payroll', projectId: 'p2' },
+    ]);
+  });
+});
+
 describe('planSummary', () => {
   it('counts only the tasks that really moved', () => {
     const before = [task('a', '2026-11-10'), task('b', '2026-11-09', { stage: 'done', completed: true })];

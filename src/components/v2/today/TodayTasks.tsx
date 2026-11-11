@@ -4,7 +4,8 @@ import { TaskRow } from './TaskRow';
 import { StateMark, type TaskState } from './StateMark';
 import { todayStateGroups } from '../../../utils/todayTasks';
 import { dayHeading } from '../../../utils/taskDates';
-import { defaultProject, splitProjectTag } from '../../../utils/projects';
+import { splitProjectTag } from '../../../utils/projects';
+import { ProjectInput, useProjectChoice } from '../ProjectInput';
 
 export interface TodayTasksProps {
   backlog: BacklogTask[];
@@ -22,6 +23,12 @@ export interface TodayTasksProps {
   onPlanDay(): void;
   /** Switches to the Tasks page (the Plans list holds the not-started tasks of earlier days). */
   onOpenTasks(): void;
+  /** The project last used from the quick inputs (the selector's starting point). */
+  lastProjectId?: string;
+  /** Remembers the project a task was just added to. */
+  onProjectUsed(id: string): void;
+  /** Creates a project from a `#word` with no match and returns it. */
+  onCreateProject(name: string, color: string): Project;
 }
 
 /** One state group inside the card: a heading with the state's mark and a count, then its rows. */
@@ -43,7 +50,7 @@ const StateGroup: React.FC<{ state: TaskState; label: string; count: number; chi
   );
 };
 
-export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay, onOpenTasks }) => {
+export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay, onOpenTasks, lastProjectId, onProjectUsed, onCreateProject }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
   const g = useMemo(() => todayStateGroups(backlog, today), [backlog, today]);
@@ -87,14 +94,16 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
       </div>
     ) : null;
 
+  const { project: selected, setProjectId } = useProjectChoice(projects, lastProjectId);
+  // A matched "#word" left in the text (pasted, or the list was closed with Escape) still picks its project.
   const parsed = splitProjectTag(draft, projects);
-  const fallback = defaultProject(projects);
-  const target = parsed.project ?? fallback;
+  const target = parsed.project ?? selected;
 
   const add = (start: boolean) => {
     const title = parsed.text.trim();
     if (!title) return;
     onAddTask(title, target?.id ?? 'default', start ? 'in_progress' : 'planned');
+    if (target) onProjectUsed(target.id);
     setDraft('');
   };
 
@@ -121,13 +130,15 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
       </div>
       <div className="v2-panel">
         <div className="v2-row v2-inset">
-          <label htmlFor={`${id}-add`} className="sr-only">
-            Add a task for today
-          </label>
-          <input
+          <ProjectInput
             id={`${id}-add`}
+            label="Add a task for today"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={setDraft}
+            projects={projects}
+            project={selected}
+            onProjectChange={setProjectId}
+            onCreateProject={onCreateProject}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -135,16 +146,12 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
               }
             }}
             placeholder="Add a task for today…"
-            aria-describedby={`${id}-hint`}
-            autoComplete="off"
-            className="v2-input w-full h-11 px-3 text-[length:var(--fs-body)]"
+            describedBy={`${id}-hint`}
           />
           <p id={`${id}-hint`} aria-live="polite" className="mt-1.5 text-[length:var(--fs-small)] text-[var(--text-muted)]">
             {draft.trim()
-              ? parsed.tag && !parsed.project
-                ? `No project starts with "${parsed.tag}", so it goes to ${fallback?.name ?? 'General'}. Enter adds it, Shift+Enter adds and starts it.`
-                : `Goes to ${target?.name ?? 'General'}. Enter adds it, Shift+Enter adds and starts it.`
-              : 'End with #project to pick the project.'}
+              ? `Goes to ${target?.name ?? 'General'}. Enter adds it, Shift+Enter adds and starts it.`
+              : 'Type # to pick a project.'}
           </p>
         </div>
         {shown === 0 && (

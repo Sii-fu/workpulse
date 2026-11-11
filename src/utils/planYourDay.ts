@@ -20,9 +20,9 @@ export function applyPlan(backlog: BacklogTask[], carryIds: string[], today: str
   return moveTasksToDay(backlog, carryIds, today);
 }
 
-/** Each non-empty line is a task; a trailing #project picks the project, else the first active one. */
-export function parsePlanLines(text: string, projects: Project[]): { title: string; projectId: string }[] {
-  const fallback = defaultProject(projects)?.id ?? 'default';
+/** Each non-empty line is a task; a trailing #project picks the project, else `defaultProjectId` (the selector), else the first active one. */
+export function parsePlanLines(text: string, projects: Project[], defaultProjectId?: string): { title: string; projectId: string }[] {
+  const fallback = defaultProjectId ?? defaultProject(projects)?.id ?? 'default';
   return text
     .split(/\r?\n/)
     .map((line) => splitProjectTag(line, projects))

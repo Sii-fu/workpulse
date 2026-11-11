@@ -885,7 +885,7 @@ export default function App() {
     });
   };
 
-  const handleAddProject = (name: string, color: string) => {
+  const handleAddProject = (name: string, color: string): Project => {
     const newProj: Project = {
       id: `proj-${Date.now()}`,
       name,
@@ -896,6 +896,7 @@ export default function App() {
     setProjects(updated);
     saveProjects(updated);
     addToast(`Project "${name}" added`);
+    return newProj;
   };
 
   const backupNow = () => buildBackup({ logs, backlog, projects, tags, settings, workdays });
@@ -1188,6 +1189,10 @@ export default function App() {
     deleteTask: useStableCallback(handleDeleteBacklogTask),
     moveToToday: useStableCallback(handleMoveToToday),
     addLog: useStableCallback(handleAddLog),
+    createProject: useStableCallback(handleAddProject),
+    projectUsed: useStableCallback((id: string) => {
+      if (settingsRef.current.lastProjectId !== id) updateSettings({ lastProjectId: id });
+    }),
     addLogs: useStableCallback(handleAddLogs),
     openLogForm: useStableCallback(handleOpenLogForm),
     editLog: useStableCallback(handleEditLog),
@@ -1322,6 +1327,9 @@ export default function App() {
             onStandup={h.standupToday}
             onOpenImage={h.openImage}
             sync={sync}
+            lastProjectId={settings.lastProjectId}
+            onProjectUsed={h.projectUsed}
+            onCreateProject={h.createProject}
           />
         )}
 
@@ -1406,6 +1414,9 @@ export default function App() {
         defaultCheckedIds={plan?.defaultCheckedIds ?? []}
         projects={projects}
         onStart={handleStartDay}
+        lastProjectId={settings.lastProjectId}
+        onProjectUsed={h.projectUsed}
+        onCreateProject={h.createProject}
       />
 
       <EndDayDialog

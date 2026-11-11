@@ -58,11 +58,11 @@ SEL = {
     "plan_day_dialog": "Plan your day",                   # dialog after a date's first clock-in
     "plan_skip": "Skip",
     "plan_start": "Start the day",                        # footer button of Plan your day
-    "plan_new_tasks": "Add today's tasks",                # textarea, one task per line
+    "plan_new_tasks": "Add today's tasks",                # combobox (textarea), one task per line
     "menu_move_today": "Move to today",                   # row menu
     # Today
-    "task_quick_add": "Add a task for today",             # textbox; Enter = planned
-    "log_quick_add": "What did you just finish?",         # textbox; Enter = log
+    "task_quick_add": "Add a task for today",             # combobox; Enter = planned
+    "log_quick_add": "What did you just finish?",         # combobox; Enter = log
     "log_details": "Details",                             # opens LogFormDialog
     "todays_log": re.compile(r"^Today's log"),            # region
     "todays_tasks": re.compile(r"^Today's tasks"),        # region
@@ -96,7 +96,7 @@ SEL = {
     "email_on": "Send me an evening email", "email_save": "Save email time", "email_test": "Send a test email",
     # dialogs
     "palette_trigger_key": "Control+k",
-    "palette_input": "input[role=combobox]",              # CSS
+    "palette_input": "[role=dialog] input[role=combobox]",  # CSS (the quick inputs are comboboxes too)
     "end_day_steps": "Steps",                             # nav inside End my day
     "activity_dialog": "Suggest logs from my activity",
     "eod_add": re.compile(r"^Add \d+ logs?$"),            # End my day step 2 confirm
@@ -406,7 +406,7 @@ def stage_of(s, title):
 
 
 def quick_log(s, text):
-    box = s.page.get_by_role("textbox", name=SEL["log_quick_add"])
+    box = s.page.get_by_role("combobox", name=SEL["log_quick_add"])
     box.fill(text)
     box.press("Enter")
     s.page.wait_for_timeout(400)
@@ -497,7 +497,7 @@ def log_add_edit_delete(s):
     logs = s.ls("workpulse_logs")
     count = len(logs)
     assert any(l["description"] == text and l["date"] == s.today() for l in logs), "quick log not saved for today"
-    expect(p.get_by_role("textbox", name=SEL["log_quick_add"])).to_have_value("")
+    expect(p.get_by_role("combobox", name=SEL["log_quick_add"])).to_have_value("")
     row = log_row(p, text)
     expect(row).to_be_visible()
 
@@ -531,7 +531,7 @@ def log_form_details(s):
     """"Details" opens the full form with what was typed in the quick log."""
     p = s.page
     text = "Smoke detailed entry"
-    quick = p.get_by_role("textbox", name=SEL["log_quick_add"])
+    quick = p.get_by_role("combobox", name=SEL["log_quick_add"])
     quick.fill(text)
     dlg = p.get_by_role("dialog", name=SEL["log_form_new"])
     # Cancel (Escape) keeps the quick-log text.
@@ -574,11 +574,39 @@ def timer_ticks(s):
     s.no_errors()
 
 
+@check("project_completion")
+def project_completion(s):
+    """Typing #fr in Today's task box lists the project, Enter picks it and the task lands there; a numeric
+    #212 opens nothing and the text stays whole."""
+    p = s.page
+    box = p.get_by_role("combobox", name=SEL["task_quick_add"])
+    expect(box).to_be_visible()
+    box.fill("Smoke project pick #fr")
+    listbox = p.get_by_role("listbox", name="Projects")
+    expect(listbox).to_be_visible()
+    expect(listbox.get_by_role("option")).to_have_count(1)
+    box.press("Enter")
+    expect(listbox).to_have_count(0)
+    expect(box).to_have_value("Smoke project pick")
+    box.press("Enter")
+    p.wait_for_timeout(300)
+    frontend = {"id": "proj-2"}  # "Frontend & Design System" in the sample data
+    task = next(t for t in s.ls("workpulse_backlog") if t["title"] == "Smoke project pick")
+    assert task["projectId"] == frontend["id"], f"the task went to {task['projectId']}, not the picked project"
+    assert s.ls("workpulse_settings").get("lastProjectId") == frontend["id"], "the submitted project was not remembered"
+    box.fill("Review PR #212")
+    expect(p.get_by_role("listbox", name="Projects")).to_have_count(0)
+    box.press("Enter")
+    p.wait_for_timeout(300)
+    assert any(t["title"] == "Review PR #212" for t in s.ls("workpulse_backlog")), "a numeric #word must stay in the text"
+    s.no_errors()
+
+
 @check("task_every_stage")
 def task_every_stage(s):
     p = s.page
     title = "Smoke stage task"
-    box = p.get_by_role("textbox", name=SEL["task_quick_add"])
+    box = p.get_by_role("combobox", name=SEL["task_quick_add"])
     box.fill(title)
     box.press("Enter")
     p.wait_for_timeout(300)
@@ -1268,7 +1296,7 @@ def plan_your_day(s):
     plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
     expect(plan).to_be_visible()
     plan.get_by_role("checkbox", name=re.compile(leave)).uncheck()
-    plan.get_by_role("textbox", name=SEL["plan_new_tasks"]).fill("Smoke planned A\nSmoke planned B\n")
+    plan.get_by_role("combobox", name=SEL["plan_new_tasks"]).fill("Smoke planned A\nSmoke planned B\n")
     btn(plan, SEL["plan_start"], exact=True).click()
     expect(plan).to_have_count(0)
     p.wait_for_timeout(400)

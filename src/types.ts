@@ -98,6 +98,8 @@ export interface AppSettings {
   activityUseGit?: boolean;
   // Which AI groups the activity into suggestions. Absent = Claude Code.
   activityAi?: ActivityAi;
+  // The project last used when a task or log was submitted from Today's inputs or Plan your day. Absent = first active project.
+  lastProjectId?: string;
   // Length of the workday in hours, for the office clock. Absent = 8.
   workdayHours?: number;
   // Phone page link. The token, last sync time, device id and last error belong to this device:

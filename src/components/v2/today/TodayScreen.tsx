@@ -44,6 +44,10 @@ export interface TodayScreenProps {
   onOpenImage(base64: string): void;
   /** The Sync button's state (App memoizes it, so the memo below holds). */
   sync: SyncState;
+  /** The project last used from the quick inputs. */
+  lastProjectId?: string;
+  onProjectUsed(id: string): void;
+  onCreateProject(name: string, color: string): Project;
 }
 
 const TodayScreenView: React.FC<TodayScreenProps> = ({
@@ -72,6 +76,9 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
   onStandup,
   onOpenImage,
   sync,
+  lastProjectId,
+  onProjectUsed,
+  onCreateProject,
 }) => (
   // Desktop: tasks on the left (7/12), suggestions over the log on the right (5/12).
   // Under 1024 px one column: tasks, log, suggestions.
@@ -90,6 +97,9 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onMoveToToday={onMoveToToday}
         onPlanDay={onPlanDay}
         onOpenTasks={onOpenTasks}
+        lastProjectId={lastProjectId}
+        onProjectUsed={onProjectUsed}
+        onCreateProject={onCreateProject}
       />
     </div>
     <div className="order-3 lg:order-none lg:col-span-5 min-w-0">
@@ -117,6 +127,9 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onStandup={onStandup}
         onOpenImage={onOpenImage}
         sync={sync}
+        lastProjectId={lastProjectId}
+        onProjectUsed={onProjectUsed}
+        onCreateProject={onCreateProject}
       />
     </div>
   </div>

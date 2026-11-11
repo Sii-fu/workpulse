@@ -4,6 +4,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { dayHeading } from '../../utils/taskDates';
 import { dayLabelLong } from '../../utils/taskSections';
 import { parsePlanLines } from '../../utils/planYourDay';
+import { ProjectInput, useProjectChoice } from './ProjectInput';
 
 export interface PlanYourDayResult {
   carryIds: string[];
@@ -22,6 +23,12 @@ interface PlanYourDayDialogProps {
   defaultCheckedIds: string[];
   projects: Project[];
   onStart(r: PlanYourDayResult): void;
+  /** The project last used from the quick inputs (the selector's starting point). */
+  lastProjectId?: string;
+  /** Remembers the project of the last task added. */
+  onProjectUsed(id: string): void;
+  /** Creates a project from a `#word` with no match and returns it. */
+  onCreateProject(name: string, color: string): Project;
 }
 
 const FOOT_BTN = 'v2-btn min-h-11 px-4 cursor-pointer transition-colors';
@@ -39,12 +46,16 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
   defaultCheckedIds,
   projects,
   onStart,
+  lastProjectId,
+  onProjectUsed,
+  onCreateProject,
 }) => {
   const id = useId();
   const [checked, setChecked] = useState<Set<string>>(() => new Set(defaultCheckedIds));
   const [draft, setDraft] = useState('');
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const newTasks = parsePlanLines(draft, projects);
+  const { project: selected, setProjectId } = useProjectChoice(projects, lastProjectId);
+  const newTasks = parsePlanLines(draft, projects, selected?.id);
 
   const toggle = (taskId: string) =>
     setChecked((prev) => {
@@ -54,8 +65,10 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
       return next;
     });
 
-  const start = () =>
+  const start = () => {
+    if (newTasks.length > 0) onProjectUsed(newTasks[newTasks.length - 1].projectId);
     onStart({ carryIds: candidates.filter((t) => checked.has(t.id)).map((t) => t.id), newTasks });
+  };
 
   const carryCount = candidates.filter((t) => checked.has(t.id)).length;
 
@@ -142,11 +155,17 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
           <h3 className="v2-head v2-head-label">
             <label htmlFor={`${id}-new`}>Add today's tasks</label>
           </h3>
-          <textarea
+          <ProjectInput
             id={`${id}-new`}
-            data-autofocus
+            label="Add today's tasks"
+            multiline
+            autoFocusMark
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={setDraft}
+            projects={projects}
+            project={selected}
+            onProjectChange={setProjectId}
+            onCreateProject={onCreateProject}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
@@ -155,13 +174,12 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
             }}
             rows={3}
             placeholder="One task per line…"
-            aria-describedby={`${id}-hint`}
-            className="v2-input block w-full px-3 py-2.5 text-[length:var(--fs-body)] leading-snug resize-y"
+            describedBy={`${id}-hint`}
           />
           <p id={`${id}-hint`} aria-live="polite" className={`mt-1.5 ${MUTED}`}>
             {newTasks.length > 0
               ? `${newTasks.length} new ${newTasks.length === 1 ? 'task' : 'tasks'} for today.`
-              : 'End a line with #project to pick the project. Ctrl+Enter starts the day.'}
+              : 'Type # at the end of a line to pick its project. Ctrl+Enter starts the day.'}
           </p>
         </section>
       </div>

@@ -4,7 +4,8 @@ import { LogRow, formatMinutes } from './LogRow';
 import { SyncButton, type SyncState } from '../SyncButton';
 import type { LogFormPrefill } from '../LogFormDialog';
 import { localTimeStr } from '../../../utils/dates';
-import { defaultProject, splitProjectTag } from '../../../utils/projects';
+import { splitProjectTag } from '../../../utils/projects';
+import { ProjectInput, useProjectChoice } from '../ProjectInput';
 
 export interface TodayLogProps {
   logs: WorkLog[];
@@ -20,9 +21,15 @@ export interface TodayLogProps {
   onStandup(): void;
   onOpenImage(base64: string): void;
   sync: SyncState;
+  /** The project last used from the quick inputs (the selector's starting point). */
+  lastProjectId?: string;
+  /** Remembers the project a log was just added to. */
+  onProjectUsed(id: string): void;
+  /** Creates a project from a `#word` with no match and returns it. */
+  onCreateProject(name: string, color: string): Project;
 }
 
-export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAddLog, onOpenLogForm, onEditLog, onDeleteLog, onDuplicateLog, onEndDay, onStandup, onOpenImage, sync }) => {
+export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAddLog, onOpenLogForm, onEditLog, onDeleteLog, onDuplicateLog, onEndDay, onStandup, onOpenImage, sync, lastProjectId, onProjectUsed, onCreateProject }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
   const todays = useMemo(
@@ -32,8 +39,10 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
   const total = todays.reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0);
 
+  const { project: selected, setProjectId } = useProjectChoice(projects, lastProjectId);
+  // A matched "#word" left in the text (pasted, or the list was closed with Escape) still picks its project.
   const parsed = splitProjectTag(draft, projects);
-  const target = parsed.project ?? defaultProject(projects);
+  const target = parsed.project ?? selected;
 
   const logNow = () => {
     const text = parsed.text.trim();
@@ -47,6 +56,7 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
       status: 'completed',
       tags: [],
     });
+    if (target) onProjectUsed(target.id);
     setDraft('');
   };
 
@@ -80,35 +90,31 @@ export const TodayLog: React.FC<TodayLogProps> = ({ logs, projects, today, onAdd
       </div>
       <div className="v2-panel">
         <div className="v2-row v2-inset">
-          <div className="flex gap-2">
-            <label htmlFor={`${id}-add`} className="sr-only">
-              What did you just finish?
-            </label>
-            <input
-              id={`${id}-add`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  logNow();
-                }
-              }}
-              placeholder="What did you just finish?"
-              aria-describedby={`${id}-hint`}
-              autoComplete="off"
-              className="v2-input flex-1 min-w-0 h-11 px-3 text-[length:var(--fs-body)]"
-            />
-            <button type="button" onClick={openDetails} className="v2-btn shrink-0 h-11 px-4 cursor-pointer transition-colors">
-              Details
-            </button>
-          </div>
+          <ProjectInput
+            id={`${id}-add`}
+            label="What did you just finish?"
+            value={draft}
+            onChange={setDraft}
+            projects={projects}
+            project={selected}
+            onProjectChange={setProjectId}
+            onCreateProject={onCreateProject}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                logNow();
+              }
+            }}
+            placeholder="What did you just finish?"
+            describedBy={`${id}-hint`}
+            trailing={
+              <button type="button" onClick={openDetails} className="v2-btn shrink-0 h-11 px-4 cursor-pointer transition-colors">
+                Details
+              </button>
+            }
+          />
           <p id={`${id}-hint`} aria-live="polite" className="mt-1.5 text-[length:var(--fs-small)] text-[var(--text-muted)]">
-            {draft.trim()
-              ? parsed.tag && !parsed.project
-                ? `No project starts with "${parsed.tag}", so Enter logs it to ${target?.name ?? 'General'}.`
-                : `Enter logs it to ${target?.name ?? 'General'}.`
-              : 'Enter logs it. End with #project to pick the project.'}
+            {draft.trim() ? `Enter logs it to ${target?.name ?? 'General'}.` : 'Enter logs it. Type # to pick a project.'}
           </p>
         </div>
         {todays.length === 0 ? (
