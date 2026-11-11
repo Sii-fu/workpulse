@@ -8,9 +8,10 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { isAllowedScriptUrl } from './src/utils/scriptUrl';
 import { GEMINI_MODEL_CASCADE, GEMINI_TIMEOUT_MS } from './src/utils/geminiModels';
-import { buildBuckets, mergeSynthesis, templateLog } from './src/utils/eodSynthesis';
+import { buildBuckets, buildEodPrompt, mergeSynthesis, templateLog } from './src/utils/eodSynthesis';
 import { isAllowedHostHeader, isAllowedOrigin } from './src/utils/hostCheck';
 import { activityGuard } from './src/server/activityGuard';
+import { CLAUDE_MODEL_LABEL, claudeWriterGuard, eodViaClaude, standupViaClaude, writerFromRequest } from './src/server/aiWriter';
 import { scanActivity } from './src/server/activityReaders';
 import { ACTIVITY_TASKS_SCHEMA, buildActivityPrompt, parseAiTasks } from './src/utils/activity/aiTasks';
 import { runClaudeJson } from './src/server/claudeCli';
@@ -82,13 +83,23 @@ async function startServer() {
 
   app.use(express.json({ limit: '15mb' }));
 
-  // Gemini AI generation endpoint
-  app.post('/api/gemini/generate', async (req, res) => {
+  // Standup text. Claude Code on this computer writes it by default (provider 'claude', local setup only);
+  // provider 'gemini' uses the Gemini key. The path keeps its old name.
+  app.post('/api/gemini/generate', claudeWriterGuard(HOST, PORT), async (req, res) => {
     try {
-      const { prompt, systemInstruction, customApiKey } = req.body;
+      const { prompt, systemInstruction, customApiKey, provider } = req.body;
 
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
+      }
+
+      if (writerFromRequest(provider) === 'claude') {
+        const run = await standupViaClaude(runClaudeJson, prompt, typeof systemInstruction === 'string' ? systemInstruction : '');
+        if (!run.ok) {
+          console.warn('Standup: Claude Code failed:', run.reason);
+          return res.json({ text: '', notice: `${run.reason} Showing the offline template instead.` });
+        }
+        return res.json({ text: run.text, modelUsed: CLAUDE_MODEL_LABEL });
       }
 
       const activeApiKey = customApiKey?.trim() || process.env.GEMINI_API_KEY;
@@ -130,9 +141,9 @@ async function startServer() {
   });
 
   // End-of-Day (EOD) AI Log Synthesizer endpoint
-  app.post('/api/synthesize-eod', async (req, res) => {
+  app.post('/api/synthesize-eod', claudeWriterGuard(HOST, PORT), async (req, res) => {
     try {
-      const { tasks = [], projects = [], date = localDateStr(), customApiKey } = req.body;
+      const { tasks = [], projects = [], date = localDateStr(), customApiKey, provider } = req.body;
 
       if (!Array.isArray(tasks) || tasks.length === 0) {
         return res.json({ synthesizedLogs: [] });
@@ -144,6 +155,31 @@ async function startServer() {
       }
 
       const templates = () => splitBuckets.map(templateLog);
+
+      if (writerFromRequest(provider) === 'claude') {
+        const run = await eodViaClaude(runClaudeJson, splitBuckets, date);
+        if (!run.ok) {
+          console.warn('End of day: Claude Code failed:', run.reason);
+          return res.json({
+            synthesizedLogs: templates(),
+            isAIGenerated: false,
+            apiError: run.reason,
+            notice: `${run.reason} Showing template text instead.`,
+          });
+        }
+        const aiCount = run.logs.length - run.fallbackSplitIds.length;
+        return res.json({
+          synthesizedLogs: run.logs,
+          isAIGenerated: aiCount > 0,
+          modelUsed: CLAUDE_MODEL_LABEL,
+          fallbackSplitIds: run.fallbackSplitIds,
+          notice:
+            run.fallbackSplitIds.length > 0
+              ? `The AI wrote ${aiCount} of ${run.logs.length} groups. The other ${run.fallbackSplitIds.length} use template text: check them before pushing.`
+              : undefined,
+        });
+      }
+
       const activeApiKey = customApiKey?.trim() || process.env.GEMINI_API_KEY;
 
       if (!activeApiKey) {
@@ -164,55 +200,7 @@ async function startServer() {
         },
       });
 
-      const promptPayload = {
-        date,
-        groups: splitBuckets.map((b) => ({
-          splitId: b.splitId,
-          projectId: b.projectId,
-          projectName: b.projectName,
-          status: b.status,
-          totalElapsedSeconds: b.totalElapsedSeconds,
-          tasks: b.tasks.map((t) => ({
-            id: t.id,
-            title: t.title,
-            stage: t.stage || (t.completed ? 'done' : 'in_progress'),
-            elapsedSeconds: t.elapsedSeconds || 0,
-            blockReason: t.blockReason || null,
-          })),
-        })),
-      };
-
-      const systemInstruction = `You are a Principal Engineering Staff Architect and executive work log synthesizer.
-Your mission is to take daily task records split by Project AND Status (Completed, Blocked, In Progress) and synthesize distinct, executive-ready timesheet entries for each group.
-
-CRITICAL ARCHITECTURAL RULES (ABSOLUTE REQUIREMENTS):
-1. STATUS SEPARATION: Maintain separate log entries for each split group (do NOT merge completed items with blocked or in-progress items).
-2. NO RAW DUMPS: NEVER output a raw list of task titles.
-3. NO COMPLETION TAGS: NEVER prefix items with '[COMPLETED]', '[IN PROGRESS]', '[BLOCKED]', or '[PLANNED]'.
-4. NARRATIVE SYNTHESIS (1-3 bullets per group):
-   - For 'completed' groups: Highlight concrete features shipped, bugs resolved, or technical milestones delivered using strong action verbs (e.g., "• Finalized client report schema, resolving token expiration race conditions across user onboarding.")
-   - For 'blocked' groups: Concisely articulate the external blocker, dependency, or decision gate (e.g., "• Halted database migration pending upstream API credentials from DevOps.")
-   - For 'in_progress' groups: Summarize the active development milestone, technical investigation, or next steps (e.g., "• Advancing performance profiling on client-side state hydration to eliminate initial paint latency.")
-5. Each bullet point MUST start with "• ".
-6. Duration is computed by the app from tracked time. Set durationMinutes to round(totalElapsedSeconds / 60); do not estimate.
-7. Suggest 2-3 relevant tags (e.g., #deep-work, #backend, #infra, #frontend).
-
-You MUST respond strictly with valid JSON conforming to this schema (no markdown formatting or wrappers outside JSON):
-{
-  "synthesized": [
-    {
-      "splitId": "string",
-      "projectId": "string",
-      "projectName": "string",
-      "status": "completed" | "in_progress" | "blocked",
-      "durationMinutes": number,
-      "summaryBullets": "string (bullet points separated by \\n, each starting with •)",
-      "tags": ["#tag1", "#tag2"]
-    }
-  ]
-}`;
-
-      const userPrompt = `Synthesize the following project-status split groups into executive work logs for date: ${date}.\n\nSplit Groups Data:\n${JSON.stringify(promptPayload, null, 2)}\n\nSynthesize distinct executive entries for each split group now. Remember: NO raw task titles with [COMPLETED] tags.`;
+      const { systemInstruction, userPrompt } = buildEodPrompt(date, splitBuckets);
 
       const result = await generateWithCascade(ai, userPrompt, {
         systemInstruction,

@@ -3,20 +3,19 @@ import { Plus, Trash2 } from 'lucide-react';
 import { IconButton } from '../ui/IconButton';
 import { addActivityFolder } from '../../utils/activity/settings';
 import type { Project } from '../../types';
-import type { ActivityAi, ActivityFolder, ActivitySources } from '../../utils/activity/types';
+import type { ActivityFolder, ActivitySources } from '../../utils/activity/types';
 
 interface ActivityFoldersSettingsProps {
   folders: ActivityFolder[];
   sources: ActivitySources;
-  ai: ActivityAi;
   projects: Project[];
-  onChange: (folders: ActivityFolder[], sources: ActivitySources, ai: ActivityAi) => void;
+  onChange: (folders: ActivityFolder[], sources: ActivitySources) => void;
 }
 
 const FIELD =
   'v2-input min-h-11 px-3 text-[length:var(--fs-body)]';
 
-export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = ({ folders, sources, ai, projects, onChange }) => {
+export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = ({ folders, sources, projects, onChange }) => {
   const activeProjects = projects.filter((p) => !p.isArchived);
   const [newPath, setNewPath] = useState('');
   const [newProjectId, setNewProjectId] = useState(activeProjects[0]?.id ?? '');
@@ -32,7 +31,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
     }
     setError(null);
     setNewPath('');
-    onChange(result.folders, sources, ai);
+    onChange(result.folders, sources);
   };
 
   return (
@@ -43,7 +42,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
           <input
             type="checkbox"
             checked={sources.git}
-            onChange={(e) => onChange(folders, { ...sources, git: e.target.checked }, ai)}
+            onChange={(e) => onChange(folders, { ...sources, git: e.target.checked })}
             className="mt-0.5"
           />
           <span>
@@ -57,7 +56,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
           <input
             type="checkbox"
             checked={sources.claude}
-            onChange={(e) => onChange(folders, { ...sources, claude: e.target.checked }, ai)}
+            onChange={(e) => onChange(folders, { ...sources, claude: e.target.checked })}
             className="mt-0.5"
           />
           <span>
@@ -68,31 +67,6 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
             </span>
           </span>
         </label>
-      </fieldset>
-
-      <fieldset className="space-y-3">
-        <legend className="text-[length:var(--fs-small)] font-semibold text-[var(--text-main)]">Who writes the log text</legend>
-        {(
-          [
-            ['claude', 'Claude Code (recommended)', 'Uses the Claude login already on this computer. No API key. Takes about 5 seconds.'],
-            ['gemini', 'Gemini', 'Uses the Gemini key from the AI section above. Commit subjects and prompt lines are sent to Google.'],
-            ['none', 'No AI', 'Plain wording built on this computer from your commits and prompts. Nothing is sent anywhere.'],
-          ] as const
-        ).map(([value, title, hint]) => (
-          <label key={value} className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
-            <input
-              type="radio"
-              name="activity-ai"
-              checked={ai === value}
-              onChange={() => onChange(folders, sources, value)}
-              className="mt-0.5"
-            />
-            <span>
-              <span className="font-semibold">{title}</span>
-              <span className="block text-[var(--text-muted)]">{hint}</span>
-            </span>
-          </label>
-        ))}
       </fieldset>
 
       <div className="space-y-3">
@@ -113,7 +87,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
                   value={f.projectId}
                   aria-label={`Project for ${f.path}`}
                   onChange={(e) =>
-                    onChange(folders.map((x) => (x.path === f.path ? { ...x, projectId: e.target.value } : x)), sources, ai)
+                    onChange(folders.map((x) => (x.path === f.path ? { ...x, projectId: e.target.value } : x)), sources)
                   }
                   className={FIELD}
                 >
@@ -126,7 +100,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
                 </select>
                 <IconButton
                   label={`Remove folder ${f.path}`}
-                  onClick={() => onChange(folders.filter((x) => x.path !== f.path), sources, ai)}
+                  onClick={() => onChange(folders.filter((x) => x.path !== f.path), sources)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </IconButton>

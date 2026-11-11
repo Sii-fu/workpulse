@@ -446,11 +446,37 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           <Section
             id="ai"
             title="AI"
-            intro="Your Gemini key, the default tone and who the standup is addressed to. Without a key, standups use a template."
+            intro="Who writes your standups, end-of-day logs and suggested logs, plus the default tone and who the standup is addressed to."
           >
+            <fieldset className="space-y-3">
+              <legend className={LABEL}>AI writer</legend>
+              {(
+                [
+                  ['claude', 'Claude on this computer (recommended)', 'Uses the Claude login already on this computer. No API key. Takes about 5 seconds. Your log text goes to Claude.'],
+                  ['gemini', 'Gemini key', 'Uses your own Gemini API key. Your log text goes to Google.'],
+                  ['none', 'None', 'Template text built on this computer. Nothing is sent anywhere.'],
+                ] as const
+              ).map(([value, title, hint]) => (
+                <label key={value} className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`${uid}-ai-writer`}
+                    checked={activityAi === value}
+                    onChange={() => setActivityAi(value)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-semibold">{title}</span>
+                    <span className="block text-[var(--text-muted)]">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
+            {activityAi === 'gemini' && (
             <div>
               <label htmlFor={`${uid}-key`} className={LABEL}>
-                Gemini API key (optional)
+                Gemini API key
               </label>
               <div className="flex items-center gap-1">
                 <input
@@ -474,6 +500,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 Kept in this browser only and never written into backups. If blank, WorkPulse uses the key set on the server.
               </p>
             </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -517,12 +544,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             <ActivityFoldersSettings
               folders={activityFolders}
               sources={activitySources}
-              ai={activityAi}
               projects={projects}
-              onChange={(folders, sources, ai) => {
+              onChange={(folders, sources) => {
                 setActivityFolders(folders);
                 setActivitySources(sources);
-                setActivityAi(ai);
               }}
             />
           </Section>

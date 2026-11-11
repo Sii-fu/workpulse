@@ -1,22 +1,44 @@
 import { WorkLog, ReportFormat, ReportTone } from '../types';
+import { plainAiMessage } from './aiErrors';
+import type { ActivityAi } from './activity/types';
 
 export interface GenerateReportParams {
   logs: WorkLog[];
   format: ReportFormat;
   tone: ReportTone;
+  /** Who writes the text (the "AI writer" setting). Claude on this computer unless said otherwise. */
+  ai?: ActivityAi;
+  /** Only sent to the server when `ai` is 'gemini'. */
   customApiKey?: string;
   recipientName?: string;
+  /** For tests. */
+  fetchFn?: typeof fetch;
 }
 
 export interface GenerateReportResult {
   text: string;
-  source: 'gemini' | 'template';
+  source: 'claude' | 'gemini' | 'template';
   model?: string; // model that wrote the text (source 'gemini')
   error?: string; // why the AI was not used (source 'template')
 }
 
+/** The request body for /api/gemini/generate. The Gemini key goes along only when Gemini is the writer. */
+export function standupRequestBody(
+  ai: 'claude' | 'gemini',
+  prompt: string,
+  systemInstruction: string,
+  customApiKey?: string,
+) {
+  return {
+    prompt,
+    systemInstruction,
+    provider: ai,
+    customApiKey: ai === 'gemini' ? customApiKey || undefined : undefined,
+  };
+}
+
 export async function generateAiReport(params: GenerateReportParams): Promise<GenerateReportResult> {
-  const { logs, format, tone, customApiKey, recipientName } = params;
+  const { logs, format, tone, customApiKey, recipientName, ai = 'claude', fetchFn = fetch } = params;
 
   if (logs.length === 0) {
     return {
@@ -65,28 +87,29 @@ ${recipientName ? `Addressed to: ${recipientName}` : ''}
 
 Generate the final message text now. Do not wrap in markdown code fence unless code is included. Output directly.`;
 
+  // "No AI": the template only, and nothing leaves the browser.
+  if (ai === 'none') {
+    return { text: generateFallbackTemplate(logs, format, tone, recipientName), source: 'template' };
+  }
+
   let error: string | undefined;
   try {
-    const res = await fetch('/api/gemini/generate', {
+    const res = await fetchFn('/api/gemini/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt,
-        systemInstruction,
-        customApiKey: customApiKey || undefined,
-      }),
+      body: JSON.stringify(standupRequestBody(ai, prompt, systemInstruction, customApiKey)),
     });
 
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data.text) {
-      return { text: data.text.trim(), source: 'gemini', model: data.modelUsed };
+    if (res.ok && typeof data.text === 'string' && data.text.trim()) {
+      return { text: data.text.trim(), source: ai, model: data.modelUsed };
     }
-    error = data.error || `The AI request failed (status ${res.status}).`;
+    error = plainAiMessage(data.error || data.notice || `The AI request failed (status ${res.status}).`);
   } catch (err) {
-    console.warn('Gemini API call failed or unavailable, using offline template generator:', err);
-    error = 'Could not reach the WorkPulse server.';
+    console.warn('The AI request failed or is unavailable, using the offline template generator:', err);
+    error = plainAiMessage('Could not reach the WorkPulse server.');
   }
 
   // High-fidelity fallback template generator

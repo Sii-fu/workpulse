@@ -4,7 +4,9 @@ import { plainAiMessage } from '../utils/aiErrors';
 import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { WorkLog, ReportFormat, ReportTone } from '../types';
-import { generateAiReport } from '../utils/aiGenerator';
+import { generateAiReport, GenerateReportResult } from '../utils/aiGenerator';
+import { aiWriterName } from '../utils/activity/settings';
+import type { ActivityAi } from '../utils/activity/types';
 import { modelLabel } from '../utils/geminiModels';
 import {
   RefreshCw,
@@ -23,6 +25,9 @@ interface AiStandupModalProps {
   onClose: () => void;
   logs: WorkLog[];
   selectedLogIds: string[];
+  /** Who writes the text (the AI writer setting). */
+  ai: ActivityAi;
+  /** Only sent to the server when `ai` is 'gemini'. */
   geminiApiKey: string;
   defaultRecipientName?: string;
   defaultTone: ReportTone;
@@ -34,6 +39,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   onClose,
   logs,
   selectedLogIds,
+  ai,
   geminiApiKey,
   defaultRecipientName,
   defaultTone,
@@ -44,7 +50,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
   const [recipientName, setRecipientName] = useState<string>(defaultRecipientName || '');
   const [generatedReport, setGeneratedReport] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [generationSource, setGenerationSource] = useState<'gemini' | 'template' | null>(null);
+  const [generationSource, setGenerationSource] = useState<GenerateReportResult['source'] | null>(null);
   const [aiModel, setAiModel] = useState<string | undefined>(undefined);
   const [aiError, setAiError] = useState<string | null>(null);
 
@@ -87,6 +93,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
         logs: activeLogs,
         format,
         tone,
+        ai,
         customApiKey: geminiApiKey,
         recipientName: recipientName.trim() || undefined,
       });
@@ -134,7 +141,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
                 Draft standup
               </h2>
               <p className="text-xs text-[var(--text-muted)]">
-                Turn {activeLogs.length} work log{activeLogs.length === 1 ? '' : 's'} into a message for your team. Uses Gemini when a key is set, otherwise a template.
+                Turn {activeLogs.length} work log{activeLogs.length === 1 ? '' : 's'} into a message for your team. {ai === 'none' ? 'Written from a template; no AI is used.' : `Written by ${aiWriterName(ai)}, or a template if that is not available.`}
               </p>
             </div>
           </div>
@@ -242,7 +249,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               {isGenerating ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent-text)]" />
-                  <span>Drafting with Gemini...</span>
+                  <span>Drafting with {aiWriterName(ai)}...</span>
                 </>
               ) : (
                 <>
@@ -259,7 +266,7 @@ export const AiStandupModal: React.FC<AiStandupModalProps> = ({
               <span className="font-semibold">Generated Message Output (Editable):</span>
               {generationSource && (
                 <span className="text-xs opacity-75">
-                  Powered by {generationSource === 'gemini' ? modelLabel(aiModel) : 'High-Fidelity Smart Template'}
+                  Powered by {generationSource === 'gemini' ? modelLabel(aiModel) : generationSource === 'claude' ? 'Claude Code' : 'High-Fidelity Smart Template'}
                 </span>
               )}
             </div>

@@ -17,7 +17,7 @@ describe('plainAiMessage', () => {
   it('passes other short messages through and shortens long ones', () => {
     expect(plainAiMessage('Model said no.', true)).toBe('Model said no.');
     expect(plainAiMessage('x'.repeat(300), true).length).toBeLessThanOrEqual(160);
-    expect(plainAiMessage(undefined, true)).toBe('Gemini did not answer.');
+    expect(plainAiMessage(undefined, true)).toBe('The AI did not answer.');
   });
 });
 

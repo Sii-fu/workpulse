@@ -1026,6 +1026,46 @@ def eod_error_retry(s):
     s.no_errors()
 
 
+@check("standup_ai_writer")
+def standup_ai_writer(s):
+    """The standup asks Claude by default and does not send a saved Gemini key; Gemini sends it only when chosen;
+    No AI makes no request (the AI route is stubbed, so nothing real is ever called)."""
+    p = s.page
+    saved = s.ls("workpulse_settings")
+    open_standup = lambda: btn(p.get_by_role("region", name=SEL["todays_log"]), SEL["standup"], exact=True).click()
+
+    def standup_request():
+        with p.expect_request(lambda r: "/api/gemini/generate" in r.url, timeout=5000) as info:
+            open_standup()
+        body = json.loads(info.value.post_data or "{}")
+        expect(p.get_by_role("dialog").locator("textarea")).to_have_value("Stub standup text.", timeout=5000)
+        p.keyboard.press("Escape")
+        expect(p.get_by_role("dialog")).to_have_count(0)
+        return body
+
+    try:
+        s.set_ls("workpulse_settings", dict(saved, geminiApiKey="AIza-smoke-key"))
+        s.reload()
+        body = standup_request()
+        assert body.get("provider") == "claude", f"standup did not ask Claude by default: {body.get('provider')}"
+        assert "customApiKey" not in body, "the Gemini key was sent although Gemini is not the AI writer"
+        s.set_ls("workpulse_settings", dict(saved, geminiApiKey="AIza-smoke-key", activityAi="gemini"))
+        s.reload()
+        body = standup_request()
+        assert body.get("provider") == "gemini" and body.get("customApiKey") == "AIza-smoke-key", f"Gemini request: {body}"
+        s.set_ls("workpulse_settings", dict(saved, activityAi="none"))
+        s.reload()
+        seen = s.ai.seen
+        open_standup()
+        expect(p.get_by_role("dialog").locator("textarea")).to_have_value(re.compile("quick progress update"), timeout=5000)
+        assert s.ai.seen == seen, "No AI still called the server"
+        p.keyboard.press("Escape")
+    finally:
+        s.set_ls("workpulse_settings", saved)
+        s.reload()
+    s.no_errors()
+
+
 # -- activity suggestions (the server is stubbed) -----------------------------------------------
 def _stub_activity(s):
     p = s.page

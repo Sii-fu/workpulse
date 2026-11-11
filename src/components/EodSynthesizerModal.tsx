@@ -5,6 +5,8 @@ import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
+import { buildBuckets, eodRequestBody, templateLog } from '../utils/eodSynthesis';
+import type { ActivityAi } from '../utils/activity/types';
 import { minutesFromSeconds } from '../utils/duration';
 import { BacklogTask, Project, TaskStatus, TaskStage } from '../types';
 import {
@@ -55,6 +57,9 @@ interface EodSynthesizerModalProps {
   isCustomSelection?: boolean;
   backlog?: BacklogTask[];
   projects: Project[];
+  /** Who writes the text (the AI writer setting). 'none' builds the template text here, with no server call. */
+  ai: ActivityAi;
+  /** Only sent to the server when `ai` is 'gemini'. */
   geminiApiKey: string;
   hasGoogleSheetLinked: boolean;
   onConfirmAndPush: (items: SynthesizedLogItem[]) => Promise<void>;
@@ -102,6 +107,7 @@ export const EodPanel: React.FC<EodPanelProps> = ({
   isCustomSelection = false,
   backlog,
   projects,
+  ai,
   geminiApiKey,
   hasGoogleSheetLinked,
   onConfirmAndPush,
@@ -122,7 +128,7 @@ export const EodPanel: React.FC<EodPanelProps> = ({
   const [expandedMicroTasks, setExpandedMicroTasks] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
-  const [activeModelName, setActiveModelName] = useState<string>('GEMINI');
+  const [activeModelName, setActiveModelName] = useState<string>('AI');
 
 
   // Static snapshot reference to prevent 1-second timer intervals from re-triggering API calls
@@ -156,23 +162,26 @@ export const EodPanel: React.FC<EodPanelProps> = ({
     }
 
     try {
-      const resp = await fetch('/api/synthesize-eod', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tasks: candidateTasks.map(withUnloggedTime),
-          projects,
-          date: todayStr,
-          customApiKey: geminiApiKey,
-        }),
-      });
+      const tasksToSend = candidateTasks.map(withUnloggedTime);
+      let data: any;
+      if (ai === 'none') {
+        // No AI: the template text is built here and nothing is sent anywhere.
+        const buckets = buildBuckets(tasksToSend, projects.filter((p) => p && p.id));
+        data = { synthesizedLogs: buckets.map(templateLog), isAIGenerated: false };
+      } else {
+        const resp = await fetch('/api/synthesize-eod', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eodRequestBody(ai, tasksToSend, projects, todayStr, geminiApiKey)),
+        });
 
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed with status ${resp.status}`);
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed with status ${resp.status}`);
+        }
+
+        data = await resp.json();
       }
-
-      const data = await resp.json();
       const logs: SynthesizedLogItem[] = (Array.isArray(data.synthesizedLogs) ? data.synthesizedLogs : []).map((item: any) => ({
         ...item,
         // Never trust the response shape: a missing list must not crash the modal (C4).

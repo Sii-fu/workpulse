@@ -11,6 +11,7 @@ import { TodayActivityProps, sameActivityProps } from '../today/TodayScreen';
 import { useNow } from '../useNow';
 import { checkedToday, pendingCount, subscribeActivitySession } from '../../../utils/activity/sessionStore';
 import { DEFAULT_WORKDAY_HOURS, clockState, formatHm } from '../../../utils/workday';
+import { aiFromSettings } from '../../../utils/activity/settings';
 import { unsyncedLogs } from '../../../utils/syncStatus';
 import { isDoneUnlogged } from '../../../utils/taskLogging';
 import { isRunningTask, sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
@@ -214,6 +215,7 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
               tasksSnapshot={snapshot}
               isCustomSelection
               projects={projects}
+              ai={aiFromSettings(settings)}
               geminiApiKey={settings.geminiApiKey}
               hasGoogleSheetLinked={!!sheetUrl}
               onConfirmAndPush={onConfirmEodPush}

@@ -48,6 +48,11 @@ export function aiFromSettings(s: Pick<AppSettings, 'activityAi'>): ActivityAi {
   return s.activityAi ?? 'claude';
 }
 
+/** The writer's name for sentences like "Drafting with ...". */
+export function aiWriterName(ai: ActivityAi): string {
+  return ai === 'gemini' ? 'Gemini' : ai === 'none' ? 'a template' : 'Claude';
+}
+
 /** The settings value for this choice; the default is not stored. */
 export function aiField(ai: ActivityAi): ActivityAi | undefined {
   return ai === 'claude' ? undefined : ai;

@@ -160,3 +160,92 @@ export function mergeSynthesis(
   });
   return { logs, fallbackSplitIds };
 }
+
+// The prompt for both AI writers (Claude Code and Gemini), so the end-of-day text reads the same.
+export function buildEodPrompt(date: string, buckets: SplitBucket[]): { systemInstruction: string; userPrompt: string } {
+  const promptPayload = {
+    date,
+    groups: buckets.map((b) => ({
+      splitId: b.splitId,
+      projectId: b.projectId,
+      projectName: b.projectName,
+      status: b.status,
+      totalElapsedSeconds: b.totalElapsedSeconds,
+      tasks: b.tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        stage: t.stage || (t.completed ? 'done' : 'in_progress'),
+        elapsedSeconds: t.elapsedSeconds || 0,
+        blockReason: t.blockReason || null,
+      })),
+    })),
+  };
+
+  const systemInstruction = `You are a Principal Engineering Staff Architect and executive work log synthesizer.
+Your mission is to take daily task records split by Project AND Status (Completed, Blocked, In Progress) and synthesize distinct, executive-ready timesheet entries for each group.
+
+CRITICAL ARCHITECTURAL RULES (ABSOLUTE REQUIREMENTS):
+1. STATUS SEPARATION: Maintain separate log entries for each split group (do NOT merge completed items with blocked or in-progress items).
+2. NO RAW DUMPS: NEVER output a raw list of task titles.
+3. NO COMPLETION TAGS: NEVER prefix items with '[COMPLETED]', '[IN PROGRESS]', '[BLOCKED]', or '[PLANNED]'.
+4. NARRATIVE SYNTHESIS (1-3 bullets per group):
+   - For 'completed' groups: Highlight concrete features shipped, bugs resolved, or technical milestones delivered using strong action verbs (e.g., "• Finalized client report schema, resolving token expiration race conditions across user onboarding.")
+   - For 'blocked' groups: Concisely articulate the external blocker, dependency, or decision gate (e.g., "• Halted database migration pending upstream API credentials from DevOps.")
+   - For 'in_progress' groups: Summarize the active development milestone, technical investigation, or next steps (e.g., "• Advancing performance profiling on client-side state hydration to eliminate initial paint latency.")
+5. Each bullet point MUST start with "• ".
+6. Duration is computed by the app from tracked time. Set durationMinutes to round(totalElapsedSeconds / 60); do not estimate.
+7. Suggest 2-3 relevant tags (e.g., #deep-work, #backend, #infra, #frontend).
+
+You MUST respond strictly with valid JSON conforming to this schema (no markdown formatting or wrappers outside JSON):
+{
+  "synthesized": [
+    {
+      "splitId": "string",
+      "projectId": "string",
+      "projectName": "string",
+      "status": "completed" | "in_progress" | "blocked",
+      "durationMinutes": number,
+      "summaryBullets": "string (bullet points separated by \\n, each starting with •)",
+      "tags": ["#tag1", "#tag2"]
+    }
+  ]
+}`;
+
+  const userPrompt = `Synthesize the following project-status split groups into executive work logs for date: ${date}.\n\nSplit Groups Data:\n${JSON.stringify(promptPayload, null, 2)}\n\nSynthesize distinct executive entries for each split group now. Remember: NO raw task titles with [COMPLETED] tags.`;
+  return { systemInstruction, userPrompt };
+}
+
+/** The body for /api/synthesize-eod. The Gemini key goes along only when Gemini is the writer. */
+export function eodRequestBody(
+  ai: 'claude' | 'gemini',
+  tasks: unknown[],
+  projects: unknown[],
+  date: string,
+  customApiKey?: string,
+) {
+  return { tasks, projects, date, provider: ai, customApiKey: ai === 'gemini' ? customApiKey || undefined : undefined };
+}
+
+// The shape Claude Code must answer with (the CLI checks its answer against this schema).
+export const EOD_SCHEMA = {
+  type: 'object',
+  properties: {
+    synthesized: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          splitId: { type: 'string' },
+          projectId: { type: 'string' },
+          projectName: { type: 'string' },
+          status: { type: 'string', enum: ['completed', 'in_progress', 'blocked'] },
+          durationMinutes: { type: 'number' },
+          summaryBullets: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['splitId', 'projectId', 'status', 'summaryBullets'],
+      },
+    },
+  },
+  required: ['synthesized'],
+};

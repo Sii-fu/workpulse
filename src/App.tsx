@@ -1447,6 +1447,7 @@ export default function App() {
         tasksSnapshot={eodTasksSnapshot}
         isCustomSelection={isEodCustomSelection}
         projects={projects}
+        ai={ai}
         geminiApiKey={settings.geminiApiKey}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
         onConfirmAndPush={handleConfirmEodPush}
@@ -1473,6 +1474,7 @@ export default function App() {
         onClose={() => setIsAiStandupOpen(false)}
         logs={logs}
         selectedLogIds={selectedLogIds}
+        ai={ai}
         geminiApiKey={settings.geminiApiKey}
         defaultRecipientName={settings.defaultRecipientName}
         defaultTone={settings.defaultTone}

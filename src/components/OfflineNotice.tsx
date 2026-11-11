@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { WifiOff } from 'lucide-react';
 
 // Shown while the browser says it has no network. Logging, timers and saving are local and keep
-// working; only Gemini and the Google Sheet wait.
+// working; only the AI writer and the Google Sheet wait.
 export const OfflineNotice: React.FC = () => {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   useEffect(() => {
@@ -23,7 +23,7 @@ export const OfflineNotice: React.FC = () => {
     >
       <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
       <span>
-        You are offline. Logging and timers keep working and are saved on this computer. Gemini and Google Sheet sync
+        You are offline. Logging and timers keep working and are saved on this computer. The AI writer and Google Sheet sync
         wait until you are back online.
       </span>
     </div>

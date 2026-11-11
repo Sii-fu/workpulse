@@ -28,7 +28,7 @@ export const SampleDataBanner: React.FC<SampleDataBannerProps> = ({ logCount, ta
         onClick={onOpenSetup}
         className="px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-btn)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:underline cursor-pointer"
       >
-        Set up Sheet and Gemini
+        Set up Sheet and AI
       </button>
       <button
         type="button"

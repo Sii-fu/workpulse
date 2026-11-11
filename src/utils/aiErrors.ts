@@ -3,7 +3,7 @@
 
 export function plainAiMessage(raw: string | undefined, online: boolean = typeof navigator === 'undefined' ? true : navigator.onLine): string {
   const text = (raw || '').trim();
-  if (!online) return 'You are offline, so Gemini cannot be reached.';
+  if (!online) return 'You are offline, so the AI cannot be reached.';
   if (/api[ _-]?key.*(missing|provided|not set|configure)|no gemini api key|GEMINI_API_KEY/i.test(text)) {
     return 'No Gemini key is set. Add one in Settings under AI.';
   }
@@ -16,7 +16,7 @@ export function plainAiMessage(raw: string | undefined, online: boolean = typeof
   if (/failed to fetch|networkerror|load failed|could not reach|econnrefused/i.test(text)) {
     return 'WorkPulse could not reach its server. Check that it is still running, then try again.';
   }
-  if (!text) return 'Gemini did not answer.';
+  if (!text) return 'The AI did not answer.';
   return text.length > 160 ? `${text.slice(0, 157)}...` : text;
 }
 
