@@ -49,6 +49,7 @@ import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
+import { planProjectFromFolder } from './utils/projectFromFolder';
 import { usePhoneSync } from './hooks/usePhoneSync';
 import { keepDeviceSettings } from './utils/phoneSettings';
 import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
@@ -899,6 +900,27 @@ export default function App() {
     return newProj;
   };
 
+  // Settings > Projects > "Add project from folder": creates or reuses the project named after the folder and
+  // links the folder for activity suggestions, all saved at once (not waiting for the Settings Save button).
+  const handleAddProjectFromFolder = (path: string): { ok: boolean; message: string } => {
+    const plan = planProjectFromFolder(projects, settingsRef.current.activityFolders ?? [], path, `proj-${Date.now()}`);
+    if (!plan.ok) return { ok: false, message: plan.message };
+    if (plan.projects !== projects) {
+      setProjects(plan.projects);
+      saveProjects(plan.projects);
+    }
+    updateSettings({ activityFolders: plan.folders });
+    const name = plan.project.name;
+    return {
+      ok: true,
+      message: plan.created
+        ? `Project "${name}" added and linked to that folder.`
+        : plan.unarchived
+          ? `Project "${name}" brought back from the archive and linked to that folder.`
+          : `Folder linked to the existing project "${name}".`,
+    };
+  };
+
   const backupNow = () => buildBackup({ logs, backlog, projects, tags, settings, workdays });
 
   const handleResetSeedData = () => {
@@ -1190,6 +1212,7 @@ export default function App() {
     moveToToday: useStableCallback(handleMoveToToday),
     addLog: useStableCallback(handleAddLog),
     createProject: useStableCallback(handleAddProject),
+    addProjectFromFolder: useStableCallback(handleAddProjectFromFolder),
     projectUsed: useStableCallback((id: string) => {
       if (settingsRef.current.lastProjectId !== id) updateSettings({ lastProjectId: id });
     }),
@@ -1397,6 +1420,7 @@ export default function App() {
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
             phoneStatus={phone.status}
             onUpdateSettings={updateSettings}
+            onAddProjectFromFolder={h.addProjectFromFolder}
           />
         )}
       </main>

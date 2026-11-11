@@ -1,6 +1,8 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { FolderOpen, Loader2, Plus, X } from 'lucide-react';
 import type { Project } from '../../../types';
+import { isFullFolderPath } from '../../../utils/activity/settings';
+import { pickFolder } from '../../../utils/pickFolderClient';
 import { IconButton } from '../../ui/IconButton';
 import { SWATCHES, Swatches } from '../ProjectSwatches';
 
@@ -9,6 +11,7 @@ interface ProjectsSectionProps {
   tags: string[];
   onUpdateProjects(p: Project[]): void;
   onUpdateTags(t: string[]): void;
+  onAddProjectFromFolder(path: string): { ok: boolean; message: string };
 }
 
 const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
@@ -84,13 +87,46 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, canArchive, onRename, 
   );
 };
 
-export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ projects, tags, onUpdateProjects, onUpdateTags }) => {
+export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
+  projects,
+  tags,
+  onUpdateProjects,
+  onUpdateTags,
+  onAddProjectFromFolder,
+}) => {
   const id = useId();
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(SWATCHES[0].hex);
   const [newTag, setNewTag] = useState('');
 
+  const [picking, setPicking] = useState(false);
+  const [folderPath, setFolderPath] = useState('');
+  const [folderNote, setFolderNote] = useState<{ ok: boolean; message: string } | null>(null);
+
   const activeCount = projects.filter((p) => !p.isArchived).length;
+
+  const addFromDialog = async () => {
+    setPicking(true);
+    setFolderNote(null);
+    const picked = await pickFolder();
+    setPicking(false);
+    if (picked.kind === 'cancelled') return;
+    if (picked.kind === 'error') return setFolderNote({ ok: false, message: picked.message });
+    setFolderNote(onAddProjectFromFolder(picked.path));
+  };
+
+  const addFromTyped = (e: React.FormEvent) => {
+    e.preventDefault();
+    const path = folderPath.trim();
+    if (!path) return;
+    if (!isFullFolderPath(path)) {
+      setFolderNote({ ok: false, message: 'Enter the full folder path, like E:\\projects\\app.' });
+      return;
+    }
+    const result = onAddProjectFromFolder(path);
+    setFolderNote(result);
+    if (result.ok) setFolderPath('');
+  };
 
   const patch = (pid: string, change: Partial<Project>) =>
     onUpdateProjects(projects.map((p) => (p.id === pid ? { ...p, ...change } : p)));
@@ -163,6 +199,53 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ projects, tags
           </div>
           <Swatches value={newColor} label="Colour of the new project" onPick={setNewColor} />
         </form>
+
+        <div className="flex flex-col gap-3 border-t border-[var(--border-app)] pt-4">
+          <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">
+            Pick a folder to add a project named after it. The folder is also linked to that project for activity suggestions.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={addFromDialog} disabled={picking} className={BTN}>
+              {picking ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              )}
+              Add project from folder
+            </button>
+            {picking && (
+              <span className="text-[length:var(--fs-small)] text-[var(--text-muted)]">Choose the folder in the window that opened.</span>
+            )}
+          </div>
+          <form onSubmit={addFromTyped} className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1">
+              <label htmlFor={`${id}-folder`} className={LABEL}>
+                Or type the folder path
+              </label>
+              <input
+                id={`${id}-folder`}
+                type="text"
+                value={folderPath}
+                onChange={(e) => {
+                  setFolderPath(e.target.value);
+                  setFolderNote(null);
+                }}
+                placeholder="E:\projects\app"
+                autoComplete="off"
+                spellCheck={false}
+                className={FIELD}
+              />
+            </div>
+            <button type="submit" disabled={!folderPath.trim() || picking} className={BTN}>
+              Add
+            </button>
+          </form>
+          {folderNote && (
+            <p role="status" className={`text-[length:var(--fs-small)] ${folderNote.ok ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>
+              {folderNote.message}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">

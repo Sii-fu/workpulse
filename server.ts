@@ -12,6 +12,7 @@ import { buildBuckets, buildEodPrompt, mergeSynthesis, templateLog } from './src
 import { isAllowedHostHeader, isAllowedOrigin } from './src/utils/hostCheck';
 import { activityGuard } from './src/server/activityGuard';
 import { CLAUDE_MODEL_LABEL, claudeWriterGuard, eodViaClaude, standupViaClaude, writerFromRequest } from './src/server/aiWriter';
+import { createFolderPicker, isAllowedPickOrigin } from './src/server/folderPicker';
 import { scanActivity } from './src/server/activityReaders';
 import { ACTIVITY_TASKS_SCHEMA, buildActivityPrompt, parseAiTasks } from './src/utils/activity/aiTasks';
 import { runClaudeJson } from './src/server/claudeCli';
@@ -267,6 +268,22 @@ async function startServer() {
     } catch (err: any) {
       return res.status(400).json({ error: err?.message || 'Could not read your activity.' });
     }
+  });
+
+  // "Add project from folder": opens the folder dialog on this computer (Windows only). One at a time;
+  // the dialog is closed when the browser goes away. Same guard as the activity routes, plus an Origin check.
+  const folderPicker = createFolderPicker();
+  app.post('/api/pick-folder', activityGuard(HOST, PORT), async (req, res) => {
+    if (!isAllowedPickOrigin(req.headers.origin, PORT)) {
+      return res.status(403).json({ error: 'The folder window only opens for this app, on this computer.' });
+    }
+    const call = folderPicker.pick();
+    res.on('close', () => {
+      if (!res.writableEnded) call.cancel();
+    });
+    const { status, body } = await call.result;
+    if (res.writableEnded || res.destroyed) return;
+    return res.status(status).json(body);
   });
 
   app.post('/api/activity/suggest', activityGuard(HOST, PORT), async (req, res) => {

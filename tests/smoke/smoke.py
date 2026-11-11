@@ -1427,6 +1427,49 @@ def phone_email_settings(s):
     s.no_errors()
 
 
+@check("add_project_from_folder")
+def add_project_from_folder(s):
+    """Settings > Projects & tags > Add project from folder (the folder dialog is stubbed, never opened): the project
+    and the folder link are saved at once, the same folder again is reported as already linked, a later Save All
+    Settings keeps the link, and a typed path works too."""
+    p = s.page
+    picks = []
+
+    def pick(route):
+        picks.append(route.request.post_data)
+        route.fulfill(json={"path": "C:\\work\\HMIS"})
+
+    p.route("**/api/pick-folder", pick)
+    s.tab("settings")
+    sec = p.locator("#settings-projects")
+    sec.scroll_into_view_if_needed()
+    btn(sec, "Add project from folder", exact=True).click()
+    expect(sec).to_contain_text('Project "HMIS" added and linked to that folder.', timeout=5000)
+    assert len(picks) == 1
+    projects = [x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"]
+    assert len(projects) == 1 and not projects[0].get("isArchived"), "the project was not saved at once"
+    folders = s.ls("workpulse_settings").get("activityFolders")
+    assert folders == [{"path": "C:\\work\\HMIS", "projectId": projects[0]["id"]}], f"folder link not saved: {folders}"
+    expect(sec.get_by_role("textbox", name="Name of HMIS")).to_be_visible()
+
+    btn(sec, "Add project from folder", exact=True).click()
+    expect(sec).to_contain_text('That folder is already linked to "HMIS".', timeout=5000)
+    assert len([x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"]) == 1, "the project was added twice"
+    assert len(s.ls("workpulse_settings")["activityFolders"]) == 1, "the folder was linked twice"
+
+    # a later Save keeps the link that was saved from Projects
+    btn(p, SEL["settings_save"]).first.click()
+    assert len(s.ls("workpulse_settings").get("activityFolders") or []) == 1, "Save All Settings dropped the folder link"
+
+    # a typed path
+    sec.get_by_label("Or type the folder path").fill("E:\\code\\Billing")
+    btn(sec, "Add", exact=True).click()
+    expect(sec).to_contain_text('Project "Billing" added and linked to that folder.', timeout=5000)
+    assert len(s.ls("workpulse_settings")["activityFolders"]) == 2
+    s.no_overflow("Settings")
+    s.no_errors()
+
+
 @check("phone_old_script")
 def phone_old_script(s):
     """A script older than version 3 gets only the update steps, no PIN or email controls."""

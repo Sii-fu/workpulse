@@ -47,6 +47,8 @@ interface SettingsViewProps {
   phoneStatus: PhoneSyncStatus;
   /** Saves only these fields at once, onto the newest settings (the Phone & evening email section). */
   onUpdateSettings: (patch: Partial<AppSettings>) => void;
+  /** Creates or reuses the project named after the folder and links the folder, saved at once. */
+  onAddProjectFromFolder: (path: string) => { ok: boolean; message: string };
 }
 
 const SECTIONS = [
@@ -116,6 +118,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onNotify,
   phoneStatus,
   onUpdateSettings,
+  onAddProjectFromFolder,
 }) => {
   const uid = useId();
   const [current, setCurrent] = useState<SectionId>('appearance');
@@ -142,6 +145,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activityFolders, setActivityFolders] = useState<ActivityFolder[]>(settings.activityFolders ?? []);
   const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
   const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
+
+  // A folder linked from Projects ("Add project from folder") is saved at once; fold it into the draft
+  // so a later Save does not drop it, and keep the other unsaved edits.
+  useEffect(() => {
+    const saved = settings.activityFolders ?? [];
+    setActivityFolders((draft) => {
+      const added = saved.filter((f) => !draft.some((d) => d.path === f.path));
+      return added.length > 0 ? [...draft, ...added] : draft;
+    });
+  }, [settings.activityFolders]);
 
   // The anchor list marks the section that is at the top of the screen.
   useEffect(() => {
@@ -347,6 +360,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               tags={tags}
               onUpdateProjects={onUpdateProjects}
               onUpdateTags={onUpdateTags}
+              onAddProjectFromFolder={onAddProjectFromFolder}
             />
           </Section>
 
