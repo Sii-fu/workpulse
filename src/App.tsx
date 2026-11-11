@@ -44,7 +44,7 @@ import {
   resumeWorkday,
 } from './utils/workday';
 import { chooseNextAction } from './utils/nextAction';
-import { checkedToday, pendingCount, subscribeActivitySession } from './utils/activity/sessionStore';
+import { checkedToday, invalidateActivitySessions, pendingCount, subscribeActivitySession } from './utils/activity/sessionStore';
 import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
@@ -95,6 +95,19 @@ export default function App() {
   const [tags, setTags] = useState<string[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [workdays, setWorkdays] = useState<Workdays>({});
+
+  // Kept activity suggestions describe the setup they were made with: when the folders, the project
+  // each folder is linked to, the sources or the AI writer change, forget them so a screen never
+  // shows a project from the old links. (The first run, with nothing kept, does nothing.)
+  const activitySetupKey = JSON.stringify([
+    (settings.activityFolders ?? []).map((f) => [f.path, f.projectId]),
+    settings.activityUseGit,
+    settings.activityUseClaude,
+    settings.activityAi,
+  ]);
+  useEffect(() => {
+    invalidateActivitySessions();
+  }, [activitySetupKey]);
 
   const [activeTab, setActiveTab] = useState<AppNavTab>('today');
 

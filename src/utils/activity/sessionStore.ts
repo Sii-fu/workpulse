@@ -56,6 +56,16 @@ export function checkedToday(date: string): boolean {
   return sessions.get(date)?.checked === true;
 }
 
+/**
+ * Forget every day's check. Called when the folders, their projects, the sources or the AI writer
+ * change in Settings, so kept suggestions never show a project (or wording) from the old setup.
+ */
+export function invalidateActivitySessions(): void {
+  if (sessions.size === 0) return;
+  sessions.clear();
+  listeners.forEach((l) => l());
+}
+
 /** Tests only: forget every session. */
 export function resetActivitySessions(): void {
   sessions.clear();

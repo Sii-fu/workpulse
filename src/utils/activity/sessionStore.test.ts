@@ -3,6 +3,7 @@ import {
   ActivitySession,
   checkedToday,
   getActivitySession,
+  invalidateActivitySessions,
   pendingCount,
   resetActivitySessions,
   setActivitySession,
@@ -66,5 +67,23 @@ describe('activity session store', () => {
     setActivitySession('2026-11-10', s);
     expect(getActivitySession('2026-11-10')).toBe(s);
     expect(getActivitySession('2026-11-10')).toBe(getActivitySession('2026-11-10'));
+  });
+});
+
+describe('invalidateActivitySessions', () => {
+  it('forgets every kept check and tells listeners, and does nothing when empty', () => {
+    resetActivitySessions();
+    let calls = 0;
+    const off = subscribeActivitySession(() => {
+      calls++;
+    });
+    invalidateActivitySessions();
+    expect(calls).toBe(0);
+    setActivitySession('2026-11-10', { result: { suggestions: [], status: {} } as never, rows: [], addedCount: 0, checked: true });
+    calls = 0;
+    invalidateActivitySessions();
+    expect(checkedToday('2026-11-10')).toBe(false);
+    expect(calls).toBe(1);
+    off();
   });
 });
