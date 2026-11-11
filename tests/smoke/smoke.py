@@ -640,7 +640,11 @@ def tasks_screen_add(s):
     p.wait_for_timeout(300)
     task = next((t for t in s.ls("workpulse_backlog") if t["title"] == "Smoke future task"), None)
     assert task and task.get("dueDate") == due, f"task not saved with its due date: {task}"
-    expect(p.get_by_role("region", name=re.compile(r"^Upcoming")).get_by_text("Smoke future task", exact=True)).to_be_visible()
+    # A not-started task lives in the Plans column, under its own day; the started-work column never lists it.
+    plans = p.get_by_role("region", name=re.compile(r"^Plans"))
+    expect(plans.get_by_text("Smoke future task", exact=True)).to_be_visible()
+    for left in ("Today", "Upcoming", "Done recently"):
+        expect(p.get_by_role("region", name=re.compile(rf"^{left}")).get_by_text("Smoke future task", exact=True)).to_have_count(0)
     s.no_errors()
 
 
@@ -1178,7 +1182,7 @@ def task_dates_move_to_today(s):
     _seed_tasks(s, ("old", old, -3, {}), ("yest", yest, -1, {}), ("soon", soon, 1, {}))
     s.tab("tasks")
     expect(p.get_by_role("heading", name=re.compile(r"^Yesterday"))).to_be_visible()
-    expect(p.get_by_role("region", name=re.compile(r"^Upcoming")).get_by_text(soon, exact=True)).to_be_visible()
+    expect(p.get_by_role("region", name=re.compile(r"^Plans")).get_by_text(soon, exact=True)).to_be_visible()
     assert p.locator("main").get_by_text(old, exact=True).count() == 1, "the old task is not listed under its date"
     # something saves the backlog, then a reload: nothing moved to today by itself
     form = p.get_by_role("form", name="Add a task")
@@ -1202,13 +1206,43 @@ def task_dates_move_to_today(s):
     s.no_errors()
 
 
+@check("task_states_today_and_tasks")
+def task_states_today_and_tasks(s):
+    """Today groups tasks by state (paused and blocked of any date, up next = planned today, a line for older plans);
+    the Tasks page keeps not-started tasks in Plans and started ones in the left column, never in both."""
+    p = s.page
+    _seed_tasks(s, ("paused", "Smoke paused old", -1, {"stage": "paused", "elapsedSeconds": 600}),
+                ("blocked", "Smoke blocked old", -2, {"stage": "blocked", "blockReason": "waiting on a vendor key"}),
+                ("next", "Smoke up next", 0, {}), ("plan1", "Smoke plan yesterday", -1, {}), ("plan2", "Smoke plan older", -4, {}))
+    s.tab("today")
+    card = p.get_by_role("region", name=SEL["todays_tasks"])
+    for name, count in (("Paused", 1), ("Blocked", 1), ("Up next", 1)):
+        expect(card.get_by_role("group", name=re.compile(rf"^{name}", re.I))).to_contain_text(str(count))
+    expect(card.get_by_role("group", name=re.compile(r"^Running", re.I))).to_have_count(0)   # empty groups stay hidden
+    expect(task_row(p, "Smoke paused old")).to_contain_text("from Yesterday")
+    expect(task_row(p, "Smoke blocked old")).to_contain_text("waiting on a vendor key")
+    expect(card.get_by_role("group", name=re.compile(r"^Up next")).get_by_text("Smoke up next", exact=True)).to_be_visible()
+    assert card.get_by_text("Smoke plan yesterday", exact=True).count() == 0, "an older plan is listed on Today"
+    # the older plans are one line that opens the Tasks page
+    btn(card, re.compile(r"^2 more plans from earlier days")).click()
+    expect(p.get_by_role("region", name=re.compile(r"^Plans"))).to_be_visible()   # now on the Tasks page
+    plans = p.get_by_role("region", name=re.compile(r"^Plans"))
+    for title in ("Smoke up next", "Smoke plan yesterday", "Smoke plan older"):
+        expect(plans.get_by_text(title, exact=True)).to_have_count(1)
+    for title in ("Smoke paused old", "Smoke blocked old"):
+        expect(plans.get_by_text(title, exact=True)).to_have_count(0)
+        assert p.locator("main").get_by_text(title, exact=True).count() == 1, f"{title} is not in exactly one place"
+    s.no_errors()
+
+
 @check("plan_your_day")
 def plan_your_day(s):
     """The first clock-in of a date opens Plan your day; Skip changes nothing; a later visit to the same date does not
     open it again; the Today button does, and Start the day carries ticked tasks and adds the typed ones."""
     p = s.page
-    carry, blocked = "Smoke carry me", "Smoke blocked one"
-    _seed_tasks(s, ("carry", carry, -1, {}), ("blocked", blocked, -2, {"stage": "blocked", "blockReason": "waiting on a key"}))
+    carry, blocked, leave = "Smoke carry me", "Smoke blocked one", "Smoke leave me"
+    _seed_tasks(s, ("carry", carry, -1, {}), ("leave", leave, -2, {}),
+                ("blocked", blocked, -2, {"stage": "blocked", "blockReason": "waiting on a key"}))
     before = [(t["title"], t["dueDate"], t["stage"]) for t in s.ls("workpulse_backlog")]
     band = p.get_by_role("region", name=SEL["clock_band"])
     btn(band, SEL["clock_in"], exact=True).click()
@@ -1216,7 +1250,9 @@ def plan_your_day(s):
     plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
     expect(plan).to_be_visible(timeout=5000)
     expect(plan.get_by_role("checkbox", name=re.compile(carry))).to_be_checked()
-    expect(plan.get_by_role("checkbox", name=re.compile(blocked))).not_to_be_checked()
+    # only not-started tasks are offered: the blocked one already shows on Today in its own group
+    expect(plan.get_by_role("checkbox", name=re.compile(blocked))).to_have_count(0)
+    expect(plan.get_by_role("checkbox", name=re.compile(leave))).to_be_checked()
     btn(plan, SEL["plan_skip"], exact=True).click()
     expect(plan).to_have_count(0)
     p.wait_for_timeout(400)
@@ -1231,12 +1267,13 @@ def plan_your_day(s):
     btn(p.get_by_role("region", name=SEL["todays_tasks"]), SEL["plan_day_dialog"], exact=True).click()
     plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
     expect(plan).to_be_visible()
+    plan.get_by_role("checkbox", name=re.compile(leave)).uncheck()
     plan.get_by_role("textbox", name=SEL["plan_new_tasks"]).fill("Smoke planned A\nSmoke planned B\n")
     btn(plan, SEL["plan_start"], exact=True).click()
     expect(plan).to_have_count(0)
     p.wait_for_timeout(400)
     assert _due(s, carry) == s.day(0), "the ticked task was not carried to today"
-    assert _due(s, blocked) == s.day(-2), "the unticked blocked task moved"
+    assert _due(s, leave) == s.day(-2) and _due(s, blocked) == s.day(-2), "an unticked or blocked task moved"
     assert _due(s, "Smoke planned A") == s.day(0) and _due(s, "Smoke planned B") == s.day(0), "typed tasks were not added for today"
     s.no_errors()
 

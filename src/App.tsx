@@ -1194,6 +1194,7 @@ export default function App() {
     deleteLog: useStableCallback(handleDeleteLog),
     duplicateLog: useStableCallback(handleDuplicateLog),
     openSettings: useStableCallback(() => setActiveTab('settings')),
+    openTasks: useStableCallback(() => setActiveTab('tasks')),
     endDay: useStableCallback(() => setEndDay({})),
     logSelectedTasks: useStableCallback((ids: string[]) => handleOpenEodSynthesizer(ids)),
     copy: useStableCallback(handleCopy),
@@ -1252,7 +1253,6 @@ export default function App() {
   const samples = sampleCounts(logs, backlog);
   const backup = backupStatus(settings.lastBackupAt, logs, backlog);
   const showNotices = activeTab === 'today' || activeTab === 'tasks';
-  const noticeWidth = activeTab === 'tasks' ? 'max-w-[960px]' : 'max-w-[1440px]';
 
   return (
     <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] antialiased selection:bg-[var(--accent)] selection:text-[var(--on-accent)]">
@@ -1280,7 +1280,7 @@ export default function App() {
       </AppHeader>
 
       <main className="pb-[calc(57px+16px+env(safe-area-inset-bottom))] sm:pb-0">
-        <div className={`mx-auto ${noticeWidth} px-4 sm:px-8 pt-5 flex flex-col gap-3 empty:hidden`}>
+        <div className={`mx-auto max-w-[1440px] px-4 sm:px-8 pt-5 flex flex-col gap-3 empty:hidden`}>
           <OfflineNotice />
           {showNotices && samples.total > 0 && (
             <SampleDataBanner
@@ -1309,6 +1309,7 @@ export default function App() {
             onDeleteTask={h.deleteTask}
             onMoveToToday={h.moveToToday}
             onPlanDay={h.planDay}
+            onOpenTasks={h.openTasks}
             onAddLog={h.addLog}
             onOpenLogForm={h.openLogForm}
             onEditLog={h.editLog}

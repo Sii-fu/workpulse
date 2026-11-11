@@ -1,18 +1,18 @@
 import type { BacklogTask, Project } from '../types';
-import { earlierGroups } from './taskSections';
+import { earlierPlans } from './taskSections';
 import { moveTasksToDay } from './taskDates';
 import { defaultProject, splitProjectTag } from './projects';
 
 /**
- * Plan your day: the pending tasks left on earlier days (newest date first; running tasks already
- * belong to today). All are ticked to carry except blocked ones.
+ * Plan your day: the not-started (planned) tasks left on earlier days, newest date first. Running, paused
+ * and blocked tasks already show on Today in their own group, so they are not offered. All are ticked to carry.
  */
 export function planCandidates(
   backlog: BacklogTask[],
   today: string,
 ): { carry: BacklogTask[]; defaultCheckedIds: string[] } {
-  const carry = earlierGroups(backlog, today).flatMap((g) => g.tasks);
-  return { carry, defaultCheckedIds: carry.filter((t) => t.stage !== 'blocked').map((t) => t.id) };
+  const carry = earlierPlans(backlog, today).flatMap((g) => g.tasks);
+  return { carry, defaultCheckedIds: carry.map((t) => t.id) };
 }
 
 /** Carries the chosen tasks to today. */

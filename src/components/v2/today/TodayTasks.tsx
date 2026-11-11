@@ -1,10 +1,8 @@
 import React, { useCallback, useId, useMemo, useState } from 'react';
 import type { BacklogTask, Project, TaskStage } from '../../../types';
 import { TaskRow } from './TaskRow';
-import { EarlierBlock } from '../tasks/EarlierGroup';
-import { isRunningTask } from '../../../utils/timerStore';
-import { isPendingTask } from '../../../utils/taskLogging';
-import { earlierPending, todaysTasks } from '../../../utils/todayTasks';
+import { StateMark, type TaskState } from './StateMark';
+import { todayStateGroups } from '../../../utils/todayTasks';
 import { dayHeading } from '../../../utils/taskDates';
 import { defaultProject, splitProjectTag } from '../../../utils/projects';
 
@@ -22,24 +20,72 @@ export interface TodayTasksProps {
   onMoveToToday(ids: string[]): void;
   /** Opens Plan your day (earlier tasks to carry, new tasks for today). */
   onPlanDay(): void;
+  /** Switches to the Tasks page (the Plans list holds the not-started tasks of earlier days). */
+  onOpenTasks(): void;
 }
 
-/** The "Earlier, still pending" block shows this many of the most recent days until the user asks for more. */
-const EARLIER_DAYS_SHOWN = 3;
+/** One state group inside the card: a heading with the state's mark and a count, then its rows. */
+const StateGroup: React.FC<{ state: TaskState; label: string; count: number; children: React.ReactNode }> = ({ state, label, count, children }) => {
+  const id = useId();
+  return (
+    <div role="group" aria-labelledby={`${id}-h`} className="border-t border-[var(--border-app)] [.v2-row+&]:border-t-0 [[data-theme=timecard]_&]:border-t-0">
+      <div className="v2-head v2-inset pt-5 !mb-0">
+        <h3 id={`${id}-h`} className="v2-head-group">
+          <span className="inline-flex items-center gap-2">
+            <StateMark state={state} />
+            {label}
+          </span>
+          <span className="v2-head-meta num">{count}</span>
+        </h3>
+      </div>
+      {children}
+    </div>
+  );
+};
 
-export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay }) => {
+export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay, onOpenTasks }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
-  const [allEarlier, setAllEarlier] = useState(false);
-  const tasks = useMemo(() => todaysTasks(backlog, today), [backlog, today]);
-  const earlier = useMemo(() => earlierPending(backlog, today), [backlog, today]);
+  const g = useMemo(() => todayStateGroups(backlog, today), [backlog, today]);
   const moveOne = useCallback((taskId: string) => onMoveToToday([taskId]), [onMoveToToday]);
-  const shownEarlier = allEarlier ? earlier : earlier.slice(0, EARLIER_DAYS_SHOWN);
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
-  const running = tasks.filter(isRunningTask).length;
-  const done = tasks.filter((t) => !isPendingTask(t)).length;
-  const open = tasks.length - done;
+  const running = g.running.length;
+  const done = g.done.length;
+  const open = running + g.paused.length + g.blocked.length + g.upNext.length;
+  const shown = open + done;
+
+  const rows = (list: BacklogTask[]) => (
+    <ul>
+      {list.map((t) => (
+        <TaskRow
+          key={t.id}
+          task={t}
+          project={byId.get(t.projectId)}
+          fromLabel={t.dueDate < today && !(t.completedAt || t.stage === 'done') ? dayHeading(t.dueDate, today) : undefined}
+          onStage={onStage}
+          onComplete={onComplete}
+          onLogTask={onLogTask}
+          onReopen={onReopen}
+          onDeleteTask={onDeleteTask}
+          onMoveToToday={moveOne}
+        />
+      ))}
+    </ul>
+  );
+
+  const earlierLine =
+    g.earlierPlans > 0 ? (
+      <div className="v2-inset py-2">
+        <button
+          type="button"
+          onClick={onOpenTasks}
+          className="min-h-8 pointer-coarse:min-h-11 px-1 text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 cursor-pointer"
+        >
+          {g.earlierPlans} more {g.earlierPlans === 1 ? 'plan' : 'plans'} from earlier {g.earlierPlans === 1 ? 'day' : 'days'}
+        </button>
+      </div>
+    ) : null;
 
   const parsed = splitProjectTag(draft, projects);
   const fallback = defaultProject(projects);
@@ -101,65 +147,39 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
               : 'End with #project to pick the project.'}
           </p>
         </div>
-        {tasks.length === 0 ? (
+        {shown === 0 && (
           <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
-            {earlier.length > 0 ? 'Nothing due today.' : 'Nothing planned yet. Add the first task above.'}
+            {g.earlierPlans > 0 ? 'Nothing due today.' : 'Nothing planned yet. Add the first task above.'}
           </p>
-        ) : (
-          <ul>
-            {tasks.map((t) => (
-              <TaskRow
-                key={t.id}
-                task={t}
-                project={byId.get(t.projectId)}
-                onStage={onStage}
-                onComplete={onComplete}
-                onLogTask={onLogTask}
-                onReopen={onReopen}
-                onDeleteTask={onDeleteTask}
-              />
-            ))}
-          </ul>
         )}
-        {earlier.length > 0 && (
-          <div
-            role="group"
-            aria-label="Earlier, still pending"
-            // The rule above the block: the last task row already draws one in Time Card, and the empty line does everywhere.
-            className={tasks.length > 0 ? 'border-t border-[var(--border-app)] [[data-theme=timecard]_&]:border-t-0' : undefined}
-          >
-            {shownEarlier.map((d) => (
-              <EarlierBlock key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks} onMoveAll={onMoveToToday}>
-                <ul>
-                  {d.tasks.map((t) => (
-                    <TaskRow
-                      key={t.id}
-                      task={t}
-                      project={byId.get(t.projectId)}
-                      onStage={onStage}
-                      onComplete={onComplete}
-                      onLogTask={onLogTask}
-                      onReopen={onReopen}
-                      onDeleteTask={onDeleteTask}
-                      onMoveToToday={moveOne}
-                    />
-                  ))}
-                </ul>
-              </EarlierBlock>
-            ))}
-            {earlier.length > EARLIER_DAYS_SHOWN && (
-              <div className="v2-inset py-2">
-                <button
-                  type="button"
-                  aria-expanded={allEarlier}
-                  onClick={() => setAllEarlier((v) => !v)}
-                  className="min-h-8 pointer-coarse:min-h-11 px-1 text-[length:var(--fs-small)] font-semibold text-[var(--accent-text)] underline underline-offset-4 cursor-pointer"
-                >
-                  {allEarlier ? 'Show fewer days' : `Show ${earlier.length - EARLIER_DAYS_SHOWN} more ${earlier.length - EARLIER_DAYS_SHOWN === 1 ? 'day' : 'days'}`}
-                </button>
-              </div>
-            )}
-          </div>
+        {running > 0 && (
+          <StateGroup state="running" label="Running" count={running}>
+            {rows(g.running)}
+          </StateGroup>
+        )}
+        {g.paused.length > 0 && (
+          <StateGroup state="paused" label="Paused" count={g.paused.length}>
+            {rows(g.paused)}
+          </StateGroup>
+        )}
+        {g.blocked.length > 0 && (
+          <StateGroup state="blocked" label="Blocked" count={g.blocked.length}>
+            {rows(g.blocked)}
+          </StateGroup>
+        )}
+        {g.upNext.length > 0 ? (
+          <StateGroup state="upnext" label="Up next" count={g.upNext.length}>
+            {rows(g.upNext)}
+            {earlierLine}
+          </StateGroup>
+        ) : (
+          shown > 0 && earlierLine && <div className="border-t border-[var(--border-app)] [[data-theme=timecard]_&]:border-t-0">{earlierLine}</div>
+        )}
+        {shown === 0 && earlierLine}
+        {done > 0 && (
+          <StateGroup state="done" label="Done" count={done}>
+            {rows(g.done)}
+          </StateGroup>
         )}
       </div>
     </section>

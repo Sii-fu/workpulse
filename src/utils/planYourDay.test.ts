@@ -34,19 +34,18 @@ describe('planCandidates', () => {
     task('tomorrow', '2026-11-12'),
   ];
 
-  it('lists pending tasks due before today, newest date first', () => {
+  it('lists only planned tasks due before today, newest date first', () => {
     const { carry } = planCandidates(backlog, TODAY);
-    expect(carry.map((t) => t.id)).toEqual(['yesterday', 'blocked', 'older']);
+    expect(carry.map((t) => t.id)).toEqual(['yesterday', 'older']);
   });
 
-  it("leaves out today's, upcoming and done tasks", () => {
-    const ids = planCandidates(backlog, TODAY).carry.map((t) => t.id);
-    expect(ids).not.toContain('today');
-    expect(ids).not.toContain('tomorrow');
-    expect(ids).not.toContain('done');
+  it("leaves out today's, upcoming, done, paused and blocked tasks (paused and blocked show on Today already)", () => {
+    const list = [...backlog, task('paused', '2026-11-09', { stage: 'paused' })];
+    const ids = planCandidates(list, TODAY).carry.map((t) => t.id);
+    for (const gone of ['today', 'tomorrow', 'done', 'blocked', 'paused']) expect(ids).not.toContain(gone);
   });
 
-  it('ticks every candidate except blocked ones', () => {
+  it('ticks every candidate', () => {
     expect(planCandidates(backlog, TODAY).defaultCheckedIds).toEqual(['yesterday', 'older']);
   });
 

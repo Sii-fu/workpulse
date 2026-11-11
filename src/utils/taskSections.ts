@@ -9,16 +9,31 @@ export interface DayGroup {
   tasks: BacklogTask[];
 }
 
-/** The Tasks screen's sections. Every task is in at most one. */
-export interface TaskSections {
-  /** Pending tasks due today, plus anything running (a running task belongs to today). */
+/** Not-started (planned) tasks by date: the Tasks screen's Plans column. */
+export interface PlanSections {
+  /** Planned tasks due today, list order. */
   today: BacklogTask[];
-  /** Pending tasks due before today, one group per date, newest date first. Blocked tasks stay in their date. */
+  /** Planned tasks due before today, one group per date, newest date first. */
   earlier: DayGroup[];
-  /** Pending tasks due after today, one group per date, oldest first. */
+  /** Planned tasks due after today, one group per date, oldest first. */
+  upcoming: DayGroup[];
+}
+
+/**
+ * The Tasks screen's sections. Every task is in at most one. `today`, `earlier`, `upcoming` and
+ * `doneRecently` are the left column (started or finished tasks); `plans` is the right column.
+ */
+export interface TaskSections {
+  /** Started tasks due today, plus anything running (a running task belongs to today). */
+  today: BacklogTask[];
+  /** Started (paused, blocked) tasks due before today, one group per date, newest date first. */
+  earlier: DayGroup[];
+  /** Started tasks due after today, one group per date, oldest first. */
   upcoming: DayGroup[];
   /** Done in the last 7 local days (today included), newest first. */
   doneRecently: BacklogTask[];
+  /** Tasks not started yet (stage planned). Never also in the sections above. */
+  plans: PlanSections;
 }
 
 const DONE_WINDOW_DAYS = 7;
@@ -42,22 +57,27 @@ const byRank = (list: BacklogTask[]): BacklogTask[] =>
     .sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i)
     .map(({ t }) => t);
 
-const isEarlier = (t: BacklogTask, today: string): boolean =>
-  isPendingTask(t) && !isRunningTask(t) && t.dueDate < today;
+/** A pending task that has not been started. A running task never counts as a plan. */
+export const isPlanned = (t: BacklogTask): boolean =>
+  isPendingTask(t) && !isRunningTask(t) && getTaskStage(t) === 'planned';
 
-/** Pending tasks due before today (not running), grouped by date, newest first. */
-export function earlierGroups(backlog: BacklogTask[], today: string): DayGroup[] {
+const groupByDate = (list: BacklogTask[], newestFirst: boolean): DayGroup[] => {
   const byDate = new Map<string, BacklogTask[]>();
-  for (const t of backlog) if (isEarlier(t, today)) byDate.set(t.dueDate, [...(byDate.get(t.dueDate) ?? []), t]);
+  for (const t of list) byDate.set(t.dueDate, [...(byDate.get(t.dueDate) ?? []), t]);
   return [...byDate.entries()]
-    .sort(([a], [b]) => (a < b ? 1 : -1))
+    .sort(([a], [b]) => (a === b ? 0 : (a < b) === newestFirst ? 1 : -1))
     .map(([date, tasks]) => ({ date, tasks: byRank(tasks) }));
+};
+
+/** Planned tasks due before today, grouped by date, newest first. */
+export function earlierPlans(backlog: BacklogTask[], today: string): DayGroup[] {
+  return groupByDate(backlog.filter((t) => isPlanned(t) && t.dueDate < today), true);
 }
 
 /** Splits the backlog into the Tasks screen's sections for a local date. */
 export function groupTasks(backlog: BacklogTask[], today: string): TaskSections {
-  const todays: BacklogTask[] = [];
-  const byDate = new Map<string, BacklogTask[]>();
+  const started: BacklogTask[] = [];
+  const planned: BacklogTask[] = [];
   const recent: { t: BacklogTask; at: string }[] = [];
   const windowStart = lastNDays(today, DONE_WINDOW_DAYS)[0];
 
@@ -66,23 +86,23 @@ export function groupTasks(backlog: BacklogTask[], today: string): TaskSections 
       const at = t.completedAt ?? t.dueDate;
       const day = t.completedAt ? localDateOfIso(t.completedAt) : t.dueDate;
       if (day >= windowStart && day <= today) recent.push({ t, at });
-      continue;
-    }
-    if (isRunningTask(t) || t.dueDate === today) {
-      todays.push(t);
-    } else if (t.dueDate > today) {
-      byDate.set(t.dueDate, [...(byDate.get(t.dueDate) ?? []), t]);
-    }
+    } else if (isPlanned(t)) planned.push(t);
+    else started.push(t);
   }
 
+  const isToday = (t: BacklogTask) => isRunningTask(t) || t.dueDate === today;
+  const startedRest = started.filter((t) => !isToday(t));
   return {
-    today: byRank(todays),
-    earlier: earlierGroups(backlog, today),
-    upcoming: [...byDate.entries()]
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([date, tasks]) => ({ date, tasks: byRank(tasks) })),
+    today: byRank(started.filter(isToday)),
+    earlier: groupByDate(startedRest.filter((t) => t.dueDate < today), true),
+    upcoming: groupByDate(startedRest.filter((t) => t.dueDate > today), false),
     // ISO timestamps and YYYY-MM-DD strings both sort as text; newest first.
     doneRecently: recent.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).map(({ t }) => t),
+    plans: {
+      today: planned.filter((t) => t.dueDate === today),
+      earlier: groupByDate(planned.filter((t) => t.dueDate < today), true),
+      upcoming: groupByDate(planned.filter((t) => t.dueDate > today), false),
+    },
   };
 }
 
@@ -93,11 +113,14 @@ export function sectionProjectIds(s: TaskSections): string[] {
     ...s.earlier.flatMap((d) => d.tasks),
     ...s.upcoming.flatMap((d) => d.tasks),
     ...s.doneRecently,
+    ...s.plans.today,
+    ...s.plans.earlier.flatMap((d) => d.tasks),
+    ...s.plans.upcoming.flatMap((d) => d.tasks),
   ];
   return [...new Set(all.map((t) => t.projectId))];
 }
 
-/** Only one project's tasks (null = all). Date groups left empty are dropped. */
+/** Only one project's tasks (null = all), in both columns. Date groups left empty are dropped. */
 export function filterByProject(s: TaskSections, projectId: string | null): TaskSections {
   if (!projectId) return s;
   const keep = (list: BacklogTask[]) => list.filter((t) => t.projectId === projectId);
@@ -108,5 +131,6 @@ export function filterByProject(s: TaskSections, projectId: string | null): Task
     earlier: keepGroups(s.earlier),
     upcoming: keepGroups(s.upcoming),
     doneRecently: keep(s.doneRecently),
+    plans: { today: keep(s.plans.today), earlier: keepGroups(s.plans.earlier), upcoming: keepGroups(s.plans.upcoming) },
   };
 }

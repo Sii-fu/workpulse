@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useMemo, useState } from 'react';
 import type { BacklogTask, Project, TaskStage } from '../../../types';
 import { TaskRow } from '../today/TaskRow';
-import { EarlierSection, plural } from './EarlierGroup';
+import { DayBlock, plural } from './EarlierGroup';
 import { sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import { localDateOfIso, localTimeStr } from '../../../utils/dates';
 import { defaultProject } from '../../../utils/projects';
@@ -112,10 +112,13 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
 
   const anyTasks = projectIds.length > 0;
   const upcomingCount = sections.upcoming.reduce((n, d) => n + d.tasks.length, 0);
+  const plans = sections.plans;
+  const sumGroups = (groups: { tasks: BacklogTask[] }[]) => groups.reduce((n, d) => n + d.tasks.length, 0);
+  const plansCount = plans.today.length + sumGroups(plans.earlier) + sumGroups(plans.upcoming);
   const moveOne = useCallback((taskId: string) => onMoveToToday([taskId]), [onMoveToToday]);
 
   return (
-    <div className="mx-auto max-w-[960px] px-4 sm:px-8 py-6 sm:py-7 flex flex-col gap-7">
+    <div className="mx-auto max-w-[1440px] px-4 sm:px-8 py-6 sm:py-7 flex flex-col gap-7">
       <form onSubmit={submit} aria-label="Add a task" className="v2-panel v2-inset py-[var(--row-pad)]">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,15rem)_10rem_auto] sm:items-end">
           <div>
@@ -187,60 +190,90 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
         </div>
       )}
 
-      <Section title="Today" count={sections.today.length}>
-        {sections.today.length === 0 ? (
-          <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
-            {anyTasks ? 'Nothing due today.' : 'Nothing planned yet. Add the first task above.'}
-          </p>
-        ) : (
-          <ul>{sections.today.map((t) => row(t))}</ul>
-        )}
-      </Section>
-
-      {sections.earlier.map((d) => (
-        <EarlierSection key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks} onMoveAll={onMoveToToday}>
-          <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
-        </EarlierSection>
-      ))}
-
-      {upcomingCount > 0 && (
-        <Section title="Upcoming" count={upcomingCount}>
-          {sections.upcoming.map((d) => (
-            <React.Fragment key={d.date}>
-              <h3 className="v2-inset pt-3 pb-1 text-[length:var(--fs-small)] font-bold text-[var(--text-muted)] border-t border-[var(--border-app)] first:border-t-0">
-                {dayHeading(d.date, today)}
-              </h3>
-              <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
-            </React.Fragment>
-          ))}
-        </Section>
-      )}
-
-      {sections.doneRecently.length > 0 && (
-        <Section title="Done recently" count={sections.doneRecently.length}>
-          <div className="v2-row v2-inset flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">Tick done tasks to write a timesheet from them.</p>
-            <button
-              type="button"
-              onClick={() => setSelected(allPicked ? selected.filter((i) => !doneIds.includes(i)) : [...new Set([...selected, ...doneIds])])}
-              className={TEXT_BTN}
-            >
-              {allPicked ? 'Clear selection' : 'Select all'}
-            </button>
-          </div>
-          <ul>
-            {sections.doneRecently.map((t) =>
-              row(t, {
-                selected: picked.includes(t.id),
-                onToggleSelect: toggle,
-                meta: t.completedAt
-                  ? `done ${dayLabelLong(localDateOfIso(t.completedAt))}, ${localTimeStr(new Date(t.completedAt))}`
-                  : `done ${dayLabelLong(t.dueDate)}`,
-              }),
+      {/* Phones: one column, Plans first. Desktop: started work on the left, Plans on the right. */}
+      <div className="grid gap-7 lg:grid-cols-2 lg:items-start">
+        <div className="order-2 lg:order-1 flex flex-col gap-7 min-w-0">
+          <Section title="Today" count={sections.today.length}>
+            {sections.today.length === 0 ? (
+              <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
+                {anyTasks ? 'Nothing running or paused today.' : 'Nothing started yet. Start a plan from the list.'}
+              </p>
+            ) : (
+              <ul>{sections.today.map((t) => row(t, { fromLabel: t.dueDate < today ? dayHeading(t.dueDate, today) : undefined, onMoveToToday: moveOne }))}</ul>
             )}
-          </ul>
-        </Section>
-      )}
+          </Section>
+
+          {sections.earlier.map((d) => (
+            <Section key={d.date} title={dayHeading(d.date, today)} count={d.tasks.length}>
+              <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
+            </Section>
+          ))}
+
+          {upcomingCount > 0 && (
+            <Section title="Upcoming" count={upcomingCount}>
+              {sections.upcoming.map((d) => (
+                <React.Fragment key={d.date}>
+                  <h3 className="v2-inset pt-3 pb-1 text-[length:var(--fs-small)] font-bold text-[var(--text-muted)] border-t border-[var(--border-app)] first:border-t-0">
+                    {dayHeading(d.date, today)}
+                  </h3>
+                  <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
+                </React.Fragment>
+              ))}
+            </Section>
+          )}
+
+        {sections.doneRecently.length > 0 && (
+          <Section title="Done recently" count={sections.doneRecently.length}>
+            <div className="v2-row v2-inset flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <p className="text-[length:var(--fs-small)] text-[var(--text-muted)]">Tick done tasks to write a timesheet from them.</p>
+              <button
+                type="button"
+                onClick={() => setSelected(allPicked ? selected.filter((i) => !doneIds.includes(i)) : [...new Set([...selected, ...doneIds])])}
+                className={TEXT_BTN}
+              >
+                {allPicked ? 'Clear selection' : 'Select all'}
+              </button>
+            </div>
+            <ul>
+              {sections.doneRecently.map((t) =>
+                row(t, {
+                  selected: picked.includes(t.id),
+                  onToggleSelect: toggle,
+                  meta: t.completedAt
+                    ? `done ${dayLabelLong(localDateOfIso(t.completedAt))}, ${localTimeStr(new Date(t.completedAt))}`
+                    : `done ${dayLabelLong(t.dueDate)}`,
+                }),
+              )}
+            </ul>
+          </Section>
+        )}
+        </div>
+
+        <div className="order-1 lg:order-2 min-w-0">
+          <Section title="Plans" count={plansCount}>
+            {plansCount === 0 && (
+              <p className="v2-row v2-inset text-[length:var(--fs-body)] text-[var(--text-muted)]">
+                {anyTasks ? 'No plans waiting.' : 'Nothing planned yet. Add the first task above.'}
+              </p>
+            )}
+            {plans.today.length > 0 && (
+              <DayBlock heading={dayHeading(today, today)} tasks={plans.today}>
+                <ul>{plans.today.map((t) => row(t))}</ul>
+              </DayBlock>
+            )}
+            {plans.earlier.map((d) => (
+              <DayBlock key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks} onMoveAll={onMoveToToday}>
+                <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
+              </DayBlock>
+            ))}
+            {plans.upcoming.map((d) => (
+              <DayBlock key={d.date} heading={dayHeading(d.date, today)} tasks={d.tasks}>
+                <ul>{d.tasks.map((t) => row(t, { onMoveToToday: moveOne }))}</ul>
+              </DayBlock>
+            ))}
+          </Section>
+        </div>
+      </div>
 
       <div aria-live="polite" className="sticky bottom-4 z-10 empty:hidden">
         {picked.length > 0 && (

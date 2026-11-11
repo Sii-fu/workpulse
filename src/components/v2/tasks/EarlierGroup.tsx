@@ -14,47 +14,27 @@ const MoveAll: React.FC<{ heading: string; onClick(): void }> = ({ heading, onCl
   </button>
 );
 
-interface GroupProps {
-  /** Output of `dayHeading`: Yesterday, Mon 9 Nov. */
+interface DayBlockProps {
+  /** Output of `dayHeading`: Today, Yesterday, Mon 9 Nov. */
   heading: string;
   tasks: BacklogTask[];
-  onMoveAll(ids: string[]): void;
+  /** Adds "Move all to today" (earlier days of the Plans column). */
+  onMoveAll?(ids: string[]): void;
   children: React.ReactNode;
 }
 
-/** A date group of earlier tasks as a section of its own (Tasks screen): section heading, then a panel of rows. */
-export const EarlierSection: React.FC<GroupProps> = ({ heading, tasks, onMoveAll, children }) => {
-  const id = useId();
-  return (
-    <section aria-labelledby={`${id}-h`}>
-      {/* !flex-nowrap: "Move all to today" never drops to its own line; the count gives way first. */}
-      <div className="v2-head v2-head-split !flex-nowrap">
-        <h2 id={`${id}-h`} className="v2-head-group">
-          <span>{heading}</span>
-          <span className="v2-head-meta num">{plural(tasks.length)}</span>
-        </h2>
-        <MoveAll heading={heading} onClick={() => onMoveAll(tasks.map((t) => t.id))} />
-      </div>
-      <div className="v2-panel">{children}</div>
-    </section>
-  );
-};
-
-/** A date group inside a card (Today screen): the same day heading as the Tasks screen, then the rows. */
-export const EarlierBlock: React.FC<GroupProps> = ({ heading, tasks, onMoveAll, children }) => {
+/** A date group inside a panel (the Plans column): the same day heading style as elsewhere, then the rows. */
+export const DayBlock: React.FC<DayBlockProps> = ({ heading, tasks, onMoveAll, children }) => {
   const id = useId();
   return (
     <div role="group" aria-labelledby={`${id}-h`}>
+      {/* !flex-nowrap: "Move all to today" never drops to its own line; the count gives way first. */}
       <div className="v2-head v2-head-split v2-inset pt-5 !mb-0 !flex-nowrap">
         <h3 id={`${id}-h`} className="v2-head-group">
           <span>{heading}</span>
-          {/* Under 420px it reads "3 pending"; screen readers always hear "still". */}
-          <span className="v2-head-meta num">
-            {tasks.length}
-            <span className="sr-only min-[420px]:not-sr-only"> still</span> pending
-          </span>
+          <span className="v2-head-meta num">{plural(tasks.length)}</span>
         </h3>
-        <MoveAll heading={heading} onClick={() => onMoveAll(tasks.map((t) => t.id))} />
+        {onMoveAll && <MoveAll heading={heading} onClick={() => onMoveAll(tasks.map((t) => t.id))} />}
       </div>
       {children}
     </div>

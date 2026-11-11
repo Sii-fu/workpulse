@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react';
 import { Check } from 'lucide-react';
 import type { BacklogTask, Project, TaskStage } from '../../../types';
 import { TaskClock } from '../../tasks/Clock';
+import { StateMark, rowState } from './StateMark';
 import { getTaskStage } from '../../tasks/helpers';
 import { RowMenu, RowMenuItem } from '../RowMenu';
 import { SampleBadge } from '../../ui/SampleBadge';
@@ -25,6 +26,8 @@ export interface TaskRowProps {
   onDeleteTask(id: string): void;
   /** Replaces the meta line after the project name (e.g. a due date on the Tasks screen). */
   meta?: React.ReactNode;
+  /** A muted "from Yesterday" after the meta, for a running/paused/blocked task dated before today. */
+  fromLabel?: string;
   /** Shows a selection checkbox when given. */
   selected?: boolean;
   onToggleSelect?(id: string): void;
@@ -50,7 +53,7 @@ export function metaFor(task: BacklogTask, stage: TaskStage): string {
     case 'paused':
       return tracked > 0 ? `paused · ${hm(tracked)} tracked` : 'paused';
     case 'blocked':
-      return task.blockReason ? `blocked: ${task.blockReason}` : 'blocked';
+      return 'blocked';
     case 'done':
       return task.completedAt ? `done ${timeOf(task.completedAt)}` : 'done';
     default:
@@ -68,6 +71,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   onReopen,
   onDeleteTask,
   meta,
+  fromLabel,
   selected,
   onToggleSelect,
   onMoveToToday,
@@ -119,6 +123,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             className="w-4 h-4 shrink-0 accent-[var(--accent-text)]"
           />
         )}
+        <StateMark state={rowState(stage, running)} />
         <span
           className="v2-ribbon self-stretch min-h-8"
           style={{ backgroundColor: project?.color ?? 'var(--border-control)' }}
@@ -131,9 +136,13 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             >
               {task.title}
             </p>
+            {stage === 'blocked' && task.blockReason && (
+              <p className="mt-0.5 text-[length:var(--fs-small)] text-[var(--text-main)] break-words">Blocked: {task.blockReason}</p>
+            )}
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--fs-small)] text-[var(--text-muted)]">
               <span className="break-words">
                 {project?.name ?? 'No project'} · {meta ?? metaFor(task, stage)}
+                {fromLabel ? ` · from ${fromLabel}` : ''}
                 {task.fromPhone ? ' · from phone' : ''}
               </span>
               <SampleBadge show={isSampleTask(task)} />

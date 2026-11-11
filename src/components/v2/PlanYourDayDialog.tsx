@@ -30,9 +30,6 @@ const MUTED = 'text-[length:var(--fs-small)] text-[var(--text-muted)]';
 export const PlanYourDayDialog: React.FC<PlanYourDayDialogProps> = ({ isOpen, ...rest }) =>
   isOpen ? <PlanPanel {...rest} /> : null;
 
-const stageNote = (t: BacklogTask): string =>
-  t.stage === 'blocked' ? 'blocked' : t.stage === 'paused' ? 'paused' : '';
-
 // Mounted fresh on every open, so the ticks start from the defaults and the box is empty.
 const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
   onClose,
@@ -112,7 +109,6 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
             </h3>
             <ul className="v2-panel">
               {candidates.map((t) => {
-                const note = stageNote(t);
                 return (
                   <li key={t.id} className="v2-row v2-inset">
                     <label className="flex items-center gap-3.5 min-h-8 cursor-pointer">
@@ -131,12 +127,6 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
                         <span className="block text-[length:var(--fs-body)] font-semibold break-words">{t.title}</span>
                         <span className={`block ${MUTED}`}>
                           {dayHeading(t.dueDate, today)} · {byId.get(t.projectId)?.name ?? 'No project'}
-                          {note && (
-                            <>
-                              {' · '}
-                              <span className={note === 'blocked' ? 'text-danger' : undefined}>{note}</span>
-                            </>
-                          )}
                           {t.fromPhone ? ' · from phone' : ''}
                         </span>
                       </span>

@@ -28,6 +28,8 @@ export interface TodayScreenProps {
   onMoveToToday(ids: string[]): void;
   /** Opens Plan your day. */
   onPlanDay(): void;
+  /** Switches to the Tasks page. */
+  onOpenTasks(): void;
   onAddLog(data: Omit<WorkLog, 'id' | 'createdAt'>): void;
   /** Opens LogFormDialog for a new log, with the quick-log text as a starting point (or empty). */
   onOpenLogForm(prefill: LogFormPrefill | null): void;
@@ -57,6 +59,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
   onDeleteTask,
   onMoveToToday,
   onPlanDay,
+  onOpenTasks,
   onAddLog,
   onOpenLogForm,
   onEditLog,
@@ -86,6 +89,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onDeleteTask={onDeleteTask}
         onMoveToToday={onMoveToToday}
         onPlanDay={onPlanDay}
+        onOpenTasks={onOpenTasks}
       />
     </div>
     <div className="order-3 lg:order-none lg:col-span-5 min-w-0">
