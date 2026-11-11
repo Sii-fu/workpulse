@@ -392,7 +392,11 @@ def log_row(page, text):
 
 
 def row_menu(page, row, item):
-    """Open the row's ⋯ menu and pick an item."""
+    """Open the row's ⋯ menu and pick an item. Done is a visible button on the row, not a menu item."""
+    if item == SEL["menu_done"]:
+        row.get_by_role("button", name=re.compile(r"^Mark done: ")).click()
+        page.wait_for_timeout(300)
+        return
     row.get_by_role("button", name=re.compile(r"^Actions for ")).click()
     page.get_by_role("menu").get_by_role("menuitem", name=item, exact=True).click()
     page.wait_for_timeout(300)
@@ -1677,6 +1681,8 @@ def main():
             if err is not None:
                 first_line = str(err).strip().splitlines()[0] if str(err).strip() else type(err).__name__
                 detail = first_line[:200]
+                if os.environ.get("SMOKE_VERBOSE"):
+                    detail = " | ".join(l.strip() for l in str(err).strip().splitlines())[:1500]
                 if status == "XFAIL":
                     detail = f"(expected: {EXPECTED_FAIL[name]}) " + detail
             elif status == "XPASS":

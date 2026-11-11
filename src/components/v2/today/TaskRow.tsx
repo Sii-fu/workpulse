@@ -96,7 +96,6 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   else primary = logged ? null : { label: 'Log it', onClick: () => onLogTask(task) };
 
   const items: RowMenuItem[] = [];
-  if (!done) items.push({ label: 'Done', onSelect: () => onComplete(task) });
   if (!done && stage !== 'blocked') items.push({ label: 'Block', onSelect: () => setBlocking(true) });
   if (stage !== 'planned')
     items.push({ label: 'Back to planned', onSelect: () => (done ? onReopen(task.id) : onStage(task.id, 'planned')) });
@@ -148,7 +147,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
               <SampleBadge show={isSampleTask(task)} />
             </p>
           </div>
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 ml-auto">
             <span
               className={`num shrink-0 text-[length:var(--fs-body)] font-bold ${running ? 'text-[var(--accent-text)]' : 'text-[var(--text-muted)]'}`}
             >
@@ -181,6 +180,17 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                 </button>
               )}
             </div>
+            {!done && (
+              <button
+                type="button"
+                onClick={() => onComplete(task)}
+                aria-label={`Mark done: ${task.title}`}
+                className="v2-btn shrink-0 min-h-8 pointer-coarse:min-h-11 px-3 inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                Done
+              </button>
+            )}
             <RowMenu label={`Actions for ${task.title}`} items={items} />
           </div>
         </div>
