@@ -24,6 +24,11 @@ export function mayAnswer(writer: AiWriter, bindHost: string, hostHeader: string
 /** Express middleware: refuses a Claude request with 403 unless it is the local setup (see activityGuard). */
 export function claudeWriterGuard(bindHost: string, port: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    // 'none' means "no AI": the browser builds the text itself and must not call these routes.
+    if (req.body?.provider === 'none') {
+      res.status(400).json({ error: 'No AI writer was chosen for this request.' });
+      return;
+    }
     if (!mayAnswer(writerFromRequest(req.body?.provider), bindHost, req.headers.host, port)) {
       res.status(403).json({ error: CLAUDE_LOCAL_ONLY_MESSAGE });
       return;

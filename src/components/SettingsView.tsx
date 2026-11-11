@@ -148,10 +148,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // A folder linked from Projects ("Add project from folder") is saved at once; fold it into the draft
   // so a later Save does not drop it, and keep the other unsaved edits.
+  // Only folders new since the last merge are folded in, so one removed in the unsaved draft stays removed.
+  const mergedFolders = useRef<ActivityFolder[]>(settings.activityFolders ?? []);
   useEffect(() => {
     const saved = settings.activityFolders ?? [];
+    const previous = mergedFolders.current;
+    mergedFolders.current = saved;
     setActivityFolders((draft) => {
-      const added = saved.filter((f) => !draft.some((d) => d.path === f.path));
+      const added = saved.filter((f) => !previous.some((o) => o.path === f.path) && !draft.some((d) => d.path === f.path));
       return added.length > 0 ? [...draft, ...added] : draft;
     });
   }, [settings.activityFolders]);

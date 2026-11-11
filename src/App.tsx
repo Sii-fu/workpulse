@@ -887,6 +887,17 @@ export default function App() {
   };
 
   const handleAddProject = (name: string, color: string): Project => {
+    // A name that matches an archived project brings that one back instead of making a twin.
+    const key = name.replace(/\s+/g, '').toLowerCase();
+    const archived = projects.find((p) => p.isArchived && p.name.replace(/\s+/g, '').toLowerCase() === key);
+    if (archived) {
+      const restored: Project = { ...archived, isArchived: false };
+      const next = projects.map((p) => (p.id === archived.id ? restored : p));
+      setProjects(next);
+      saveProjects(next);
+      addToast(`Project "${restored.name}" brought back from the archive`);
+      return restored;
+    }
     const newProj: Project = {
       id: `proj-${Date.now()}`,
       name,

@@ -7,7 +7,7 @@ export function isFullFolderPath(text: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(t) || t.startsWith('/');
 }
 
-export const sameFolderKey =(p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+export const sameFolderKey = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 
 // "E:\app\" -> "E:\app", but a drive root such as "E:\" stays as it is.
 const tidyPath = (p: string): string => {

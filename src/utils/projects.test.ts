@@ -17,6 +17,16 @@ describe('splitProjectTag', () => {
     expect(splitProjectTag('Leave table #hr', projects).project?.id).toBe('b');
   });
 
+  it('prefers an exact name over an earlier prefix match', () => {
+    const list = [p('x', 'App Admin'), p('y', 'App')];
+    expect(splitProjectTag('Ship it #App', list).project?.id).toBe('y');
+    expect(splitProjectTag('Ship it #app', list).project?.id).toBe('y');
+    expect(splitProjectTag('Ship it #AppA', list).project?.id).toBe('x');
+    expect(splitProjectTag('Ship it #Ap', list).project?.id).toBe('x');
+    // an archived exact match does not win
+    expect(splitProjectTag('Ship it #App', [p('z', 'App', true), p('x', 'App Admin')]).project?.id).toBe('x');
+  });
+
   it('skips archived projects', () => {
     expect(splitProjectTag('Clean up #old', projects)).toEqual({ text: 'Clean up #old', tag: 'old' });
   });

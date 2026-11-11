@@ -58,7 +58,7 @@ SEL = {
     "plan_day_dialog": "Plan your day",                   # dialog after a date's first clock-in
     "plan_skip": "Skip",
     "plan_start": "Start the day",                        # footer button of Plan your day
-    "plan_new_tasks": "Add today's tasks",                # combobox (textarea), one task per line
+    "plan_new_tasks": "Add today's tasks",                # textarea (aria-haspopup, not a combobox), one task per line
     "menu_move_today": "Move to today",                   # row menu
     # Today
     "task_quick_add": "Add a task for today",             # combobox; Enter = planned
@@ -599,6 +599,16 @@ def project_completion(s):
     box.press("Enter")
     p.wait_for_timeout(300)
     assert any(t["title"] == "Review PR #212" for t in s.ls("workpulse_backlog")), "a numeric #word must stay in the text"
+    # An unmatched #word: the list offers "Create it", but Enter just adds the text as typed to the selected project.
+    box.fill("Deploy #zzzz")
+    expect(p.get_by_role("listbox", name="Projects").get_by_role("option")).to_have_count(1)
+    box.press("Enter")
+    p.wait_for_timeout(300)
+    deploy = next((t for t in s.ls("workpulse_backlog") if t["title"] == "Deploy #zzzz"), None)
+    assert deploy, "Enter on an unmatched #word did not add the task as typed"
+    assert deploy["projectId"] == frontend["id"], "the task did not go to the selected project"
+    assert not any("zzzz" in (pr.get("name") or "").lower() for pr in (s.ls("workpulse_projects") or [])), \
+        "Enter on an unmatched #word created a project"
     s.no_errors()
 
 
@@ -1336,7 +1346,17 @@ def plan_your_day(s):
     plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
     expect(plan).to_be_visible()
     plan.get_by_role("checkbox", name=re.compile(leave)).uncheck()
-    plan.get_by_role("combobox", name=SEL["plan_new_tasks"]).fill("Smoke planned A\nSmoke planned B\n")
+    # Typed by keys: pick a project for line one, Enter must then start line two (not be swallowed by the list).
+    area = plan.get_by_label(SEL["plan_new_tasks"], exact=True)
+    area.click()
+    area.press_sequentially("Smoke planned A #fr")
+    expect(plan.get_by_role("listbox", name="Projects")).to_be_visible()
+    area.press("Enter")
+    expect(plan.get_by_role("listbox", name="Projects")).to_have_count(0)
+    expect(area).to_have_value(re.compile(r"^Smoke planned A #Frontend"))
+    area.press("Enter")
+    area.press_sequentially("Smoke planned B")
+    expect(area).to_have_value(re.compile(r"^Smoke planned A #\S+\nSmoke planned B$"))
     btn(plan, SEL["plan_start"], exact=True).click()
     expect(plan).to_have_count(0)
     p.wait_for_timeout(400)

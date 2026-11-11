@@ -56,7 +56,7 @@ export function applyCompletion(text: string, project: Project, mode: 'remove' |
 
 /** The next unused project colour from the fixed swatches (cycling once all eight are taken). */
 export function nextSwatchColor(projects: Project[]): string {
-  const used = new Set(projects.map((p) => p.color.toLowerCase()));
+  const used = new Set(projects.map((p) => (p.color ?? '').toLowerCase()));
   return (SWATCHES.find((s) => !used.has(s.hex.toLowerCase())) ?? SWATCHES[projects.length % SWATCHES.length]).hex;
 }
 

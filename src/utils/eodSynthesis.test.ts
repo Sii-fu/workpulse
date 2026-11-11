@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBuckets, mergeSynthesis, templateLog } from './eodSynthesis';
+import { buildBuckets, eodUsesTemplateOnFailure, mergeSynthesis, templateLog } from './eodSynthesis';
 
 const projects = [
   { id: 'a', name: 'Alpha', color: '#111' },
@@ -85,5 +85,13 @@ describe('templateLog', () => {
   it('mentions the blocker reason', () => {
     const b = buildBuckets([t({ stage: 'blocked', completed: false, blockReason: 'waiting on DevOps' })], projects)[0];
     expect(templateLog(b).summaryBullets).toContain('waiting on DevOps');
+  });
+});
+
+describe('eodUsesTemplateOnFailure', () => {
+  it('falls back to templates for a failed Claude request, never for Gemini or a good answer', () => {
+    expect(eodUsesTemplateOnFailure('claude', false)).toBe(true);
+    expect(eodUsesTemplateOnFailure('claude', true)).toBe(false);
+    expect(eodUsesTemplateOnFailure('gemini', false)).toBe(false);
   });
 });

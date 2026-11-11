@@ -72,6 +72,11 @@ describe('nextSwatchColor', () => {
     expect(nextSwatchColor([proj('a', 'A', { color: SWATCHES[0].hex.toUpperCase() })])).toBe(SWATCHES[1].hex);
   });
 
+  it('treats a project with no colour as using none', () => {
+    const noColor = { id: 'n', name: 'N', isArchived: false } as unknown as Project;
+    expect(nextSwatchColor([noColor])).toBe(SWATCHES[0].hex);
+  });
+
   it('cycles once every swatch is taken', () => {
     const all = SWATCHES.map((s, i) => proj(`s${i}`, `S${i}`, { color: s.hex }));
     expect(nextSwatchColor(all)).toBe(SWATCHES[0].hex);

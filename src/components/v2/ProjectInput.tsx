@@ -65,6 +65,8 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
   const [active, setActive] = useState(0);
   // Escape closes the list for the text it was pressed on; typing on brings it back.
   const [dismissed, setDismissed] = useState<string | null>(null);
+  // True once the user has moved with the arrow keys; only then may Enter/Tab take the lone "Create it" row.
+  const [navigated, setNavigated] = useState(false);
 
   const before = multiline ? value.slice(0, caret) : value;
   const state = completionState(before, projects);
@@ -83,14 +85,25 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
     const picked = opt === 'create' ? onCreateProject(state.query, nextSwatchColor(projects)) : opt;
     if (multiline) {
       const head = applyCompletion(before, picked, 'replace');
-      pendingCaret.current = head.length;
-      onChange(head + value.slice(caret));
+      const next = head + value.slice(caret);
+      if (next === value) {
+        // Nothing to rewrite, so no layout effect will run: place the caret now.
+        pendingCaret.current = null;
+        fieldRef.current?.setSelectionRange(head.length, head.length);
+        setCaret(head.length);
+      } else {
+        pendingCaret.current = head.length;
+        onChange(next);
+      }
+      // The line now ends in the full tag, which still prefix-matches: keep the list closed until the text changes.
+      setDismissed(head);
     } else {
       onProjectChange(picked.id);
       onChange(applyCompletion(value, picked, 'remove'));
+      setDismissed(null);
     }
-    setDismissed(null);
     setActive(0);
+    setNavigated(false);
     fieldRef.current?.focus();
   };
 
@@ -98,13 +111,21 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
     if (open && options.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
+        setNavigated(true);
         setActive((current + (e.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length);
         return;
       }
       if ((e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) || (e.key === 'Tab' && !e.shiftKey)) {
-        e.preventDefault();
-        pick(options[current]);
-        return;
+        const opt = options[current];
+        // The lone "Create it" row is only taken once the user moves onto it; otherwise Enter submits the text as typed.
+        const unrequestedCreate = opt === 'create' && !navigated;
+        // A tag already typed in full (multiline): nothing to complete, so Enter starts the next line.
+        const alreadyTyped = multiline && opt !== 'create' && applyCompletion(before, opt, 'replace') === before;
+        if (!unrequestedCreate && !alreadyTyped) {
+          e.preventDefault();
+          pick(opt);
+          return;
+        }
       }
       if (e.key === 'Escape') {
         // preventDefault also keeps a surrounding dialog from closing on this Escape.
@@ -125,6 +146,7 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setCaret(e.target.selectionStart ?? e.target.value.length);
       setActive(0);
+      setNavigated(false);
       onChange(e.target.value);
     },
     onKeyDown: keyDown,
@@ -135,7 +157,6 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
     'aria-label': label,
     'aria-describedby': describedBy,
     'aria-autocomplete': 'list' as const,
-    'aria-expanded': open,
     'aria-controls': open ? listId : undefined,
     'aria-activedescendant': open ? `${listId}-${current}` : undefined,
   };
@@ -208,7 +229,8 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
           {...fieldProps}
           data-autofocus={autoFocusMark ? '' : undefined}
           rows={rows}
-          role="combobox"
+          // "combobox" is not a valid role for a textarea, so it only announces the popup (no aria-expanded either).
+          aria-haspopup="listbox"
           className={`${CONTROL} block w-full px-3 py-2.5 leading-snug resize-y`}
         />
         {list}
@@ -223,7 +245,7 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
   return (
     <div>
       <div className="flex flex-wrap gap-2">
-        <input {...fieldProps} role="combobox" className={`${CONTROL} flex-1 basis-[12rem] min-w-0 h-11 px-3`} />
+        <input {...fieldProps} role="combobox" aria-expanded={open}className={`${CONTROL} flex-1 basis-[12rem] min-w-0 h-11 px-3`} />
         {selector}
         {trailing}
       </div>

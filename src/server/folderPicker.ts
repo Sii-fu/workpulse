@@ -110,6 +110,8 @@ export function createFolderPicker(opts: {
       }
 
       let out = '';
+      // Decode as UTF-8 across chunks so a Bangla or CJK path is never split in the middle of a character.
+      child.stdout?.setEncoding?.('utf8');
       child.stdout?.on('data', (chunk: Buffer | string) => {
         out += chunk.toString();
       });

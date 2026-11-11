@@ -226,6 +226,12 @@ export function eodRequestBody(
   return { tasks, projects, date, provider: ai, customApiKey: ai === 'gemini' ? customApiKey || undefined : undefined };
 }
 
+/**
+ * When the server refuses or fails a Claude request (for example 403 on a LAN bind or foreign Host), the End of
+ * day text is built locally from templates. A Gemini failure stays an error the user can retry.
+ */
+export const eodUsesTemplateOnFailure = (ai: 'claude' | 'gemini', responseOk: boolean): boolean => ai === 'claude' && !responseOk;
+
 // The shape Claude Code must answer with (the CLI checks its answer against this schema).
 export const EOD_SCHEMA = {
   type: 'object',

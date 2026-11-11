@@ -14,7 +14,7 @@ export function isLocalOnlyRequest(bindHost: string, hostHeader: string | undefi
 export function activityGuard(bindHost: string, port: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!isLocalOnlyRequest(bindHost, req.headers.host, port)) {
-      res.status(403).json({ error: 'Activity suggestions only work on this computer, in the normal local setup.' });
+      res.status(403).json({ error: 'This only works on this computer, in the normal local setup.' });
       return;
     }
     next();

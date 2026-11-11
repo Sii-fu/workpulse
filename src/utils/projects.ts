@@ -19,7 +19,9 @@ export function splitProjectTag(input: string, projects: Project[]): { text: str
   if (!m) return { text: input.trim() };
   const tag = m[1];
   const key = squash(tag);
-  const project = activeProjectsOf(projects).find((p) => squash(p.name).startsWith(key));
+  const active = activeProjectsOf(projects);
+  // An exact name wins over an earlier prefix match ("#App" with "App Admin" listed before "App").
+  const project = active.find((p) => squash(p.name) === key) ?? active.find((p) => squash(p.name).startsWith(key));
   // No match keeps the whole text: "#212" may be part of it ("Review PR #212").
   return project ? { text: input.slice(0, m.index).trim(), tag, project } : { text: input.trim(), tag };
 }

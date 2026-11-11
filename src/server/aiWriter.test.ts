@@ -7,7 +7,6 @@ describe('writerFromRequest', () => {
   it('is Claude unless the request asks for Gemini', () => {
     expect(writerFromRequest(undefined)).toBe('claude');
     expect(writerFromRequest('claude')).toBe('claude');
-    expect(writerFromRequest('none')).toBe('claude');
     expect(writerFromRequest('gemini')).toBe('gemini');
   });
 });
@@ -44,6 +43,13 @@ describe('claudeWriterGuard', () => {
       expect(r.json.mock.calls[0][0].error).toBe(CLAUDE_LOCAL_ONLY_MESSAGE);
     }
     expect(run('0.0.0.0', 'localhost:3000', { provider: 'claude' }).status).toHaveBeenCalledWith(403);
+  });
+  it("rejects provider 'none' with 400 instead of running Claude", () => {
+    for (const host of ['localhost:3000', 'evil.com:3000']) {
+      const r = run('127.0.0.1', host, { provider: 'none' });
+      expect(r.next).not.toHaveBeenCalled();
+      expect(r.status).toHaveBeenCalledWith(400);
+    }
   });
   it('lets a local Claude request and any Gemini request through', () => {
     expect(run('127.0.0.1', 'localhost:3000', { provider: 'claude' }).next).toHaveBeenCalledOnce();

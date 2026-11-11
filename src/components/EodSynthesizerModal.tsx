@@ -5,7 +5,7 @@ import { IconButton } from './ui/IconButton';
 import { localDateStr } from '../utils/dates';
 import { isEodCandidate, withUnloggedTime } from '../utils/taskLogging';
 import { modelLabel } from '../utils/geminiModels';
-import { buildBuckets, eodRequestBody, templateLog } from '../utils/eodSynthesis';
+import { buildBuckets, eodRequestBody, eodUsesTemplateOnFailure, templateLog } from '../utils/eodSynthesis';
 import type { ActivityAi } from '../utils/activity/types';
 import { minutesFromSeconds } from '../utils/duration';
 import { BacklogTask, Project, TaskStatus, TaskStage } from '../types';
@@ -177,10 +177,21 @@ export const EodPanel: React.FC<EodPanelProps> = ({
 
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed with status ${resp.status}`);
+          if (eodUsesTemplateOnFailure(ai, false)) {
+            // Claude refused (not the local setup) or failed: same offline templates as the "no AI" setting, with the reason shown.
+            const buckets = buildBuckets(tasksToSend, projects.filter((p) => p && p.id));
+            data = {
+              synthesizedLogs: buckets.map(templateLog),
+              isAIGenerated: false,
+              apiError: true,
+              notice: errData.error || plainAiMessage(`Failed with status ${resp.status}`),
+            };
+          } else {
+            throw new Error(errData.error || `Failed with status ${resp.status}`);
+          }
+        } else {
+          data = await resp.json();
         }
-
-        data = await resp.json();
       }
       const logs: SynthesizedLogItem[] = (Array.isArray(data.synthesizedLogs) ? data.synthesizedLogs : []).map((item: any) => ({
         ...item,
