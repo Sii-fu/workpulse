@@ -25,7 +25,7 @@ import {
   SaveResult,
 } from './utils/storage';
 import { buildBackup, downloadTextFile, parseBackup } from './utils/backup';
-import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged } from './utils/taskLogging';
+import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged, markTasksLogged } from './utils/taskLogging';
 import { advanceClock, MAX_TICK_GAP_SECONDS } from './utils/timer';
 import { startSegment, endSegment, splitSegmentsAtGap } from './utils/segments';
 import { moveRunningToDay, moveTasksToDay } from './utils/taskDates';
@@ -56,7 +56,8 @@ import { useSheetBackup } from './hooks/useSheetBackup';
 import { keepDeviceSettings } from './utils/phoneSettings';
 import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
 import { publishTimers } from './utils/timerStore';
-import { aiFromSettings, sourcesFromSettings } from './utils/activity/settings';
+import { aiFromSettings, autoScanFromSettings, sourcesFromSettings } from './utils/activity/settings';
+import { taskIdsOf } from './utils/activity/suggestions';
 import type { ActivityFolder } from './utils/activity/types';
 
 // Shell and screens
@@ -513,6 +514,15 @@ export default function App() {
     setLogs(updated);
     if (saveLogs(updated).ok) {
       addToast(created.length === 1 ? 'Log added' : `${created.length} logs added`);
+    }
+    // Suggested logs that include done tasks take those tasks' tracked time with them: mark it as logged.
+    const loggedTaskIds = created.flatMap((l) => taskIdsOf(l.sourceIds ?? []));
+    if (loggedTaskIds.length > 0) {
+      setBacklog((prev) => {
+        const next = markTasksLogged(prev, loggedTaskIds, new Date().toISOString());
+        if (next !== prev) saveBacklog(next);
+        return next;
+      });
     }
 
     if (settings.googleScriptUrl) {
@@ -1303,7 +1313,7 @@ export default function App() {
         showSuggestions();
         return;
       case 'log-done':
-        setEndDay({ step: 'tasks' });
+        setEndDay({ step: 'suggest' });
         return;
       case 'add-log':
         handleOpenLogForm(null);
@@ -1369,17 +1379,19 @@ export default function App() {
   const sourcesGit = sourcesFromSettings(settings).git;
   const sourcesClaude = sourcesFromSettings(settings).claude;
   const ai = aiFromSettings(settings);
+  const autoScan = autoScanFromSettings(settings);
   const activityProps: TodayActivityProps = useMemo(
     () => ({
       folders,
       sources: { git: sourcesGit, claude: sourcesClaude },
       ai,
+      autoScan,
       geminiApiKey: settings.geminiApiKey,
       onAddLogs: h.addLogs,
       onOpenSettings: h.openSettings,
     }),
     // h.* never change identity, so they are not dependencies.
-    [folders, sourcesGit, sourcesClaude, ai, settings.geminiApiKey],
+    [folders, sourcesGit, sourcesClaude, ai, autoScan, settings.geminiApiKey],
   );
 
   const hasSheet = Boolean(settings.googleScriptUrl);
@@ -1575,7 +1587,6 @@ export default function App() {
         workday={openDay?.rec}
         workdayDate={openDay?.date}
         activityProps={activityProps}
-        onConfirmEodPush={h.confirmEod}
         onEditLog={h.editLog}
         onDeleteLog={h.deleteLog}
         onSync={h.syncForEndDay}

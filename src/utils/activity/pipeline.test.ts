@@ -121,3 +121,35 @@ describe('noticeSignature', () => {
     expect(new Set([noticeSignature(sources, 'claude'), noticeSignature(sources, 'gemini'), noticeSignature(sources, 'none')]).size).toBe(3);
   });
 });
+
+describe('loadSuggestions with done tasks and background checks', () => {
+  const doneTask = {
+    id: 'tk1', title: 'Fix the filter', projectId: 'proj-a', dueDate: DATE, completed: true, stage: 'done' as const,
+    originalDate: DATE, isRolledOver: false, elapsedSeconds: 30 * 60, completedAt: '2026-11-09T06:00:00.000Z',
+  };
+  it('merges done tasks into the same suggestions and sends them to the AI as items', async () => {
+    const suggest = vi.fn().mockResolvedValue({ tasks: [{ text: 'Fixed the filter', itemIds: ['task:tk1', 'git:1', 'git:2'] }] });
+    const r = await loadSuggestions({ ...base, tasks: [doneTask], backlog: [doneTask] }, { scan: vi.fn().mockResolvedValue(scanOf(items)), suggest });
+    expect(suggest.mock.calls[0][0].items.map((i: ActivityItem) => i.id)).toContain('task:tk1');
+    expect(r.suggestions).toHaveLength(1);
+    expect(r.suggestions[0].minutes).toBe(30);
+  });
+  it('works with done tasks alone: no folders means no scan', async () => {
+    const scan = vi.fn();
+    const suggest = vi.fn().mockResolvedValue({ tasks: [{ text: 'Done it', itemIds: ['task:tk1'] }] });
+    const r = await loadSuggestions({ ...base, folders: [], tasks: [doneTask], backlog: [doneTask] }, { scan, suggest });
+    expect(scan).not.toHaveBeenCalled();
+    expect(r.suggestions).toHaveLength(1);
+  });
+  it('does not ask the AI again when nothing changed since the last check', async () => {
+    const scan = vi.fn().mockResolvedValue(scanOf(items));
+    const suggest = vi.fn().mockResolvedValue({ tasks: [{ text: 'T', itemIds: ['git:1', 'git:2'] }] });
+    const first = await loadSuggestions(base, { scan, suggest });
+    const again = await loadSuggestions({ ...base, sameAs: first.itemsKey }, { scan, suggest });
+    expect(again.unchanged).toBe(true);
+    expect(suggest).toHaveBeenCalledTimes(1);
+    const more = await loadSuggestions({ ...base, sameAs: first.itemsKey }, { scan: vi.fn().mockResolvedValue(scanOf([...items, item('git:3', '2026-11-09T05:00:00.000Z')])), suggest });
+    expect(more.unchanged).toBeUndefined();
+    expect(suggest).toHaveBeenCalledTimes(2);
+  });
+});

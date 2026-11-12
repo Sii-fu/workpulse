@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate, isPendingTask, isDoneUnlogged } from './taskLogging';
+import { loggedSecondsOf, unloggedSeconds, withUnloggedTime, isEodCandidate, isPendingTask, isDoneUnlogged, markTasksLogged } from './taskLogging';
 import type { BacklogTask } from '../types';
 
 const TODAY = '2026-11-08';
@@ -66,5 +66,21 @@ describe('isDoneUnlogged', () => {
   it('counts a task as done by either field, including old tasks with no stage', () => {
     expect(isDoneUnlogged(task({ stage: undefined, completed: true, elapsedSeconds: 60 }))).toBe(true);
     expect(isDoneUnlogged(task({ stage: 'done', completed: false, elapsedSeconds: 60 }))).toBe(true);
+  });
+});
+
+describe('markTasksLogged', () => {
+  it('marks the listed tasks as fully logged and leaves the others', () => {
+    const a = task({ id: 'a', stage: 'done', completed: true, elapsedSeconds: 600 });
+    const b = task({ id: 'b', stage: 'done', completed: true, elapsedSeconds: 300 });
+    const out = markTasksLogged([a, b], ['a'], '2026-11-08T10:00:00.000Z');
+    expect(out[0]).toMatchObject({ loggedSeconds: 600, isSynthesized: true, synthesizedAt: '2026-11-08T10:00:00.000Z' });
+    expect(out[1]).toBe(b);
+    expect(isDoneUnlogged(out[0])).toBe(false);
+  });
+  it('returns the same array when nothing matches', () => {
+    const list = [task({ id: 'a' })];
+    expect(markTasksLogged(list, ['zzz'], 'now')).toBe(list);
+    expect(markTasksLogged(list, [], 'now')).toBe(list);
   });
 });

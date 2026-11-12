@@ -41,13 +41,14 @@ HOW TO GROUP:
 2. Write a second task for the same project ONLY when some work is totally unrelated to the rest: a different feature or area with a different goal, which could not honestly share one log line. When in doubt, keep it together.
 3. "text": one or two plain sentences in the past tense that summarise the whole task.
 4. "subtasks": 2 to 8 short past-tense steps (at most 10 words each) saying what was done inside the task, for example "Fixed the timer drift on the Tasks screen". Merge near-duplicates. Do not copy prompts word for word.
-5. Prompts that are only confirmations or small talk ("yes", "go ahead", "ok", "continue", "thanks") are trivial: do not mention them and leave their ids out.
+5. Items marked (done task) are tasks the user finished and timed. Keep each as a step in the project's log (use its wording), and add the commits and prompts that belong to the same work as steps of that same log; work that matches no task is still a step of the project's log, never a separate log of its own unless it is totally unrelated.
+6. Prompts that are only confirmations or small talk ("yes", "go ahead", "ok", "continue", "thanks") are trivial: do not mention them and leave their ids out.
 
 RULES:
-6. Refer to items ONLY by their short ids, in "itemIds". Never invent ids.
-7. Do NOT state any duration, time or number of minutes, and do NOT name or choose a project. The app works those out.
-8. No markdown, no bullet characters, no raw commit hashes, no file contents.
-9. Do not write the item ids in the text or the subtasks: ids belong only in "itemIds".
+7. Refer to items ONLY by their short ids, in "itemIds". Never invent ids.
+8. Do NOT state any duration, time or number of minutes, and do NOT name or choose a project. The app works those out.
+9. No markdown, no bullet characters, no raw commit hashes, no file contents.
+10. Do not write the item ids in the text or the subtasks: ids belong only in "itemIds".
 
 Respond with valid JSON only, in exactly this shape:
 { "tasks": [ { "text": "string", "subtasks": ["string"], "itemIds": ["i1", "i2"] } ] }`;
@@ -81,7 +82,7 @@ export function buildActivityPrompt(
       .map((it) => {
         const short = `i${++n}`;
         shortToId[short] = it.id;
-        const kind = it.source === 'git' ? 'commit' : 'claude';
+        const kind = it.source === 'git' ? 'commit' : it.source === 'task' ? 'done task' : 'claude';
         return `[${short}] (${kind}) ${clip(redactSecrets(it.text), ITEM_TEXT_MAX)}`;
       });
     sections.push(`Project: ${name}\n${rows.join('\n')}`);

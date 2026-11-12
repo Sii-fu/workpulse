@@ -4,24 +4,22 @@ import type { AppSettings, BacklogTask, Project, WorkdayRecord, WorkLog } from '
 import { ModalShell } from '../../ui/ModalShell';
 import { IconButton } from '../../ui/IconButton';
 import { ActivitySuggestionsPanel } from '../../activity/ActivitySuggestionsDialog';
-import { EodPanel, SynthesizedLogItem } from '../../EodSynthesizerModal';
 import { TaskClock } from '../../tasks/Clock';
 import { LogRow } from '../today/LogRow';
 import { TodayActivityProps, sameActivityProps } from '../today/TodayScreen';
 import { useNow } from '../useNow';
 import { checkedToday, pendingCount, subscribeActivitySession } from '../../../utils/activity/sessionStore';
 import { DEFAULT_WORKDAY_HOURS, clockState, formatHm } from '../../../utils/workday';
-import { aiFromSettings } from '../../../utils/activity/settings';
 import { unsyncedLogs } from '../../../utils/syncStatus';
 import { isDoneUnlogged } from '../../../utils/taskLogging';
 import { isRunningTask, sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import { plainSheetMessage } from '../../../utils/aiErrors';
 import { localTimeStr, parseLocalDate } from '../../../utils/dates';
-import { StepEmpty, StepId, StepStatus, nextOpenStep, prevOpenStep, stepAfterDoneTasks, stepStatus } from '../../../utils/endDaySteps';
+import { StepEmpty, StepId, StepStatus, nextOpenStep, prevOpenStep, stepAfterSuggestions, stepStatus } from '../../../utils/endDaySteps';
 
 export interface EndDayDialogProps {
   isOpen: boolean;
-  /** The step to open on (the next action "Log N done tasks" opens on 'tasks'). Absent: the first step with something to do. */
+  /** The step to open on (the next action "Log N done tasks" opens on 'suggest'). Absent: the first step with something to do. */
   initialStep?: StepId;
   onClose(): void;
   /** Local YYYY-MM-DD. */
@@ -35,8 +33,6 @@ export interface EndDayDialogProps {
   /** Local YYYY-MM-DD of `workday`. */
   workdayDate?: string;
   activityProps: TodayActivityProps;
-  /** Step 2: adds the synthesized logs (and marks the tasks' time as logged). */
-  onConfirmEodPush(items: SynthesizedLogItem[]): Promise<void>;
   onEditLog(log: WorkLog): void;
   onDeleteLog(id: string): void;
   /** Step 4: sends the unsynced logs to the Sheet. */
@@ -47,8 +43,7 @@ export interface EndDayDialogProps {
 }
 
 const STEPS: { id: StepId; label: string; title: string }[] = [
-  { id: 'activity', label: 'Activity', title: 'From your activity' },
-  { id: 'tasks', label: 'Done tasks', title: 'Done tasks' },
+  { id: 'suggest', label: 'Suggested logs', title: 'Suggested logs' },
   { id: 'log', label: "Today's log", title: "Today's log" },
   { id: 'sync', label: 'Sync', title: 'Sync to the Sheet' },
   { id: 'clock', label: 'Clock out', title: 'Clock out' },
@@ -85,7 +80,6 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   workday,
   workdayDate,
   activityProps,
-  onConfirmEodPush,
   onEditLog,
   onDeleteLog,
   onSync,
@@ -96,10 +90,9 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   const id = useId();
   const titleId = `${id}-title`;
 
-  // Step 2 works on the done tasks as they were when the dialog opened.
+  // The suggestions merge the done tasks as they were when the dialog opened with the day's activity.
   const [snapshot] = useState(() => backlog.filter(isDoneUnlogged));
   const [marks, setMarks] = useState<Partial<Record<StepId, StepStatus>>>({});
-  const [tasksAdded, setTasksAdded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [synced, setSynced] = useState(false);
@@ -114,15 +107,15 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   const unsynced = sheetUrl ? unsyncedLogs(logs, settings.syncTrackingSince).length : 0;
   const running = backlog.filter(isRunningTask);
 
+  const hasActivitySetup = activityProps.folders.length > 0 && (activityProps.sources.git || activityProps.sources.claude);
   const empty: StepEmpty = {
-    activity: activityProps.folders.length === 0,
-    tasks: snapshot.length === 0,
+    suggest: !hasActivitySetup && snapshot.length === 0,
     log: todayLogs.length === 0,
     sync: !sheetUrl || unsynced === 0,
     clock: false,
   };
   const statusOf = (s: StepId): StepStatus =>
-    stepStatus(s, empty, marks, (s === 'activity' && checked && pending === 0) || (s === 'tasks' && tasksAdded));
+    stepStatus(s, empty, marks, s === 'suggest' && checked && pending === 0);
 
   const [current, setCurrent] = useState(() => {
     const asked = initialStep ? STEPS.findIndex((s) => s.id === initialStep) : -1;
@@ -178,10 +171,10 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
 
   const renderStep = (s: StepId): React.ReactNode => {
     switch (s) {
-      case 'activity':
-        return empty.activity ? (
+      case 'suggest':
+        return empty.suggest ? (
           <NothingHere>
-            No activity folders are set up, so there is nothing to read.{' '}
+            No done task is waiting to be logged and no folder is linked to a project.{' '}
             <button
               type="button"
               onClick={() => {
@@ -190,41 +183,12 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
               }}
               className={TEXT_BTN}
             >
-              Set up in Settings
+              Link a folder in Settings
             </button>
           </NothingHere>
         ) : (
           <div className="v2-panel v2-inset py-[var(--row-pad)]">
-            <ActivitySuggestionsPanel {...activityProps} logs={logs} backlog={backlog} projects={projects} date={today} compact />
-          </div>
-        );
-      case 'tasks':
-        if (empty.tasks) return <NothingHere>No done task has time waiting to be logged.</NothingHere>;
-        if (tasksAdded)
-          return (
-            <div className="v2-panel v2-inset py-[var(--row-pad)]">
-              <p className={`${BODY} font-semibold`}>Added to today's log.</p>
-              <p className={`mt-1 ${MUTED}`}>You can check the new entries in the next step.</p>
-            </div>
-          );
-        // No panel around it: the panel's log items are the cards (no nested cards).
-        return (
-          <div>
-            <EodPanel
-              embedded
-              tasksSnapshot={snapshot}
-              isCustomSelection
-              projects={projects}
-              ai={aiFromSettings(settings)}
-              geminiApiKey={settings.geminiApiKey}
-              hasGoogleSheetLinked={!!sheetUrl}
-              onConfirmAndPush={onConfirmEodPush}
-              onDone={() => {
-                setTasksAdded(true);
-                // Not nextOpenStep(empty, …): this closure's `empty` predates the logs just added.
-                go(stepAfterDoneTasks());
-              }}
-            />
+            <ActivitySuggestionsPanel {...activityProps} logs={logs} backlog={backlog} projects={projects} date={today} doneTasks={snapshot} compact />
           </div>
         );
       case 'log':
@@ -275,18 +239,19 @@ const EndDayBody: React.FC<Omit<EndDayDialogProps, 'isOpen'>> = ({
   };
 
   const headMeta = (s: StepId): React.ReactNode => {
-    if (s === 'activity' && !empty.activity)
+    if (s === 'suggest' && !empty.suggest)
       return (
         <>
-          {/* Under 420px the source names hide (screen readers still hear them) and the count stays. */}
-          <span className={checked ? 'sr-only min-[420px]:not-sr-only' : undefined}>
+          {/* Under 420px the source names hide (screen readers still hear them) and the counts stay. */}
+          <span className={checked || snapshot.length > 0 ? 'sr-only min-[420px]:not-sr-only' : undefined}>
             {sourceNames}
-            {sourceNames && checked && ' · '}
+            {sourceNames && (checked || snapshot.length > 0) && ' · '}
           </span>
+          {snapshot.length > 0 && <span className="num">{plural(snapshot.length, 'done task', 'done tasks')}</span>}
+          {snapshot.length > 0 && checked && ' · '}
           {checked && <span className="num">{pending} new</span>}
         </>
       );
-    if (s === 'tasks' && !empty.tasks) return <span className="num">{plural(snapshot.length, 'task', 'tasks')}</span>;
     if (s === 'log')
       return (
         <span className="num">

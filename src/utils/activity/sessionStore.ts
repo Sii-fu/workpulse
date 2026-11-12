@@ -25,6 +25,18 @@ export interface ActivitySession {
   /** Logs added from this check. */
   addedCount: number;
   checked: true;
+  /** When the day was last read (ms since epoch). */
+  checkedAt: number;
+  /** The done tasks merged into this check (sorted ids joined): a panel with other tasks reads again. */
+  tasksKey: string;
+  /** A newer result found while the user had unsaved edits: offered with "Refresh", never applied silently. */
+  fresh?: PipelineResult;
+}
+
+/** True when the user has changed anything in a row since the scan made it. */
+export function rowTouched(r: ActivitySessionRow): boolean {
+  const s = r.suggestion;
+  return r.checked || r.text !== s.text || r.projectId !== s.projectId || r.minutes !== String(s.minutes) || r.subtasks !== s.subtasks.join('\n');
 }
 
 const sessions = new Map<string, ActivitySession>();

@@ -790,15 +790,15 @@ def end_my_day_steps(s):
     dlg = p.get_by_role("dialog", name=SEL["end_day"])
     expect(dlg).to_be_visible()
     steps = dlg.get_by_role("navigation", name=SEL["end_day_steps"]).get_by_role("button")
-    assert steps.count() == 5, f"expected five steps, got {steps.count()}"
-    for i in range(5):
+    assert steps.count() == 4, f"expected four steps, got {steps.count()}"
+    for i in range(4):
         steps.nth(i).click()
         expect(steps.nth(i)).to_have_attribute("aria-current", "step")
         expect(dlg.locator("section:not([hidden]) h3")).to_be_visible()
     # Back and Next walk the rail
     steps.nth(0).click()
     btn(dlg, "Next", exact=True).click()
-    current = [i for i in range(5) if steps.nth(i).get_attribute("aria-current") == "step"]
+    current = [i for i in range(4) if steps.nth(i).get_attribute("aria-current") == "step"]
     assert current and current[0] > 0, "Next did not move on"
     p.keyboard.press("Escape")
     expect(dlg).to_have_count(0)
@@ -1025,25 +1025,59 @@ def sync_button(s):
     s.no_errors()
 
 
-@check("eod_error_retry")
-def eod_error_retry(s):
-    """End my day, done tasks: when the synthesis request fails the message is plain and Try again works."""
+ACK_KEY = "workpulse_activity_notice"
+ACK_VALUE = "git+claude|claude"  # the data notice for the default sources and AI writer
+
+
+def _open_end_day_with_done_task(s):
+    """The sample's running task is marked done (it has tracked time), then End my day opens on Suggested logs."""
     p = s.page
-    # a page route wins over the context's canned one; removing it falls back to the canned answer
-    handler = s.ai.stub(lambda route: route.abort())
-    p.route("**/api/synthesize-eod", handler)
-    row_menu(p, p.locator("li.v2-running").first, SEL["menu_done"])  # the sample's running task, with tracked time
+    row_menu(p, p.locator("li.v2-running").first, SEL["menu_done"])
     btn(p.get_by_role("region", name=SEL["todays_log"]), SEL["end_day"], exact=True).click()
     dlg = p.get_by_role("dialog", name=SEL["end_day"])
-    dlg.get_by_role("navigation", name=SEL["end_day_steps"]).get_by_role("button", name=re.compile("Done tasks")).click()
-    err = dlg.get_by_text(re.compile(r"could not reach its server"))
-    expect(err).to_be_visible(timeout=5000)
+    expect(dlg).to_be_visible()
+    return dlg
+
+
+@check("end_day_plain_wording")
+def end_day_plain_wording(s):
+    """End my day, Suggested logs: when the AI request fails the message is plain, the suggestions are written
+    without the AI, and nothing raw ("Failed to fetch") reaches the screen."""
+    p = s.page
+    _stub_activity(s)
+    p.route("**/api/activity/suggest", lambda route: route.abort())
+    p.evaluate("([k, v]) => localStorage.setItem(k, v)", [ACK_KEY, ACK_VALUE])
+    s.reload()
+    dlg = _open_end_day_with_done_task(s)
+    expect(dlg).to_contain_text("Showing plain wording instead", timeout=8000)
     assert dlg.get_by_text("Failed to fetch").count() == 0, "raw browser error leaked into the UI"
-    p.unroute("**/api/synthesize-eod", handler)  # back to the canned (stubbed) answer, never the network
-    btn(dlg, "Try again").first.click()
-    expect(btn(dlg, SEL["eod_add"])).to_be_visible(timeout=8000)
-    # the aborted request is logged by the browser and by the app on purpose
-    s.errors = [e for e in s.errors if "ERR_FAILED" not in e and "Synthesis error" not in e]
+    expect(dlg.get_by_role("checkbox", name=re.compile(r"^Add: "))).not_to_have_count(0)
+    s.errors = [e for e in s.errors if "ERR_FAILED" not in e]
+    s.no_errors()
+
+
+@check("end_day_merges_tasks_and_activity")
+def end_day_merges_tasks_and_activity(s):
+    """One page: the done task and the day's commits come up as suggestions together, Select all ticks them,
+    Add writes the logs (with the task's id among their sources) and marks the task's time as logged."""
+    p = s.page
+    calls = _stub_activity(s)
+    p.evaluate("([k, v]) => localStorage.setItem(k, v)", [ACK_KEY, ACK_VALUE])
+    s.reload()
+    dlg = _open_end_day_with_done_task(s)
+    rows = dlg.get_by_role("checkbox", name=re.compile(r"^Add: "))
+    expect(rows).to_have_count(3, timeout=8000)  # two commits and the done task, merged into one list
+    assert any(i.startswith("task:") for i in calls["suggest"][-1]), "the done task was not sent with the activity"
+    btn(dlg, "Select all", exact=True).click()
+    expect(btn(dlg, "Clear selection", exact=True)).to_be_visible()
+    for i in range(3):
+        expect(rows.nth(i)).to_be_checked()
+    btn(dlg, re.compile(r"^Add 3 logs$")).click()
+    p.wait_for_timeout(500)
+    logs = [l for l in s.ls("workpulse_logs") if any(x.startswith("task:") for x in (l.get("sourceIds") or []))]
+    assert logs, "no log carries the done task as a source"
+    tasks = [t for t in s.ls("workpulse_backlog") if t.get("isSynthesized") and t.get("loggedSeconds")]
+    assert tasks and all(t["loggedSeconds"] == t.get("elapsedSeconds") for t in tasks), "the task's time was not marked as logged"
     s.no_errors()
 
 
@@ -1192,8 +1226,9 @@ def activity_suggestions(s):
 
 @check("activity_today_card")
 def activity_today_card(s):
-    """The compact panel on Today never scans on mount: only "Check activity" (after the notice) reads.
-    Leaving Today and coming back keeps the session; "Scan again" reads again."""
+    """The compact panel on Today asks "Check activity" until the notice was accepted; after that it checks on its
+    own (and every 5 minutes, unless switched off in Settings). Leaving Today and coming back keeps the session;
+    "Scan again" reads again; Select all ticks every suggestion."""
     p = s.page
     calls = _stub_activity(s)
     s.reload()
@@ -1209,6 +1244,12 @@ def activity_today_card(s):
     picks = card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))
     expect(picks).to_have_count(2, timeout=5000)
     assert calls["scan"] == 1
+    # Select all ticks every suggestion, and the same button clears them again
+    btn(card, "Select all", exact=True).click()
+    expect(picks.nth(0)).to_be_checked()
+    expect(picks.nth(1)).to_be_checked()
+    btn(card, "Clear selection", exact=True).click()
+    expect(picks.nth(0)).not_to_be_checked()
     # leave Today and come back: the same rows, no new read
     s.tab("tasks")
     s.tab("today")
@@ -1220,16 +1261,24 @@ def activity_today_card(s):
     _wait_for(s, lambda: calls["scan"] == 2)
     assert calls["scan"] == 2, "Scan again did not read the activity"
     expect(card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))).to_have_count(2, timeout=5000)
-    # reload: the session is gone, the notice stays accepted. Still no scan on mount; "Check activity" reads at once
+    # reload: the session is gone and the notice stays accepted, so the card checks on its own, no click needed
+    s.reload()
+    card = p.get_by_role("region", name=SEL["suggestions"])
+    expect(card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))).to_have_count(2, timeout=8000)
+    assert calls["scan"] == 3, "the Today card did not check on its own after a reload"
+    expect(card).not_to_contain_text("Before the first scan")
+    # switched off in Settings: no check on mount, "Check activity" reads at once
+    settings = s.ls("workpulse_settings")
+    settings["activityAutoScan"] = False
+    s.set_ls("workpulse_settings", settings)
     s.reload()
     card = p.get_by_role("region", name=SEL["suggestions"])
     expect(btn(card, "Check activity", exact=True)).to_be_visible()
     p.wait_for_timeout(800)
-    assert calls["scan"] == 2, "the Today card read activity on mount after a reload"
+    assert calls["scan"] == 3, "the card checked on mount although automatic checking is off"
     btn(card, "Check activity", exact=True).click()
     expect(card.get_by_role("checkbox", name=re.compile(r"^Add: Stub task"))).to_have_count(2, timeout=5000)
-    assert calls["scan"] == 3, "Check activity did not read the activity"
-    expect(card).not_to_contain_text("Before the first scan")
+    assert calls["scan"] == 4, "Check activity did not read the activity"
     s.no_errors()
 
 

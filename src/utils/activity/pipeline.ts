@@ -1,5 +1,5 @@
 import { scanActivityApi, suggestTasksApi } from './client';
-import { buildSuggestions, consumedIds, dropConsumed, templateTasks } from './suggestions';
+import { buildSuggestions, consumedIds, dropConsumed, projectFolderKey, taskItems, templateTasks } from './suggestions';
 import type { BacklogTask, Project, WorkLog } from '../../types';
 import type {
   ActivityFolder,
@@ -24,11 +24,19 @@ export interface PipelineArgs {
   /** Only sent to the server when `ai` is 'gemini'. */
   geminiApiKey: string;
   ai: ActivityAi;
+  /** Done tasks with time waiting to be logged: merged with the scanned activity into the same suggestions. */
+  tasks?: BacklogTask[];
+  /** The `itemsKey` of the last result: when nothing changed since, the AI is not asked again. */
+  sameAs?: string;
 }
 
 export interface PipelineResult {
   suggestions: Suggestion[];
   status: ScanResponse['status'];
+  /** Identifies the items this result was made from (sorted ids), to spot "nothing new" on the next check. */
+  itemsKey: string;
+  /** True when `sameAs` matched: the result carries no suggestions and the caller keeps what it has. */
+  unchanged?: boolean;
   /** Set when the AI was not used: why, in a plain sentence. */
   notice?: string;
 }
@@ -46,16 +54,25 @@ const REAL: Deps = { scan: scanActivityApi, suggest: suggestTasksApi };
  * throws (the dialog shows it); a failed AI call never does.
  */
 export async function loadSuggestions(args: PipelineArgs, deps: Deps = REAL): Promise<PipelineResult> {
-  const scanned = await deps.scan({ date: args.date, folders: args.folders, sources: args.sources });
-  const items = dropConsumed(scanned.items, consumedIds(args.logs));
-  if (items.length === 0) return { suggestions: [], status: scanned.status };
+  const canScan = args.folders.length > 0 && (args.sources.claude || args.sources.git);
+  const empty: ScanResponse = {
+    items: [],
+    status: { claude: { ok: true, count: 0, note: 'Turned off in Settings' }, git: { ok: true, count: 0, note: 'Turned off in Settings' } },
+  };
+  const scanned = canScan ? await deps.scan({ date: args.date, folders: args.folders, sources: args.sources }) : empty;
+  const tasks = (args.tasks ?? []).filter((t) => args.projects.some((p) => p.id === t.projectId));
+  const items = dropConsumed([...scanned.items, ...taskItems(tasks, args.folders)], consumedIds(args.logs));
+  const itemsKey = items.map((i) => i.id).sort().join('|');
+  if (items.length === 0) return { suggestions: [], status: scanned.status, itemsKey };
+  if (args.sameAs !== undefined && args.sameAs === itemsKey) return { suggestions: [], status: scanned.status, itemsKey, unchanged: true };
 
   const projectNameByFolder: Record<string, string> = {};
   for (const f of args.folders) {
     projectNameByFolder[f.path] = args.projects.find((p) => p.id === f.projectId)?.name ?? 'Unassigned';
   }
+  for (const t of tasks) projectNameByFolder[projectFolderKey(t.projectId)] = args.projects.find((p) => p.id === t.projectId)?.name ?? 'Unassigned';
 
-  let tasks = null as SuggestResponse['tasks'];
+  let aiTasks = null as SuggestResponse['tasks'];
   let notice: string | undefined;
   // "none" is a choice, not a failure: no AI call and no notice.
   if (args.ai !== 'none') {
@@ -66,7 +83,7 @@ export async function loadSuggestions(args: PipelineArgs, deps: Deps = REAL): Pr
         provider: args.ai,
         customApiKey: args.ai === 'gemini' ? args.geminiApiKey : '',
       });
-      tasks = answer.tasks;
+      aiTasks = answer.tasks;
       notice = answer.notice;
     } catch (err) {
       const why = err instanceof Error ? err.message : 'The AI could not be reached.';
@@ -74,14 +91,14 @@ export async function loadSuggestions(args: PipelineArgs, deps: Deps = REAL): Pr
     }
   }
 
-  const suggestions = buildSuggestions(tasks ?? templateTasks(items, projectNameByFolder), items, {
+  const suggestions = buildSuggestions(aiTasks ?? templateTasks(items, projectNameByFolder), items, {
     date: args.date,
     folders: args.folders,
     projects: args.projects,
     logs: args.logs,
     backlog: args.backlog,
   });
-  return { suggestions, status: scanned.status, notice: tasks ? undefined : notice };
+  return { suggestions, status: scanned.status, itemsKey, notice: aiTasks ? undefined : notice };
 }
 
 const LABEL: Record<ActivitySource, string> = { claude: 'Claude Code prompts', git: 'Git commits' };

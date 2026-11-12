@@ -8,6 +8,8 @@ import {
   buildSuggestions,
   templateTasks,
   suggestionToLogData,
+  taskItems,
+  taskIdsOf,
 } from './suggestions';
 import type { ActivityFolder, ActivityItem, Suggestion } from './types';
 import type { BacklogTask, Project, WorkLog } from '../../types';
@@ -226,5 +228,56 @@ describe('suggestionToLogData: sub-tasks become the log\'s underlying tasks', ()
   it('ignores blank sub-tasks and leaves the field out when none are left', () => {
     expect(suggestionToLogData(s, DATE, 25, 'T', 'proj-a', 'Alpha', ['  ', '']).underlyingTasks).toBeUndefined();
     expect(suggestionToLogData(s, DATE, 25, 'T', 'proj-a', 'Alpha', ['  Kept  ']).underlyingTasks?.[0].title).toBe('Kept');
+  });
+});
+
+describe('done tasks merged into suggestions', () => {
+  const doneTask = (over: Partial<BacklogTask> = {}): BacklogTask =>
+    task({ id: 'tk1', title: 'Fix the filter', stage: 'done', completed: true, completedAt: at('06:00'), elapsedSeconds: 50 * 60, ...over });
+
+  it('taskItems puts a task in a linked folder of its project, else under a project key', () => {
+    const [a] = taskItems([doneTask()], folders);
+    expect(a).toMatchObject({ id: 'task:tk1', source: 'task', folder: '/p/app', text: 'Fix the filter' });
+    const [b] = taskItems([doneTask({ projectId: 'proj-z' })], folders);
+    expect(b.folder).toBe('project:proj-z');
+    expect(taskIdsOf(['git:1', 'task:tk1', 'task:tk2'])).toEqual(['tk1', 'tk2']);
+  });
+
+  it('one log per project: timer minutes win when larger than the activity estimate', () => {
+    const t = doneTask();
+    const items = [...taskItems([t], folders), item('c1', at('05:00')), item('c2', at('05:10'))];
+    const out = buildSuggestions([{ text: 'Fixed the filter', itemIds: items.map((i) => i.id) }], items, { ...ctx, backlog: [t] });
+    expect(out).toHaveLength(1);
+    expect(out[0].minutes).toBe(50); // 50 min on the timer vs ~10 min of commits
+    expect(out[0].evidence).toBe('1 done task, 2 commits');
+    expect(out[0].trackedMinutes).toBe(0); // its own tasks are not "already on record"
+  });
+
+  it('the activity estimate wins when it is larger than the timer', () => {
+    const t = doneTask({ elapsedSeconds: 5 * 60 });
+    const items = [...taskItems([t], folders), item('c1', at('05:00')), item('c2', at('05:25'))];
+    const out = buildSuggestions([{ text: 'Long day', itemIds: items.map((i) => i.id) }], items, { ...ctx, backlog: [t] });
+    expect(out[0].minutes).toBe(25);
+  });
+
+  it('a task with no activity at all still becomes a log with its timer minutes', () => {
+    const t = doneTask({ projectId: 'proj-b', elapsedSeconds: 25 * 60 });
+    const items = taskItems([t], folders);
+    const out = buildSuggestions([{ text: 'Did it', itemIds: ['task:tk1'] }], items, { ...ctx, backlog: [t] });
+    expect(out[0]).toMatchObject({ projectId: 'proj-b', minutes: 25 });
+  });
+
+  it('a task whose project has no folder is grouped by its project key', () => {
+    const t = doneTask({ projectId: 'proj-b', elapsedSeconds: 600 });
+    const items = taskItems([t], []);
+    const out = buildSuggestions([{ text: 'Done', itemIds: ['task:tk1'] }], items, { ...ctx, folders: [], backlog: [t] });
+    expect(out[0]).toMatchObject({ projectId: 'proj-b', projectName: 'Beta' });
+  });
+
+  it('the plain-wording fallback lists task titles first as sub-steps', () => {
+    const t = doneTask();
+    const items = [...taskItems([t], folders), item('c1', at('05:00'), { text: 'fix: filter bug' })];
+    const [task0] = templateTasks(items, { '/p/app': 'Alpha' });
+    expect(task0.subtasks).toEqual(['Fix the filter', 'fix: filter bug']);
   });
 });

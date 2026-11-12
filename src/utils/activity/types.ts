@@ -1,5 +1,8 @@
 export type ActivitySource = 'claude' | 'git';
 
+/** Where an item came from: a scanned source, or a done task of the day (merged into the same suggestions). */
+export type ItemSource = ActivitySource | 'task';
+
 /** Who writes the text (standup, end of day, log suggestions): Claude Code on this computer, Gemini, or no AI (templates / plain wording). */
 export type ActivityAi = 'claude' | 'gemini' | 'none';
 
@@ -14,9 +17,9 @@ export interface ActivitySources {
 }
 
 export interface ActivityItem {
-  /** git:<hash> | claude:<sessionId>:<messageUuid>[:<n>] */
+  /** git:<hash> | claude:<sessionId>:<messageUuid>[:<n>] | task:<taskId> */
   id: string;
-  source: ActivitySource;
+  source: ItemSource;
   /** The listed ActivityFolder.path this item belongs to (deepest match). */
   folder: string;
   /** ISO UTC. */

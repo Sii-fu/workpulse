@@ -18,15 +18,49 @@ export function dropConsumed(items: ActivityItem[], consumed: Set<string>): Acti
   return items.filter((i) => !consumed.has(i.id));
 }
 
+const TASK_PREFIX = 'task:';
+/** The backlog task ids among a suggestion's item ids ("task:<id>"). */
+export function taskIdsOf(itemIds: string[]): string[] {
+  return itemIds.filter((id) => id.startsWith(TASK_PREFIX)).map((id) => id.slice(TASK_PREFIX.length));
+}
+
+/** The synthetic "folder" of a done task whose project has no linked folder. */
+export const projectFolderKey = (projectId: string): string => `project:${projectId}`;
+
+/**
+ * Done tasks with time waiting to be logged, as activity items, so one grouping step handles them
+ * together with commits and prompts. A task sits in a folder linked to its project when there is one
+ * (so it groups with that project's commits), else in a "project:<id>" key.
+ */
+export function taskItems(tasks: BacklogTask[], folders: ActivityFolder[], nowIso: string = new Date().toISOString()): ActivityItem[] {
+  return tasks.map((t) => {
+    const linked = folders.find((f) => f.projectId === t.projectId);
+    return {
+      id: `${TASK_PREFIX}${t.id}`,
+      source: 'task' as const,
+      folder: linked ? linked.path : projectFolderKey(t.projectId),
+      time: t.completedAt ?? t.startedAt ?? nowIso,
+      text: t.title.slice(0, 200),
+    };
+  });
+}
+
 /**
  * Minutes already on record for a project on a date: logged durations plus tracked timer time
  * not yet written into a log. Time already written into a log is counted once, through the log.
  */
-export function trackedMinutesFor(date: string, projectId: string, logs: WorkLog[], backlog: BacklogTask[]): number {
+export function trackedMinutesFor(
+  date: string,
+  projectId: string,
+  logs: WorkLog[],
+  backlog: BacklogTask[],
+  /** Tasks the suggestion itself is about to log: their timer time is not "already on record". */
+  excludeTaskIds: ReadonlySet<string> = new Set(),
+): number {
   let total = 0;
   for (const l of logs) if (l.date === date && l.projectId === projectId) total += l.durationMinutes ?? 0;
   for (const t of backlog) {
-    if (t.projectId === projectId && t.dueDate === date) total += minutesFromSeconds(unloggedSeconds(t));
+    if (t.projectId === projectId && t.dueDate === date && !excludeTaskIds.has(t.id)) total += minutesFromSeconds(unloggedSeconds(t));
   }
   return total;
 }
@@ -34,7 +68,9 @@ export function trackedMinutesFor(date: string, projectId: string, logs: WorkLog
 function evidenceOf(items: ActivityItem[]): string {
   const commits = items.filter((i) => i.source === 'git').length;
   const sessions = new Set(items.filter((i) => i.source === 'claude').map((i) => i.id.split(':')[1])).size;
+  const doneTasks = items.filter((i) => i.source === 'task').length;
   const parts: string[] = [];
+  if (doneTasks > 0) parts.push(`${doneTasks} done ${doneTasks === 1 ? 'task' : 'tasks'}`);
   if (commits > 0) parts.push(`${commits} commit${commits === 1 ? '' : 's'}`);
   if (sessions > 0) parts.push(`${sessions} Claude session${sessions === 1 ? '' : 's'}`);
   return parts.join(', ') || 'activity';
@@ -51,7 +87,8 @@ export function buildSuggestions(
   args: { date: string; folders: ActivityFolder[]; projects: Project[]; logs: WorkLog[]; backlog: BacklogTask[] },
 ): Suggestion[] {
   const byId = new Map(items.map((i) => [i.id, i]));
-  const projectOfFolder = (folder: string) => args.folders.find((f) => f.path === folder)?.projectId ?? '';
+  const projectOfFolder = (folder: string) =>
+    folder.startsWith('project:') ? folder.slice('project:'.length) : (args.folders.find((f) => f.path === folder)?.projectId ?? '');
 
   // One group per (task, project), in task order.
   const groups: { projectId: string; task: AiTask; items: ActivityItem[] }[] = [];
@@ -68,7 +105,8 @@ export function buildSuggestions(
     }
   }
 
-  const minutes = minutesPerGroup(groups);
+  const activityMinutes = minutesPerGroup(groups);
+  const minutes = groups.map((g, i) => Math.max(activityMinutes[i], timerMinutesOf(g.items, args.backlog)));
   return groups.map((g, i) => ({
     key: g.items[0].id,
     folder: g.items[0].folder,
@@ -79,7 +117,7 @@ export function buildSuggestions(
     minutes: minutes[i],
     itemIds: g.items.map((x) => x.id),
     evidence: evidenceOf(g.items),
-    trackedMinutes: trackedMinutesFor(args.date, g.projectId, args.logs, args.backlog),
+    trackedMinutes: trackedMinutesFor(args.date, g.projectId, args.logs, args.backlog, new Set(taskIdsOf(g.items.map((x) => x.id)))),
   }));
 }
 
@@ -96,7 +134,7 @@ function minutesPerGroup(groups: { projectId: string; items: ActivityItem[] }[])
 
   for (const indexes of byProject.values()) {
     const unique = new Map<string, ActivityItem>();
-    for (const i of indexes) for (const it of groups[i].items) unique.set(it.id, it);
+    for (const i of indexes) for (const it of groups[i].items) if (it.source !== 'task') unique.set(it.id, it);
     const clusters = clusterTimes([...unique.values()].map((it) => it.time));
     const clusterOf = (iso: string) => {
       const t = new Date(iso).getTime();
@@ -108,6 +146,7 @@ function minutesPerGroup(groups: { projectId: string; items: ActivityItem[] }[])
     const share = indexes.map(() => 0);
     indexes.forEach((gi, k) => {
       for (const it of groups[gi].items) {
+        if (it.source === 'task') continue;
         const c = clusterOf(it.time);
         share[k] += clusters[c].minutes / itemsIn[c];
       }
@@ -128,6 +167,14 @@ function minutesPerGroup(groups: { projectId: string; items: ActivityItem[] }[])
   return result;
 }
 
+/** Tracked timer time (not yet logged) of the done tasks among these items, in minutes. */
+function timerMinutesOf(items: ActivityItem[], backlog: BacklogTask[]): number {
+  const ids = new Set(taskIdsOf(items.map((i) => i.id)));
+  let seconds = 0;
+  for (const t of backlog) if (ids.has(t.id)) seconds += unloggedSeconds(t);
+  return minutesFromSeconds(seconds);
+}
+
 /**
  * The no-AI fallback: one task per folder, "Worked on <project>", with the commit subjects (or, when
  * there are no commits, the user's prompts) as its sub-tasks.
@@ -142,7 +189,8 @@ export function templateTasks(items: ActivityItem[], projectNameByFolder: Record
     const prompts = distinct(
       list.filter((i) => i.source === 'claude' && !i.text.startsWith('Session: ') && !i.text.startsWith('Edited ')).map((i) => i.text),
     );
-    const subtasks = (commits.length > 0 ? commits : prompts).slice(0, 12);
+    const taskTitles = distinct(list.filter((i) => i.source === 'task').map((i) => i.text));
+    const subtasks = [...taskTitles, ...(commits.length > 0 ? commits : prompts)].slice(0, 12);
     const text = `Worked on ${projectNameByFolder[folder] || baseName(folder)}`;
     const ids = list.map((i) => i.id);
     return subtasks.length > 0 ? { text, subtasks, itemIds: ids } : { text, itemIds: ids };

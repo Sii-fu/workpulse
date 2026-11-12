@@ -44,3 +44,19 @@ export function isPendingTask(t: BacklogTask): boolean {
 export function isDoneUnlogged(t: BacklogTask): boolean {
   return (t.completed === true || t.stage === 'done') && unloggedSeconds(t) > 0;
 }
+
+/**
+ * Marks the given tasks' tracked time as written into a log (all of it so far), the way the end-of-day
+ * synthesis does, so they are not offered again. Returns the same array when nothing changes.
+ */
+export function markTasksLogged(backlog: BacklogTask[], ids: string[], nowIso: string): BacklogTask[] {
+  if (ids.length === 0) return backlog;
+  const set = new Set(ids);
+  let changed = false;
+  const next = backlog.map((t) => {
+    if (!set.has(t.id)) return t;
+    changed = true;
+    return { ...t, isSynthesized: true, synthesizedAt: nowIso, loggedSeconds: t.elapsedSeconds || 0 };
+  });
+  return changed ? next : backlog;
+}

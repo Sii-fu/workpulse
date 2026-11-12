@@ -9,7 +9,7 @@ import { sameTasksIgnoringLiveTime } from '../../../utils/timerStore';
 import type { SyncState } from '../SyncButton';
 
 /** What the suggestions card needs besides the logs, tasks and projects the screen already has. */
-export type TodayActivityProps = Pick<SuggestionsCardProps, 'folders' | 'sources' | 'ai' | 'geminiApiKey' | 'onAddLogs' | 'onOpenSettings'>;
+export type TodayActivityProps = Pick<SuggestionsCardProps, 'folders' | 'sources' | 'ai' | 'autoScan' | 'geminiApiKey' | 'onAddLogs' | 'onOpenSettings'>;
 
 export interface TodayScreenProps {
   backlog: BacklogTask[];
@@ -140,6 +140,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
 export const sameActivityProps = (a: TodayActivityProps, b: TodayActivityProps): boolean =>
   a === b ||
   (a.ai === b.ai &&
+    a.autoScan === b.autoScan &&
     a.geminiApiKey === b.geminiApiKey &&
     a.onAddLogs === b.onAddLogs &&
     a.onOpenSettings === b.onOpenSettings &&

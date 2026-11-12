@@ -95,8 +95,10 @@ export interface AppSettings {
   lastBackupAt?: string;
   // Folders scanned for activity suggestions, each linked to a project. Device-specific: not in backups.
   activityFolders?: ActivityFolder[];
-  // Activity sources. Claude Code prompts are opt-in (absent = off); git commits are on unless set to false.
+  // Activity sources. Claude Code prompts and git commits are both on unless set to false.
   activityUseClaude?: boolean;
+  // Look for new activity every 5 minutes while Today or End my day is open. Absent = on; false = off.
+  activityAutoScan?: boolean;
   activityUseGit?: boolean;
   // Which AI groups the activity into suggestions. Absent = Claude Code.
   activityAi?: ActivityAi;

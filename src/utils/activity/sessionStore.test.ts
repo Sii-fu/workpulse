@@ -8,6 +8,7 @@ import {
   resetActivitySessions,
   setActivitySession,
   subscribeActivitySession,
+  rowTouched,
 } from './sessionStore';
 import type { Suggestion } from './types';
 
@@ -15,10 +16,12 @@ const suggestion = (key: string): Suggestion =>
   ({ key, folder: 'E:/demo', projectId: 'p1', projectName: 'Demo', text: key, subtasks: [], minutes: 10, itemIds: [key], evidence: '1 commit', trackedMinutes: 0 });
 
 const session = (keys: string[]): ActivitySession => ({
-  result: { suggestions: keys.map(suggestion), status: { claude: { ok: true, count: 0 }, git: { ok: true, count: keys.length } } },
+  result: { suggestions: keys.map(suggestion), itemsKey: keys.join('|'), status: { claude: { ok: true, count: 0 }, git: { ok: true, count: keys.length } } },
   rows: keys.map((k) => ({ suggestion: suggestion(k), checked: false, text: k, projectId: 'p1', minutes: '10', subtasks: '' })),
   addedCount: 0,
   checked: true,
+  checkedAt: 0,
+  tasksKey: '',
 });
 
 describe('activity session store', () => {
@@ -79,11 +82,23 @@ describe('invalidateActivitySessions', () => {
     });
     invalidateActivitySessions();
     expect(calls).toBe(0);
-    setActivitySession('2026-11-10', { result: { suggestions: [], status: {} } as never, rows: [], addedCount: 0, checked: true });
+    setActivitySession('2026-11-10', { result: { suggestions: [], status: {} } as never, rows: [], addedCount: 0, checked: true, checkedAt: 0, tasksKey: '' });
     calls = 0;
     invalidateActivitySessions();
     expect(checkedToday('2026-11-10')).toBe(false);
     expect(calls).toBe(1);
     off();
+  });
+});
+
+describe('rowTouched', () => {
+  const row = (over = {}) => ({ suggestion: suggestion('a'), checked: false, text: 'a', projectId: 'p1', minutes: '10', subtasks: '', ...over });
+  it('is false for an untouched row and true after a tick or an edit', () => {
+    expect(rowTouched(row())).toBe(false);
+    expect(rowTouched(row({ checked: true }))).toBe(true);
+    expect(rowTouched(row({ text: 'changed' }))).toBe(true);
+    expect(rowTouched(row({ minutes: '25' }))).toBe(true);
+    expect(rowTouched(row({ projectId: 'p2' }))).toBe(true);
+    expect(rowTouched(row({ subtasks: 'step' }))).toBe(true);
   });
 });

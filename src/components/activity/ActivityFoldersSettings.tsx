@@ -7,9 +7,11 @@ interface ActivityFoldersSettingsProps {
   sources: ActivitySources;
   projects: Project[];
   onSourcesChange: (sources: ActivitySources) => void;
+  autoScan: boolean;
+  onAutoScanChange: (on: boolean) => void;
 }
 
-export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = ({ folders, sources, projects, onSourcesChange }) => {
+export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = ({ folders, sources, projects, onSourcesChange, autoScan, onAutoScanChange }) => {
   const projectName = (id: string) => {
     const p = projects.find((x) => x.id === id);
     return p ? (p.trashedAt ? `${p.name} (in the Trash)` : p.name) : 'Project removed';
@@ -36,6 +38,21 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
         <label className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
           <input
             type="checkbox"
+            checked={autoScan}
+            onChange={(e) => onAutoScanChange(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-semibold">Check for new activity every 5 minutes</span>
+            <span className="block text-[var(--text-muted)]">
+              While Today or End my day is open, new commits and prompts appear on their own. Your edits are never replaced.
+              The first check still waits for your OK. Use Scan again for an instant check.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-[length:var(--fs-small)] text-[var(--text-main)] cursor-pointer">
+          <input
+            type="checkbox"
             checked={sources.claude}
             onChange={(e) => onSourcesChange({ ...sources, claude: e.target.checked })}
             className="mt-0.5"
@@ -44,7 +61,7 @@ export const ActivityFoldersSettings: React.FC<ActivityFoldersSettingsProps> = (
             <span className="font-semibold">Include Claude Code prompts</span>
             <span className="block text-[var(--text-muted)]">
               Reads your Claude Code session history for these folders: the first line of your prompts, session titles
-              and edited file names. File contents are never read. Off until you turn it on.
+              and edited file names. File contents are never read.
             </span>
           </span>
         </label>

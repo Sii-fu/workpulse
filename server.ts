@@ -296,7 +296,7 @@ async function startServer() {
         .filter(
           (i: any) =>
             i && typeof i.id === 'string' && typeof i.folder === 'string' && typeof i.time === 'string' &&
-            typeof i.text === 'string' && (i.source === 'git' || i.source === 'claude'),
+            typeof i.text === 'string' && (i.source === 'git' || i.source === 'claude' || i.source === 'task'),
         )
         .map((i: any) => ({ id: i.id, source: i.source, folder: i.folder, time: i.time, text: clip(redactSecrets(i.text), 200) }));
       if (items.length === 0) return res.json({ tasks: [] });

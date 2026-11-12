@@ -39,14 +39,15 @@ describe('addActivityFolder', () => {
 
 describe('sourcesFromSettings / activityFieldsFromSources', () => {
   it('defaults to git on and Claude off', () => {
-    expect(sourcesFromSettings({})).toEqual({ claude: false, git: true });
+    expect(sourcesFromSettings({})).toEqual({ claude: true, git: true });
+    expect(sourcesFromSettings({ activityUseClaude: false })).toEqual({ claude: false, git: true });
   });
   it('reads explicit choices', () => {
     expect(sourcesFromSettings({ activityUseClaude: true, activityUseGit: false })).toEqual({ claude: true, git: false });
   });
   it('stores only what differs from the defaults', () => {
-    expect(activityFieldsFromSources({ claude: false, git: true })).toEqual({ activityUseClaude: undefined, activityUseGit: undefined });
-    expect(activityFieldsFromSources({ claude: true, git: false })).toEqual({ activityUseClaude: true, activityUseGit: false });
+    expect(activityFieldsFromSources({ claude: true, git: true })).toEqual({ activityUseClaude: undefined, activityUseGit: undefined });
+    expect(activityFieldsFromSources({ claude: false, git: false })).toEqual({ activityUseClaude: false, activityUseGit: false });
   });
   it('round-trips', () => {
     for (const claude of [true, false]) for (const git of [true, false]) {

@@ -18,7 +18,7 @@ import type { SheetBackupControls } from './v2/settings/SheetBackupBlock';
 import type { PhoneSyncStatus } from '../hooks/usePhoneSync';
 import { IconButton } from './ui/IconButton';
 import { normalizeTheme, type ThemeId } from '../utils/theme';
-import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
+import { activityFieldsFromSources, aiField, aiFromSettings, autoScanFromSettings, sourcesFromSettings } from '../utils/activity/settings';
 import type { ActivityAi, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
@@ -156,6 +156,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Activity suggestions state
   const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
+  const [activityAutoScan, setActivityAutoScan] = useState<boolean>(autoScanFromSettings(settings));
   const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
 
   // The anchor list marks the section that is at the top of the screen.
@@ -203,6 +204,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       defaultRecipientName: defaultRecipientName.trim() || undefined,
       ...activityFieldsFromSources(activitySources),
       activityAi: aiField(activityAi),
+      activityAutoScan: activityAutoScan ? undefined : false,
     };
     onSaveSettings(updated);
     onNotify('All settings successfully saved!', 'success');
@@ -569,6 +571,8 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               sources={activitySources}
               projects={projects}
               onSourcesChange={setActivitySources}
+              autoScan={activityAutoScan}
+              onAutoScanChange={setActivityAutoScan}
             />
           </Section>
 

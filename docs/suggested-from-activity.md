@@ -10,14 +10,14 @@ Once a day (or whenever the user asks) WorkPulse reads what you did on this comp
 **Claude Code prompts**, for the folders linked to your projects. An AI groups that raw activity into a few ready-made
 log entries (one per project, with short sub-steps). You tick the ones you want, edit the text, minutes or project, and
 press **Add**. Nothing is added without your ticking it, and nothing is scanned until you press a button and have accepted
-a data notice.
+a data notice. After that it also checks by itself every 5 minutes, and End my day merges your done tasks into the same suggestions.
 
 ## 2. What the user sees
 
 | Place | What it is | Code |
 |---|---|---|
 | **Today → "Suggested from your activity"** | A compact card. Starts with a **Check activity** button (no automatic scan). | `src/components/v2/today/SuggestionsCard.tsx` → `ActivitySuggestionsPanel` (`compact`) |
-| **End my day → step 1** | The same panel embedded. | `src/components/v2/endday/EndDayDialog.tsx` |
+| **End my day → "Suggested logs"** | The same panel embedded, with your done tasks merged in (see 9b). | `src/components/v2/endday/EndDayDialog.tsx` |
 | **Dialog** (opened by the next-action button under 1024 px) | The full panel in a `ModalShell`; scans when opened; has a day picker. | `src/components/activity/ActivitySuggestionsDialog.tsx` |
 | **Settings → Activity suggestions** | Source toggles (Git commits, Claude Code prompts) and a read-only folder list. | `src/components/activity/ActivityFoldersSettings.tsx` |
 | **Settings → Projects & tags** | Where folders are linked to projects (each project row shows its folders). | `src/components/v2/settings/ProjectsSection.tsx` |
@@ -40,7 +40,8 @@ All in `AppSettings` (`src/types.ts`):
 |---|---|---|
 | `activityFolders` | List of `{ path, projectId }`: a folder on this PC linked to a project. **Device-only, not in backups.** | none |
 | `activityUseGit` | Read git commits. | on (off only if `=== false`) |
-| `activityUseClaude` | Read Claude Code prompts. | **off** (on only if `=== true`) |
+| `activityUseClaude` | Read Claude Code prompts. | on (off only if `=== false`) |
+| `activityAutoScan` | Check for new activity every 5 minutes while Today or End my day is open. | on (off only if `=== false`) |
 | `activityAi` | Who groups and words the text: `'claude'`, `'gemini'`, `'none'`. Shared with the standup and end-of-day writers. | claude (absent = claude) |
 | `geminiApiKey` | Only used and only sent when the AI is `gemini`. | empty |
 
@@ -100,7 +101,10 @@ File contents, diffs, full prompts (only the first line), anything outside the l
 - **Data notice first.** Nothing is scanned until the user accepts the notice (phase `idle` → `notice`). It names the sources
   and the AI; it is shown again if that combination changes (`noticeSignature` in `pipeline.ts`). The smoke checks
   `activity_suggestions` and `activity_today_card` enforce this.
-- **No background scanning.** Only the button press (or opening the dialog) scans.
+- **Checking.** Until the notice is accepted nothing is read (the Today card shows "Check activity"). After that the panel checks when it
+  appears and every 5 minutes while the tab is visible (today only; Settings can switch this off). "Scan again" checks at once. A
+  background check asks the AI again only if the activity changed, and it never replaces rows you have ticked or edited: it offers a
+  "Refresh" button instead.
 - **Redaction before text leaves the machine**: `redactSecrets()` (`src/utils/activity/sanitize.ts`) replaces API keys,
   GitHub/Slack/GitLab/AWS tokens, JWTs, private-key blocks, `Bearer …`, and "password/token/api key = …" with `[redacted]`.
   `clip()` limits each item to 200 characters. The server redacts again as a last stop.
@@ -166,6 +170,18 @@ subjects (or, with no commits, the prompts, excluding `Session:` and `Edited` it
   `underlyingTasks` = the sub-steps as done steps with no tracked time (shown as "N sub-tasks" and listed in the log form).
 - `sourceIds` is never sent to the Google Sheet, and duplicating a log clears it.
 - If a Sheet is linked the new logs sync like any others.
+
+## 9b. Done tasks merged in (End my day)
+
+End my day has one page, **Suggested logs**, instead of separate activity and done-task pages. Done tasks with unlogged timer time are
+turned into items (`taskItems`, id `task:<taskId>`) and go through the same flow: the AI sees them as "(done task)" items next to the
+commits and prompts of the same project and writes **one log per project**, with the task titles and the activity as its sub-steps.
+
+- **Minutes** = the larger of (a) the done tasks' unlogged timer minutes and (b) the activity estimate (section 8). Task items do not
+  count toward the estimate.
+- **Evidence** reads like "2 done tasks, 4 commits".
+- **Adding** such a log marks the tasks' tracked time as logged (`markTasksLogged`), so they are not offered again.
+- A project with done tasks but no folder still gets a suggestion; with no folders at all, only the tasks are used.
 
 ## 10. File map
 

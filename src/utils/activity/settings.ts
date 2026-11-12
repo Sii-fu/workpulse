@@ -28,9 +28,9 @@ export function addActivityFolder(folders: ActivityFolder[], rawPath: string, pr
   return { ok: true, folders: [...folders, { path, projectId }] };
 }
 
-/** Git commits are on unless switched off; Claude Code prompts are off unless switched on. */
+/** Git commits and Claude Code prompts are both on unless switched off. */
 export function sourcesFromSettings(s: Pick<AppSettings, 'activityUseClaude' | 'activityUseGit'>): ActivitySources {
-  return { claude: s.activityUseClaude === true, git: s.activityUseGit !== false };
+  return { claude: s.activityUseClaude !== false, git: s.activityUseGit !== false };
 }
 
 /** The settings fields for these choices; only values that differ from the defaults are stored. */
@@ -38,7 +38,7 @@ export function activityFieldsFromSources(
   sources: ActivitySources,
 ): Pick<AppSettings, 'activityUseClaude' | 'activityUseGit'> {
   return {
-    activityUseClaude: sources.claude ? true : undefined,
+    activityUseClaude: sources.claude ? undefined : false,
     activityUseGit: sources.git ? undefined : false,
   };
 }
@@ -56,4 +56,9 @@ export function aiWriterName(ai: ActivityAi): string {
 /** The settings value for this choice; the default is not stored. */
 export function aiField(ai: ActivityAi): ActivityAi | undefined {
   return ai === 'claude' ? undefined : ai;
+}
+
+/** Checking for new activity in the background (every 5 minutes) is on unless switched off. */
+export function autoScanFromSettings(s: Pick<AppSettings, 'activityAutoScan'>): boolean {
+  return s.activityAutoScan !== false;
 }

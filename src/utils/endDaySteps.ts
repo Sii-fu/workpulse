@@ -1,6 +1,6 @@
 // Step order for End my day. Steps with nothing to do count as done and are passed over by Next/Back.
 
-export const END_DAY_STEPS = ['activity', 'tasks', 'log', 'sync', 'clock'] as const;
+export const END_DAY_STEPS = ['suggest', 'log', 'sync', 'clock'] as const;
 export type StepId = (typeof END_DAY_STEPS)[number];
 export type StepStatus = 'todo' | 'done' | 'skipped';
 /** True when a step has nothing to do. */
@@ -19,10 +19,10 @@ export function prevOpenStep(empty: StepEmpty, current: number): number {
 }
 
 /**
- * Where to go once the done tasks were added as logs: always Today's log, to review the new entries.
+ * Where to go once suggested logs were added: always Today's log, to review the new entries.
  * Not computed from the emptiness map, which still holds the values from before the logs were added.
  */
-export function stepAfterDoneTasks(): number {
+export function stepAfterSuggestions(): number {
   return END_DAY_STEPS.indexOf('log');
 }
 
