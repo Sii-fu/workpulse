@@ -3,8 +3,9 @@ import type { BacklogTask, Project } from '../../types';
 import { ModalShell } from '../ui/ModalShell';
 import { dayHeading } from '../../utils/taskDates';
 import { dayLabelLong } from '../../utils/taskSections';
+import { defaultProject } from '../../utils/projects';
 import { parsePlanLines } from '../../utils/planYourDay';
-import { ProjectInput, useProjectChoice } from './ProjectInput';
+import { ProjectInput } from './ProjectInput';
 
 export interface PlanYourDayResult {
   carryIds: string[];
@@ -23,12 +24,8 @@ interface PlanYourDayDialogProps {
   defaultCheckedIds: string[];
   projects: Project[];
   onStart(r: PlanYourDayResult): void;
-  /** The project last used from the quick inputs (the selector's starting point). */
-  lastProjectId?: string;
   /** Remembers the project of the last task added. */
   onProjectUsed(id: string): void;
-  /** Creates a project from a `#word` with no match and returns it. */
-  onCreateProject(name: string, color: string): Project;
 }
 
 const FOOT_BTN = 'v2-btn min-h-11 px-4 cursor-pointer transition-colors';
@@ -46,16 +43,21 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
   defaultCheckedIds,
   projects,
   onStart,
-  lastProjectId,
   onProjectUsed,
-  onCreateProject,
 }) => {
   const id = useId();
   const [checked, setChecked] = useState<Set<string>>(() => new Set(defaultCheckedIds));
   const [draft, setDraft] = useState('');
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const { project: selected, setProjectId } = useProjectChoice(projects, lastProjectId);
-  const newTasks = parsePlanLines(draft, projects, selected?.id);
+  const { tasks: newTasks, problems } = useMemo(() => parsePlanLines(draft, projects), [draft, projects]);
+  const blocked = problems.length > 0;
+  const problemText = problems
+    .map((p) =>
+      p.kind === 'no-project'
+        ? `No project at the start of line ${p.line} — start with a project name`
+        : `Line ${p.line} has a project but no task after it`,
+    )
+    .join('; ');
 
   const toggle = (taskId: string) =>
     setChecked((prev) => {
@@ -66,6 +68,7 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
     });
 
   const start = () => {
+    if (blocked) return;
     if (newTasks.length > 0) onProjectUsed(newTasks[newTasks.length - 1].projectId);
     onStart({ carryIds: candidates.filter((t) => checked.has(t.id)).map((t) => t.id), newTasks });
   };
@@ -163,9 +166,6 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
             value={draft}
             onChange={setDraft}
             projects={projects}
-            project={selected}
-            onProjectChange={setProjectId}
-            onCreateProject={onCreateProject}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
@@ -173,13 +173,19 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
               }
             }}
             rows={3}
-            placeholder="One task per line…"
+            placeholder={`${defaultProject(projects)?.name ?? 'Project'} the task you will do`}
             describedBy={`${id}-hint`}
           />
-          <p id={`${id}-hint`} aria-live="polite" className={`mt-1.5 ${MUTED}`}>
-            {newTasks.length > 0
-              ? `${newTasks.length} new ${newTasks.length === 1 ? 'task' : 'tasks'} for today.`
-              : 'Type # at the end of a line to pick its project. Ctrl+Enter starts the day.'}
+          <p
+            id={`${id}-hint`}
+            aria-live="polite"
+            className={`mt-1.5 text-[length:var(--fs-small)] ${blocked ? 'text-[var(--danger)] font-semibold' : 'text-[var(--text-muted)]'}`}
+          >
+            {blocked
+              ? `${problemText}. Fix or remove ${problems.length === 1 ? 'that line' : 'those lines'} to start the day.`
+              : newTasks.length > 0
+                ? `${newTasks.length} new ${newTasks.length === 1 ? 'task' : 'tasks'} for today.`
+                : 'One task per line: the project name first, then the task. Ctrl+Enter starts the day.'}
           </p>
         </section>
       </div>
@@ -188,7 +194,13 @@ const PlanPanel: React.FC<Omit<PlanYourDayDialogProps, 'isOpen'>> = ({
         <button type="button" onClick={onClose} className={FOOT_BTN}>
           Skip
         </button>
-        <button type="button" onClick={start} className={`${FOOT_BTN} v2-btn-strong`}>
+        <button
+          type="button"
+          onClick={start}
+          disabled={blocked}
+          aria-describedby={blocked ? `${id}-hint` : undefined}
+          className={`${FOOT_BTN} v2-btn-strong disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
           Start the day
         </button>
       </div>

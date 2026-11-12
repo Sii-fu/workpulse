@@ -1530,9 +1530,7 @@ export default function App() {
         defaultCheckedIds={plan?.defaultCheckedIds ?? []}
         projects={liveProjects}
         onStart={handleStartDay}
-        lastProjectId={settings.lastProjectId}
         onProjectUsed={h.projectUsed}
-        onCreateProject={h.createProject}
       />
 
       <EndDayDialog

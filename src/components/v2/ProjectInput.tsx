@@ -2,6 +2,7 @@ import React, { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { Project } from '../../types';
 import { activeProjectsOf } from '../../utils/projects';
 import { applyCompletion, completionState, nextSwatchColor, resolveProject } from '../../utils/projectCompletion';
+import { completeFirstWord, firstWordMatches } from '../../utils/planYourDay';
 
 /**
  * The project the selector shows. `chosenId` is what the user picked in this input; until then the last
@@ -20,14 +21,14 @@ export interface ProjectInputProps {
   value: string;
   onChange(value: string): void;
   projects: Project[];
-  /** The selected project (from `useProjectChoice`). */
-  project: Project | undefined;
-  onProjectChange(id: string): void;
-  /** Creates a project and returns it, so the selector can switch to it. */
-  onCreateProject(name: string, color: string): Project;
+  /** The selected project (from `useProjectChoice`). Single-line only. */
+  project?: Project | undefined;
+  onProjectChange?(id: string): void;
+  /** Creates a project and returns it, so the selector can switch to it. Single-line only. */
+  onCreateProject?(name: string, color: string): Project;
   /** Key presses the completion list did not use (Enter to submit, and so on). */
   onKeyDown?(e: React.KeyboardEvent): void;
-  /** A textarea: picking writes the full `#Name` into the text and the selector is only the default for untagged lines. */
+  /** A textarea for Plan your day: no selector; completes the FIRST word of a line to a full project name. */
   multiline?: boolean;
   placeholder?: string;
   describedBy?: string;
@@ -69,9 +70,10 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
   const [navigated, setNavigated] = useState(false);
 
   const before = multiline ? value.slice(0, caret) : value;
-  const state = completionState(before, projects);
-  const open = state.open && dismissed !== before;
-  const options: (Project | 'create')[] = state.canCreate ? ['create'] : state.matches;
+  const state = completionState(multiline ? '' : before, projects);
+  const lineMatches = multiline ? firstWordMatches(before, projects) : [];
+  const open = (multiline ? lineMatches.length > 0 : state.open) && dismissed !== before;
+  const options: (Project | 'create')[] = multiline ? lineMatches : state.canCreate ? ['create'] : state.matches;
   const current = Math.min(active, options.length - 1);
 
   useLayoutEffect(() => {
@@ -82,9 +84,10 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
   }, [value]);
 
   const pick = (opt: Project | 'create') => {
-    const picked = opt === 'create' ? onCreateProject(state.query, nextSwatchColor(projects)) : opt;
+    if (opt === 'create' && !onCreateProject) return;
+    const picked = opt === 'create' ? onCreateProject!(state.query, nextSwatchColor(projects)) : opt;
     if (multiline) {
-      const head = applyCompletion(before, picked, 'replace');
+      const head = completeFirstWord(before, picked);
       const next = head + value.slice(caret);
       if (next === value) {
         // Nothing to rewrite, so no layout effect will run: place the caret now.
@@ -95,10 +98,9 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
         pendingCaret.current = head.length;
         onChange(next);
       }
-      // The line now ends in the full tag, which still prefix-matches: keep the list closed until the text changes.
       setDismissed(head);
     } else {
-      onProjectChange(picked.id);
+      onProjectChange?.(picked.id);
       onChange(applyCompletion(value, picked, 'remove'));
       setDismissed(null);
     }
@@ -119,9 +121,7 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
         const opt = options[current];
         // The lone "Create it" row is only taken once the user moves onto it; otherwise Enter submits the text as typed.
         const unrequestedCreate = opt === 'create' && !navigated;
-        // A tag already typed in full (multiline): nothing to complete, so Enter starts the next line.
-        const alreadyTyped = multiline && opt !== 'create' && applyCompletion(before, opt, 'replace') === before;
-        if (!unrequestedCreate && !alreadyTyped) {
+        if (!unrequestedCreate) {
           e.preventDefault();
           pick(opt);
           return;
@@ -169,9 +169,9 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
         style={{ backgroundColor: project?.color ?? 'var(--border-control)' }}
       />
       <select
-        aria-label={multiline ? 'Project for lines without a #project' : 'Project'}
+        aria-label="Project"
         value={project?.id ?? ''}
-        onChange={(e) => onProjectChange(e.target.value)}
+        onChange={(e) => onProjectChange?.(e.target.value)}
         className={`${CONTROL} h-11 w-full max-w-[10rem] sm:max-w-[12rem] pl-6 pr-2 cursor-pointer`}
       >
         {activeProjectsOf(projects).map((p) => (
@@ -234,10 +234,6 @@ export const ProjectInput: React.FC<ProjectInputProps> = ({
           className={`${CONTROL} block w-full px-3 py-2.5 leading-snug resize-y`}
         />
         {list}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:var(--fs-small)] text-[var(--text-muted)]">
-          <span>Lines without a #project go to</span>
-          {selector}
-        </div>
       </div>
     );
   }

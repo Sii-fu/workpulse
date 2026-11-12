@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BacklogTask, Project } from '../types';
-import { planCandidates, applyPlan, parsePlanLines, planSummary } from './planYourDay';
+import { planCandidates, applyPlan, parsePlanLines, firstWordMatches, completeFirstWord, planSummary } from './planYourDay';
 
 process.env.TZ = 'Asia/Dhaka';
 
@@ -73,27 +73,96 @@ describe('applyPlan', () => {
 });
 
 describe('parsePlanLines', () => {
-  it('makes one task per non-empty line, in the first active project by default', () => {
-    expect(parsePlanLines('Write report\n\n  \n  Call Rahim  ', projects)).toEqual([
-      { title: 'Write report', projectId: 'p1' },
-      { title: 'Call Rahim', projectId: 'p1' },
+  const P = (id: string, name: string, extra: Partial<Project> = {}): Project => ({ id, name, color: '#000000', isArchived: false, ...extra });
+  const list = [
+    P('hmis', 'HMIS'),
+    P('hmisp', 'HMIS Portal'),
+    P('fe', 'Frontend & Design System'),
+    P('pay', 'Payroll'),
+    P('pat', 'Patient Records'),
+    P('old', 'Legacy', { isArchived: true }),
+    P('bin', 'Binned', { trashedAt: '2026-11-01T00:00:00.000Z' }),
+  ];
+  const parse = (t: string) => parsePlanLines(t, list);
+
+  it('reads the project first, then the task', () => {
+    expect(parse('HMIS fix deploy check').tasks).toEqual([{ title: 'fix deploy check', projectId: 'hmis' }]);
+  });
+
+  it('handles multi-word names, ignoring case and spacing', () => {
+    expect(parse('Frontend & Design System menu bug').tasks).toEqual([{ title: 'menu bug', projectId: 'fe' }]);
+    expect(parse('frontend&designsystem menu bug').tasks).toEqual([{ title: 'menu bug', projectId: 'fe' }]);
+    expect(parse('hmisportal   login').tasks).toEqual([{ title: 'login', projectId: 'hmisp' }]);
+  });
+
+  it('the longest matching name wins', () => {
+    expect(parse('HMIS Portal fix login').tasks).toEqual([{ title: 'fix login', projectId: 'hmisp' }]);
+    expect(parse('HMIS portalish thing').tasks).toEqual([{ title: 'portalish thing', projectId: 'hmis' }]);
+  });
+
+  it('a name must end at a word edge', () => {
+    const r = parse('HMISX thing');
+    expect(r.tasks).toEqual([]);
+    expect(r.problems).toEqual([{ line: 1, kind: 'no-project' }]);
+  });
+
+  it('accepts an optional colon or dash after the name', () => {
+    expect(parse('HMIS: fix it').tasks).toEqual([{ title: 'fix it', projectId: 'hmis' }]);
+    expect(parse('Payroll - run report').tasks).toEqual([{ title: 'run report', projectId: 'pay' }]);
+    expect(parse('Payroll-run report').tasks).toEqual([{ title: 'run report', projectId: 'pay' }]);
+  });
+
+  it('a first word that is a unique prefix of one name is accepted; an ambiguous one is not', () => {
+    expect(parse('pay run report').tasks).toEqual([{ title: 'run report', projectId: 'pay' }]);
+    expect(parse('Pat: check queue').tasks).toEqual([{ title: 'check queue', projectId: 'pat' }]);
+    // "h" starts both HMIS and HMIS Portal
+    expect(parse('h something').problems).toEqual([{ line: 1, kind: 'no-project' }]);
+  });
+
+  it('skips archived and trashed projects', () => {
+    expect(parse('Legacy fix').problems).toEqual([{ line: 1, kind: 'no-project' }]);
+    expect(parse('Binned fix').problems).toEqual([{ line: 1, kind: 'no-project' }]);
+  });
+
+  it('ignores blank lines and numbers the flagged ones by their line', () => {
+    const r = parse(['HMIS one', '', '   ', 'Nobody two', 'Payroll three', 'Payroll'].join('\n'));
+    expect(r.tasks).toEqual([
+      { title: 'one', projectId: 'hmis' },
+      { title: 'three', projectId: 'pay' },
+    ]);
+    expect(r.problems).toEqual([
+      { line: 4, kind: 'no-project' },
+      { line: 6, kind: 'no-task' },
     ]);
   });
 
-  it('a trailing #project picks the project by name prefix', () => {
-    expect(parsePlanLines('Run payroll #pay\nReview PR #212', projects)).toEqual([
-      { title: 'Run payroll', projectId: 'p2' },
-      { title: 'Review PR #212', projectId: 'p1' },
-    ]);
+  it('empty text has no tasks and no problems', () => {
+    expect(parse('')).toEqual({ tasks: [], problems: [] });
   });
 });
 
-describe('parsePlanLines with a default project', () => {
-  it('uses the given default for lines without a tag, and the tag for the rest', () => {
-    expect(parsePlanLines('Write report\nRun payroll #pay', projects, 'p1')).toEqual([
-      { title: 'Write report', projectId: 'p1' },
-      { title: 'Run payroll', projectId: 'p2' },
-    ]);
+describe('first-word completion', () => {
+  const list: Project[] = [
+    { id: 'a', name: 'HMIS Portal', color: '#000', isArchived: false },
+    { id: 'b', name: 'Payroll', color: '#000', isArchived: false },
+    { id: 'c', name: 'Old', color: '#000', isArchived: true },
+  ];
+
+  it('matches active names by the first word typed on the caret line', () => {
+    expect(firstWordMatches('h', list).map((p) => p.id)).toEqual(['a']);
+    expect(firstWordMatches('HMIS fix\npa', list).map((p) => p.id)).toEqual(['b']);
+    expect(firstWordMatches('o', list)).toEqual([]);
+  });
+
+  it('is closed with an empty word or once the caret is past the first word', () => {
+    expect(firstWordMatches('', list)).toEqual([]);
+    expect(firstWordMatches('HMIS ', list)).toEqual([]);
+    expect(firstWordMatches('HMIS fi', list)).toEqual([]);
+  });
+
+  it('replaces the typed word with the full name and a space', () => {
+    expect(completeFirstWord('hm', list[0])).toBe('HMIS Portal ');
+    expect(completeFirstWord('x\ny\n pa', list[1])).toBe('x\ny\n Payroll ');
   });
 });
 

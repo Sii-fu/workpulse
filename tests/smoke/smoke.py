@@ -699,7 +699,7 @@ def office_clock(s):
     rec = (s.ls("workpulse_workdays") or {}).get(s.today())
     assert rec and rec.get("clockIn") and not rec.get("clockOut"), f"clock-in not saved: {rec}"
     shown = band.inner_text()  # innerText skips the phone layout hidden on a wide screen
-    assert re.search(r"Worked", shown, re.I) and re.search(r"To go", shown, re.I), f"band shows {shown!r}"
+    assert re.search(r"Now\s+\d{2}:\d{2}:\d{2}", shown, re.I) and re.search(r"To go", shown, re.I), f"band shows {shown!r}"
     # the band ticks by itself; the next action is no longer "Clock in"
     expect(p.get_by_role("banner").get_by_role("button", name=SEL["clock_in"], exact=True)).to_have_count(0)
     btn(band, SEL["clock_out"], exact=True).click()
@@ -1350,17 +1350,29 @@ def plan_your_day(s):
     plan = p.get_by_role("dialog", name=SEL["plan_day_dialog"])
     expect(plan).to_be_visible()
     plan.get_by_role("checkbox", name=re.compile(leave)).uncheck()
-    # Typed by keys: pick a project for line one, Enter must then start line two (not be swallowed by the list).
+    # Typed by keys: the first word completes to the full project name, then the task follows on the same line.
     area = plan.get_by_label(SEL["plan_new_tasks"], exact=True)
     area.click()
-    area.press_sequentially("Smoke planned A #fr")
+    area.press_sequentially("fr")
     expect(plan.get_by_role("listbox", name="Projects")).to_be_visible()
     area.press("Enter")
     expect(plan.get_by_role("listbox", name="Projects")).to_have_count(0)
-    expect(area).to_have_value(re.compile(r"^Smoke planned A #Frontend"))
+    expect(area).to_have_value("Frontend & Design System ")
+    area.press_sequentially("Smoke planned A")
+    # no project selector and no "#project" sentence any more
+    expect(plan.get_by_role("combobox")).to_have_count(0)
+    expect(plan).not_to_contain_text("Lines without")
+    # a line that starts with no project is flagged and blocks Start the day until it is fixed
     area.press("Enter")
-    area.press_sequentially("Smoke planned B")
-    expect(area).to_have_value(re.compile(r"^Smoke planned A #\S+\nSmoke planned B$"))
+    area.press_sequentially("Zzz nothing here")
+    expect(plan).to_contain_text("No project at the start of line 2")
+    expect(btn(plan, SEL["plan_start"], exact=True)).to_be_disabled()
+    area.press("Control+a")
+    area.press("Backspace")
+    area.press_sequentially("Frontend & Design System Smoke planned A")
+    area.press("Enter")
+    area.press_sequentially("frontend: Smoke planned B")
+    expect(plan).not_to_contain_text("No project at the start")
     btn(plan, SEL["plan_start"], exact=True).click()
     expect(plan).to_have_count(0)
     p.wait_for_timeout(400)
@@ -1636,7 +1648,7 @@ def phone_pass(s):
             box = bottom.bounding_box()
             assert box["y"] + box["height"] >= 843, f"{theme}: bottom nav is not at the bottom ({box})"
             assert bottom.get_by_role("button").count() == 4, f"{theme}: bottom nav should have four tabs"
-            # clock in: the band shows Worked / To go in its compact form
+            # clock in: the band shows Now / To go in its compact form
             band = page.get_by_role("region", name=SEL["clock_band"])
             btn(band, SEL["clock_in"], exact=True).click()
             dlg = page.get_by_role("dialog", name=SEL["clock_in_dialog"])
@@ -1647,7 +1659,7 @@ def phone_pass(s):
             btn(plan, SEL["plan_skip"], exact=True).click()
             expect(plan).to_have_count(0)
             shown = band.inner_text()  # innerText skips the wide layout hidden under 768 px
-            assert re.search(r"Worked", shown, re.I) and re.search(r"To go", shown, re.I), f"{theme}: band shows {shown!r}"
+            assert re.search(r"Now\s+\d{2}:\d{2}:\d{2}", shown, re.I) and re.search(r"To go", shown, re.I), f"{theme}: band shows {shown!r}"
             band_h = band.bounding_box()["height"]
             assert band_h <= 160, f"{theme}: the clock band is {band_h:.0f}px tall on a phone"
             for screen in SCREENS:
