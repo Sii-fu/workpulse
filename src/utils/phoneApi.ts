@@ -19,6 +19,7 @@ const CODE_MESSAGES: Record<string, string> = {
   bad_token: 'This computer is not linked to the phone page any more. Use Reset phone access in Settings (it asks for your current PIN).',
   locked: 'Too many wrong PINs. Try again in 15 minutes.',
   bad_request: 'The Sheet script did not understand the request. Update and redeploy the script.',
+  bad_response: 'The Sheet script did not answer as expected. Update and redeploy the script.',
 };
 
 function failure(raw: string | undefined, code?: string): PhoneApiResult<never> {
@@ -98,6 +99,50 @@ export function setEmailSchedule(
 
 export function sendTestEmail(url: string, token: string): Promise<PhoneApiResult> {
   return call(url, 'sendTestEmail', { token }, 'Test email sent.');
+}
+
+export interface SheetBackupVersion {
+  version: number;
+  savedAt: string;
+  counts: { logs: number; tasks: number; projects: number };
+}
+
+export function saveBackupToSheet(
+  url: string,
+  token: string,
+  backup: string,
+  meta: { counts: { logs: number; tasks: number; projects: number }; exportedAt: string },
+): Promise<PhoneApiResult<{ version: number; savedAt: string }>> {
+  return call(url, 'saveBackup', { token, backup, meta }, 'Copied to the Sheet.');
+}
+
+export async function getBackupInfo(url: string, token: string): Promise<PhoneApiResult<{ versions: SheetBackupVersion[] }>> {
+  const r = await call<{ versions?: unknown }>(url, 'backupInfo', { token }, 'Checked the Sheet.');
+  if (!r.ok) return r as PhoneApiResult<never>;
+  const raw = Array.isArray(r.data?.versions) ? (r.data?.versions as unknown[]) : [];
+  const versions: SheetBackupVersion[] = [];
+  for (const v of raw) {
+    const o = (v && typeof v === 'object' ? v : {}) as Record<string, any>;
+    if (typeof o.version !== 'number' || typeof o.savedAt !== 'string') continue;
+    const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+    versions.push({ version: o.version, savedAt: o.savedAt, counts: { logs: n(o.counts?.logs), tasks: n(o.counts?.tasks), projects: n(o.counts?.projects) } });
+  }
+  return { ok: true, message: r.message, data: { versions } };
+}
+
+export async function loadBackupFromSheet(
+  url: string,
+  token: string,
+  version?: number,
+): Promise<PhoneApiResult<{ backup: string; savedAt: string }>> {
+  const fields: Record<string, unknown> = { token };
+  if (version !== undefined) fields.version = version;
+  const r = await call<{ backup?: unknown; savedAt?: unknown }>(url, 'loadBackup', fields, 'Read the copy from the Sheet.');
+  if (!r.ok) return r as PhoneApiResult<never>;
+  if (typeof r.data?.backup !== 'string' || !r.data.backup) {
+    return { ok: false, message: 'The Sheet sent back an empty copy. Update the script and try again.', code: 'bad_response' };
+  }
+  return { ok: true, message: r.message, data: { backup: r.data.backup, savedAt: typeof r.data.savedAt === 'string' ? r.data.savedAt : '' } };
 }
 
 export function resetPhoneAccess(

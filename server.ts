@@ -82,7 +82,7 @@ async function startServer() {
     });
   }
 
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({ limit: '30mb' }));
 
   // Standup text. Claude Code on this computer writes it by default (provider 'claude', local setup only);
   // provider 'gemini' uses the Gemini key. The path keeps its old name.

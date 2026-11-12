@@ -27,7 +27,7 @@ don't apply, and say which ones you skipped and why.
 - `INITIAL_PROJECTS`, `INITIAL_TAGS`, `DEFAULT_SETTINGS`, and `getInitialSeedData()` (sample logs and backlog tasks with dates relative to today).
 - Add realistic values to the sample records if the field should show up in the demo.
 - `src/App.tsx` starts from `useState<AppSettings>(DEFAULT_SETTINGS)`, so nothing is duplicated there.
-- Backups: `src/utils/backup.ts` (`buildBackup`, `parseBackup`) if the data belongs in the backup file (device-only settings do not). Device-only today: `geminiApiKey`, `lastBackupAt`, `activityFolders` and the phone fields `phoneToken`, `phoneDeviceId`, `phoneSyncAt`, `phoneLastError`; `buildBackup` omits them, `parseBackup` clears them, and `keepDeviceSettings` (`src/utils/phoneSettings.ts`, used by `handleImportBackup`) keeps this computer's own over an import. A new device-only field goes in all three places.
+- Backups: `src/utils/backup.ts` (`buildBackup`, `parseBackup`) if the data belongs in the backup file (device-only settings do not). Device-only today: `geminiApiKey`, `lastBackupAt`, `activityFolders` and the phone fields `phoneToken`, `phoneDeviceId`, `phoneSyncAt`, `phoneLastError`, `sheetBackupAt`, `sheetBackupError`; `buildBackup` omits them, `parseBackup` clears them, and `keepDeviceSettings` (`src/utils/phoneSettings.ts`, used by `handleImportBackup`) keeps this computer's own over an import. A new device-only field goes in all three places.
 
 ## 4. Places that create records — `src/App.tsx` and components
 New `WorkLog` objects are built in several places. Set the field (or leave it undefined on purpose) in each:

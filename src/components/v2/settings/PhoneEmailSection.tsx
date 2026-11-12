@@ -7,12 +7,14 @@ import { DEFAULT_EMAIL_TIME, emailTimeAllowed, parseEmailTime, phoneLink } from 
 import { GOOGLE_APPS_SCRIPT_CODE } from '../../../utils/googleAppsScriptTemplate';
 import { localDateOfIso, localDateStr, localTimeStr } from '../../../utils/dates';
 import { dayLabelLong } from '../../../utils/taskSections';
+import { SheetBackupBlock, type SheetBackupControls } from './SheetBackupBlock';
 
 interface PhoneEmailSectionProps {
   settings: AppSettings;
   /** Saves only these fields at once, onto the newest settings; the rest of Settings still waits for Save. */
   onUpdateSettings(patch: Partial<AppSettings>): void;
   status: PhoneSyncStatus;
+  sheetBackup: SheetBackupControls;
   onNotify(msg: string, type?: 'success' | 'error' | 'info'): void;
 }
 
@@ -67,7 +69,7 @@ const SetupSteps: React.FC<{ onCopy(): void; copied: boolean }> = ({ onCopy, cop
   </ol>
 );
 
-export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onUpdateSettings, status, onNotify }) => {
+export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onUpdateSettings, status, sheetBackup, onNotify }) => {
   const uid = useId();
   const url = settings.googleScriptUrl || '';
   const token = settings.phoneToken || '';
@@ -235,7 +237,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
       <div className="flex flex-col gap-3">
         <p className="text-[length:var(--fs-body)] text-[var(--text-main)]">
           Your Sheet runs script version {version}. Log sync still works; the phone page and the evening email need
-          version 3.
+          version 3, and the backup to the Sheet needs version 4.
         </p>
         <SetupSteps onCopy={copyScript} copied={copied} />
         <div>
@@ -406,6 +408,14 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
           </div>
         </details>
       </div>
+
+      <SheetBackupBlock
+        url={url}
+        token={token}
+        version={version}
+        backup={sheetBackup}
+        setupSteps={<SetupSteps onCopy={copyScript} copied={copied} />}
+      />
 
       <div className="flex flex-col items-start gap-3 border-t border-[var(--border-app)] pt-5">
         <h3 className={SUB}>Evening email</h3>

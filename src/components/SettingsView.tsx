@@ -14,6 +14,7 @@ import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
 import { ThemePicker } from './v2/settings/ThemePicker';
 import { ProjectsSection, type ActionResult } from './v2/settings/ProjectsSection';
 import { PhoneEmailSection } from './v2/settings/PhoneEmailSection';
+import type { SheetBackupControls } from './v2/settings/SheetBackupBlock';
 import type { PhoneSyncStatus } from '../hooks/usePhoneSync';
 import { IconButton } from './ui/IconButton';
 import { normalizeTheme, type ThemeId } from '../utils/theme';
@@ -45,6 +46,7 @@ interface SettingsViewProps {
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
   /** The phone sync's state for the Phone & evening email section. */
   phoneStatus: PhoneSyncStatus;
+  sheetBackup: SheetBackupControls;
   /** Saves only these fields at once, onto the newest settings (the Phone & evening email section). */
   onUpdateSettings: (patch: Partial<AppSettings>) => void;
   /** Creates or reuses the project named after the folder and links the folder, saved at once. */
@@ -122,6 +124,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onStartFresh,
   onNotify,
   phoneStatus,
+  sheetBackup,
   onUpdateSettings,
   onAddProjectWithFolder,
   onSetProjectFolder,
@@ -460,7 +463,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           </Section>
 
           <Section id="phone" title="Phone & evening email">
-            <PhoneEmailSection settings={settings} onUpdateSettings={onUpdateSettings} status={phoneStatus} onNotify={onNotify} />
+            <PhoneEmailSection settings={settings} onUpdateSettings={onUpdateSettings} status={phoneStatus} sheetBackup={sheetBackup} onNotify={onNotify} />
           </Section>
 
           <Section

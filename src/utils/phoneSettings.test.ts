@@ -84,6 +84,16 @@ describe('keepDeviceSettings', () => {
     });
   });
 
+  it("keeps this computer's Sheet link with its token, the folders and the Sheet copy status", () => {
+    const cur = { ...current, googleScriptUrl: 'https://script.google.com/macros/s/NOW/exec', activityFolders: [{ path: 'C:\a', projectId: 'p1' }], sheetBackupAt: '2026-11-11T12:00:00.000Z', sheetBackupError: 'x' } as any;
+    const out = keepDeviceSettings({ ...DEFAULT_SETTINGS, googleScriptUrl: 'https://script.google.com/macros/s/OLD/exec' }, cur);
+    expect(out.googleScriptUrl).toBe('https://script.google.com/macros/s/NOW/exec');
+    expect(out.activityFolders).toEqual(cur.activityFolders);
+    expect(out.sheetBackupAt).toBe('2026-11-11T12:00:00.000Z');
+    expect(out.sheetBackupError).toBe('x');
+    expect(keepDeviceSettings({ ...DEFAULT_SETTINGS, googleScriptUrl: 'https://script.google.com/macros/s/OLD/exec' }, { ...current, googleScriptUrl: '' }).googleScriptUrl).toBe('https://script.google.com/macros/s/OLD/exec');
+  });
+
   it('a backup cannot bring in a phone token', () => {
     const imported = { ...DEFAULT_SETTINGS, phoneToken: 'FROM-FILE' };
     expect(keepDeviceSettings(imported, { ...DEFAULT_SETTINGS }).phoneToken).toBeUndefined();

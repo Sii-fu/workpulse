@@ -110,6 +110,9 @@ export interface AppSettings {
   phoneSyncAt?: string; // ISO
   phoneDeviceId?: string;
   phoneLastError?: string;
+  // Last full copy of the data to the Sheet (ISO) and why the last try failed. Device-only, like the phone fields.
+  sheetBackupAt?: string;
+  sheetBackupError?: string;
   // Evening email from the Apps Script. emailTime is "HH:MM" local time; absent = 18:00.
   emailEnabled?: boolean;
   emailTime?: string;

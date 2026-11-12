@@ -4,9 +4,9 @@ import { CURRENT_SCHEMA_VERSION, isLogArray, isBacklogArray, isProjectArray, isS
 import { isWorkdays, validWorkdayHours } from './workday';
 
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
-// lastBackupAt: that date belongs to this device, not to the data. The same goes for the phone token,
+// lastBackupAt (and the Sheet copy's date and error): that date belongs to this device, not to the data. The same goes for the phone token,
 // last phone sync, device id and last phone error. The email settings are kept.
-export function buildBackup(d: BackupData): string {
+export function backupSettings(all: AppSettings): Omit<AppSettings, DeviceOnlySetting> {
   const {
     geminiApiKey: _omit,
     lastBackupAt: _omitBackup,
@@ -15,8 +15,26 @@ export function buildBackup(d: BackupData): string {
     phoneSyncAt: _omitSyncAt,
     phoneDeviceId: _omitDevice,
     phoneLastError: _omitError,
+    sheetBackupAt: _omitSheetAt,
+    sheetBackupError: _omitSheetError,
     ...settings
-  } = d.settings;
+  } = all;
+  return settings;
+}
+
+type DeviceOnlySetting =
+  | 'geminiApiKey'
+  | 'lastBackupAt'
+  | 'activityFolders'
+  | 'phoneToken'
+  | 'phoneSyncAt'
+  | 'phoneDeviceId'
+  | 'phoneLastError'
+  | 'sheetBackupAt'
+  | 'sheetBackupError';
+
+// The backup file's text. `indent` 0 gives the compact form used for the copy in the Sheet.
+export function buildBackup(d: BackupData, indent = 2): string {
   return JSON.stringify(
     {
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -25,11 +43,11 @@ export function buildBackup(d: BackupData): string {
       backlog: d.backlog,
       projects: d.projects,
       tags: d.tags,
-      settings,
+      settings: backupSettings(d.settings),
       workdays: d.workdays ?? {},
     },
     null,
-    2,
+    indent,
   );
 }
 
@@ -67,6 +85,8 @@ export function parseBackup(text: string): ParseBackupResult {
     phoneSyncAt: undefined,
     phoneDeviceId: undefined,
     phoneLastError: undefined,
+    sheetBackupAt: undefined,
+    sheetBackupError: undefined,
   };
   settings.workdayHours = validWorkdayHours(settings.workdayHours);
   return {

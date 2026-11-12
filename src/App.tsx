@@ -24,7 +24,7 @@ import {
   replaceAllData,
   SaveResult,
 } from './utils/storage';
-import { buildBackup, downloadTextFile } from './utils/backup';
+import { buildBackup, downloadTextFile, parseBackup } from './utils/backup';
 import { loggedSecondsOf, unloggedSeconds, isPendingTask, isDoneUnlogged } from './utils/taskLogging';
 import { advanceClock, MAX_TICK_GAP_SECONDS } from './utils/timer';
 import { startSegment, endSegment, splitSegmentsAtGap } from './utils/segments';
@@ -52,6 +52,7 @@ import { useStableCallback } from './hooks/useStableCallback';
 import { planProjectWithFolder, relinkFolder, unlinkFolder } from './utils/projectFromFolder';
 import { deleteProjectForever, liveProjectsOf, restoreProject, trashProject } from './utils/projects';
 import { usePhoneSync } from './hooks/usePhoneSync';
+import { useSheetBackup } from './hooks/useSheetBackup';
 import { keepDeviceSettings } from './utils/phoneSettings';
 import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
 import { publishTimers } from './utils/timerStore';
@@ -1215,6 +1216,34 @@ export default function App() {
       addToast(`${added.length} ${added.length === 1 ? 'task' : 'tasks'} added from your phone`, 'success');
     },
   });
+  const sheetBackup = useSheetBackup({
+    enabled: dataLoaded,
+    settings,
+    updateSettings,
+    logs,
+    backlog,
+    projects,
+    tags,
+    workdays,
+    isLeaving: () => leavingRef.current,
+  });
+
+  // "Restore from the Sheet": the copy goes through the same path as importing a backup file. The data
+  // here is downloaded first, and its screenshots (not kept in the Sheet) are put back on the same logs.
+  const handleRestoreFromSheet = async (text: string): Promise<string | null> => {
+    const parsed = parseBackup(text);
+    if (!parsed.ok) return `The copy in the Sheet cannot be used: ${parsed.error}`;
+    const images = new Map(logs.filter((l) => l.imageBase64).map((l) => [l.id, l.imageBase64]));
+    const restored = {
+      ...parsed.data,
+      logs: parsed.data.logs.map((l) => (!l.imageBase64 && images.has(l.id) ? { ...l, imageBase64: images.get(l.id) } : l)),
+    };
+    downloadTextFile(`workpulse-before-restore-${localDateStr()}.json`, backupNow());
+    // The page reloads right after the import, which could cut the download short.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    handleImportBackup(restored);
+    return null;
+  };
   const hours = settings.workdayHours ?? DEFAULT_WORKDAY_HOURS;
   const todayRecord = workdays[todayStr];
   // Today's record, else an earlier day still open (working past midnight, or a forgotten clock-out).
@@ -1506,6 +1535,7 @@ export default function App() {
             onStartFresh={handleStartFresh}
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
             phoneStatus={phone.status}
+            sheetBackup={{ status: sheetBackup.status, backupNow: sheetBackup.backupNow, restore: handleRestoreFromSheet }}
             onUpdateSettings={updateSettings}
             onAddProjectWithFolder={h.addProjectWithFolder}
             onSetProjectFolder={h.setProjectFolder}

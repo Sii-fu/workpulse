@@ -1,4 +1,4 @@
-// Version 3 of the WorkPulse Apps Script: phone PIN, desktop token, state tabs and the phone inbox.
+// Version 4 of the WorkPulse Apps Script (3 added the phone page, 4 the full backup in backup.ts): phone PIN, desktop token, state tabs and the phone inbox.
 // Plain ES5-style Apps Script text, appended after the log code in googleAppsScriptTemplate.ts.
 //
 // google.script.run can call every top-level function whose name does not end with "_", from an
@@ -10,7 +10,7 @@ export const SCRIPT_CORE = String.raw`
 // Version 3: phone page, phone inbox and desktop state
 // =========================================================================
 
-var SCRIPT_VERSION = 3;
+var SCRIPT_VERSION = 4;
 var MAX_PIN_TRIES = 5;
 var LOCK_MINUTES = 15;
 var MAX_TITLE = 200;
@@ -24,7 +24,8 @@ var TAB_COLUMNS = {
   WorkPulse_Days: ['Date', 'ClockIn', 'ClockOut'],
   WorkPulse_Recent: ['Id', 'Date', 'Time', 'Project', 'ProjectId', 'Description', 'Status', 'Minutes'],
   WorkPulse_Inbox: ['Id', 'CreatedAt', 'Title', 'ProjectId', 'ProjectName', 'DueDate', 'Status'],
-  WorkPulse_Projects: ['Id', 'Name', 'Color']
+  WorkPulse_Projects: ['Id', 'Name', 'Color'],
+  WorkPulse_Backup: ['Version', 'Chunk', 'Total', 'Data', 'SavedAt', 'Counts']
 };
 
 var MESSAGES = {
@@ -100,6 +101,9 @@ function handleCoreAction_(action, c) {
   if (action === 'ackInbox') return ackInboxAction_(c);
   if (action === 'setEmail') return setEmailAction_(c);
   if (action === 'sendTestEmail') return sendTestEmailAction_(c);
+  if (action === 'saveBackup') return saveBackupAction_(c);
+  if (action === 'backupInfo') return backupInfoAction_(c);
+  if (action === 'loadBackup') return loadBackupAction_(c);
   return null;
 }
 

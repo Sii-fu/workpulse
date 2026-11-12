@@ -8,6 +8,9 @@ import {
   sendTestEmail,
   resetPhoneAccess,
   getScriptVersion,
+  saveBackupToSheet,
+  getBackupInfo,
+  loadBackupFromSheet,
 } from './phoneApi';
 import type { PhoneSnapshot } from './phoneSync';
 
@@ -117,5 +120,71 @@ describe('phoneApi', () => {
     expect(await getScriptVersion(URL_)).toBeNull();
     stubFetch(() => Promise.reject(new Error('down')));
     expect(await getScriptVersion(URL_)).toBeNull();
+  });
+});
+
+describe('phoneApi: sheet backup', () => {
+  const meta = { counts: { logs: 2, tasks: 1, projects: 1 }, exportedAt: '2026-11-12T08:00:00.000Z' };
+
+  it('saveBackupToSheet posts the token and the text in the body, never in the URL', async () => {
+    const f = stubFetch(() => reply({ status: 'ok', version: 2, savedAt: 'x' }));
+    const r = await saveBackupToSheet(URL_, 'tok123', '{"logs":[]}', meta);
+    expect(r.ok).toBe(true);
+    expect(r.data).toMatchObject({ version: 2 });
+    expect(sentBody(f)).toEqual({
+      scriptUrl: URL_,
+      action: 'saveBackup',
+      method: 'POST',
+      payload: { action: 'saveBackup', token: 'tok123', backup: '{"logs":[]}', meta },
+    });
+    expect(String(f.mock.calls[0][0])).not.toContain('tok123');
+    expect(sentBody(f).scriptUrl).not.toContain('tok123');
+  });
+
+  it("saveBackupToSheet passes the script's plain message on (too large, bad token)", async () => {
+    stubFetch(() => reply({ status: 'error', code: 'bad_request', message: 'This backup is larger than 20 MB.' }));
+    expect(await saveBackupToSheet(URL_, 't', 'x', meta)).toEqual({ ok: false, message: 'This backup is larger than 20 MB.', code: 'bad_request' });
+    stubFetch(() => reply({ status: 'error', code: 'bad_token' }));
+    const r = await saveBackupToSheet(URL_, 't', 'x', meta);
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('Reset phone access');
+  });
+
+  it('getBackupInfo returns clean versions and drops odd rows', async () => {
+    const f = stubFetch(() =>
+      reply({ status: 'ok', versions: [{ version: 3, savedAt: 'a', counts: { logs: 5, tasks: 'x' } }, { nope: 1 }, null] }),
+    );
+    const r = await getBackupInfo(URL_, 'tok');
+    expect(r.data?.versions).toEqual([{ version: 3, savedAt: 'a', counts: { logs: 5, tasks: 0, projects: 0 } }]);
+    expect(sentBody(f).payload).toEqual({ action: 'backupInfo', token: 'tok' });
+  });
+
+  it('getBackupInfo from an older script (unknown action) is a plain failure', async () => {
+    stubFetch(() => reply({ status: 'ok', message: 'Unknown action' }));
+    const r = await getBackupInfo(URL_, 'tok');
+    expect(r.ok).toBe(true);
+    expect(r.data?.versions).toEqual([]);
+  });
+
+  it('loadBackupFromSheet sends the version only when asked and checks the answer', async () => {
+    let f = stubFetch(() => reply({ status: 'ok', backup: '{"a":1}', savedAt: 's' }));
+    expect((await loadBackupFromSheet(URL_, 'tok')).data).toEqual({ backup: '{"a":1}', savedAt: 's' });
+    expect(sentBody(f).payload).toEqual({ action: 'loadBackup', token: 'tok' });
+    f = stubFetch(() => reply({ status: 'ok', backup: '{"a":1}', savedAt: 's' }));
+    await loadBackupFromSheet(URL_, 'tok', 4);
+    expect(sentBody(f).payload).toEqual({ action: 'loadBackup', token: 'tok', version: 4 });
+    stubFetch(() => reply({ status: 'ok' }));
+    expect((await loadBackupFromSheet(URL_, 'tok')).ok).toBe(false);
+    stubFetch(() => reply({ status: 'error', code: 'bad_request', message: 'That saved copy in the Sheet is incomplete.' }));
+    expect((await loadBackupFromSheet(URL_, 'tok', 2)).message).toBe('That saved copy in the Sheet is incomplete.');
+  });
+
+  it('a network failure becomes a plain sentence', async () => {
+    stubFetch(() => {
+      throw new Error('Failed to fetch');
+    });
+    const r = await saveBackupToSheet(URL_, 't', 'x', meta);
+    expect(r.ok).toBe(false);
+    expect(r.message).not.toContain('Failed to fetch');
   });
 });

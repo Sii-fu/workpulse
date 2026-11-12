@@ -231,8 +231,9 @@ class ScriptStub:
     sendTestEmail. `inbox` items are served until acked, unless `serve_again` (an ack that was lost: the same items
     come back on the next pull). `calls` holds (action, payload) in order."""
 
-    def __init__(self, s, version=3, inbox=None, serve_again=False):
+    def __init__(self, s, version=3, inbox=None, serve_again=False, versions=None, backup_text=""):
         self.version, self.serve_again = version, serve_again
+        self.versions, self.backup_text = list(versions or []), backup_text
         self.guard = s.sheets
         self.inbox = list(inbox or [])
         self.calls, self.taken = [], set()
@@ -265,6 +266,12 @@ class ScriptStub:
         elif action == "pushState":
             res = {"status": "ok", "pushedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                    "deviceChanged": False}
+        elif action == "saveBackup":
+            res = {"status": "ok", "version": 99, "savedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+        elif action == "backupInfo":
+            res = {"status": "ok", "versions": self.versions}
+        elif action == "loadBackup":
+            res = {"status": "ok", "backup": self.backup_text, "savedAt": "2026-11-10T09:00:00.000Z"}
         elif action == "setEmail":
             res = {"status": "ok", "enabled": p.get("enabled"), "hour": p.get("hour"), "minute": p.get("minute"), "tz": p.get("tz")}
         elif action == "sendTestEmail":
@@ -1587,6 +1594,95 @@ def phone_old_script(s):
     expect(sec).to_contain_text("New version")
     expect(btn(sec, SEL["set_pin"])).to_have_count(0)
     expect(sec.get_by_label(SEL["email_on"])).to_have_count(0)
+    s.no_errors()
+
+
+@check("sheet_backup")
+def sheet_backup(s):
+    """Script version 4: the data is copied to the Sheet by itself after a change (token, no PIN, no keys, no
+    screenshots), the status shows in Settings, and Restore from the Sheet downloads the current data first, then
+    replaces everything through the normal import path."""
+    p = s.page
+    restored = "Smoke restored from the Sheet"
+    logs = None
+    quick_log(s, "Smoke real work")
+    logs = s.ls("workpulse_logs")
+    template = dict(logs[0])
+    restore_log = dict(template, id="log-1700000000000-restore", description=restored)
+    backup = {"schemaVersion": 1, "exportedAt": "2026-11-10T09:00:00.000Z", "logs": [restore_log], "backlog": [],
+              "projects": [{"id": "proj-1700000000000", "name": "Restored project", "color": "#3366ff"}], "tags": [], "settings": {"theme": "timecard", "workdayHours": 6}, "workdays": {}}
+    versions = [{"version": 7, "savedAt": "2026-11-10T09:00:00.000Z", "counts": {"logs": 1, "tasks": 0, "projects": 2}}]
+    stub = ScriptStub(s, version=4, versions=versions, backup_text=json.dumps(backup))
+    _link_phone(s)
+    s.reload()
+    # no copy yet: one is made at load, after the short pause
+    _wait_for(s, lambda: stub.payloads("saveBackup"), tries=450)
+    saves = stub.payloads("saveBackup")
+    assert saves and saves[0]["token"] == PHONE_TOKEN, "no backup was sent to the Sheet at load"
+    assert "pin" not in saves[0], "a PIN was sent with the backup"
+    sent = json.loads(saves[0]["backup"])
+    assert any(l["description"] == "Smoke real work" for l in sent["logs"]), "the backup is missing the real log"
+    assert PHONE_TOKEN not in saves[0]["backup"] and "phoneToken" not in sent["settings"], "the token is inside the backup"
+    assert "geminiApiKey" not in sent["settings"] and "imageBase64" not in saves[0]["backup"], "keys or screenshots in the backup"
+    assert saves[0]["meta"]["counts"]["logs"] >= 1
+    # a change is copied too
+    count = len(saves)
+    quick_log(s, "Smoke second log")
+    _wait_for(s, lambda: len(stub.payloads("saveBackup")) > count, tries=450)
+    assert len(stub.payloads("saveBackup")) > count, "a change was not copied to the Sheet"
+    assert "Smoke second log" in stub.payloads("saveBackup")[-1]["backup"]
+    assert (s.ls("workpulse_settings") or {}).get("sheetBackupAt", "") > "2026", "the copy time was not recorded"
+
+    s.tab("settings")
+    sec = p.locator(SEL["phone_section"])
+    sec.scroll_into_view_if_needed()
+    status = sec.get_by_test_id("sheet-backup-status")
+    expect(status).to_contain_text("Last copy to the Sheet", timeout=5000)
+    expect(sec.get_by_test_id("sheet-backup-versions")).to_contain_text("1 log, 0 tasks, 2 projects", timeout=5000)
+    before = len(stub.payloads("saveBackup"))
+    btn(sec, "Back up to the Sheet now").click()
+    expect(sec).to_contain_text("Copied to the Sheet.", timeout=5000)
+    assert len(stub.payloads("saveBackup")) == before + 1, "the button did not copy"
+
+    # restore: confirm first, nothing changes before it, the current data is downloaded, then everything is replaced
+    btn(sec, "Restore this copy").click()
+    dlg = p.get_by_role("dialog", name=re.compile(r"^Restore the copy from"))
+    expect(dlg).to_be_visible()
+    expect(dlg).to_contain_text("replaces everything on this computer")
+    p.keyboard.press("Escape")
+    expect(dlg).to_have_count(0)
+    assert any(l["description"] == "Smoke real work" for l in s.ls("workpulse_logs")), "data changed before the confirm"
+    btn(sec, "Restore this copy").click()
+    with p.expect_download() as dl:
+        btn(dlg, "Replace everything and restore").click()
+    assert dl.value.suggested_filename.startswith("workpulse-before-restore-"), dl.value.suggested_filename
+    old = json.load(open(dl.value.path(), encoding="utf-8"))
+    assert any(l["description"] == "Smoke second log" for l in old["logs"]), "the current data was not downloaded first"
+    p.wait_for_load_state("networkidle")
+    _wait_for(s, lambda: [l["description"] for l in (s.ls("workpulse_logs") or [])] == [restored], tries=100)
+    assert [l["description"] for l in s.ls("workpulse_logs")] == [restored], "the data was not replaced by the Sheet copy"
+    after = s.ls("workpulse_settings")
+    assert after.get("phoneToken") == PHONE_TOKEN and after.get("googleScriptUrl") == SCRIPT_URL, "this computer's Sheet link was lost"
+    assert after.get("workdayHours") == 6, "the settings were not restored"
+    s.no_errors()
+
+
+@check("sheet_backup_old_script")
+def sheet_backup_old_script(s):
+    """Script version 3 (phone works): no backup is sent and Settings shows only the update steps for it."""
+    p = s.page
+    quick_log(s, "Smoke real work")
+    stub = ScriptStub(s, version=3)
+    _link_phone(s)
+    s.reload()
+    s.tab("settings")
+    sec = p.locator(SEL["phone_section"])
+    sec.scroll_into_view_if_needed()
+    expect(sec).to_contain_text("Backing up all your data to the Sheet needs version 4", timeout=5000)
+    expect(sec).to_contain_text("New version")
+    expect(btn(sec, "Back up to the Sheet now")).to_have_count(0)
+    p.wait_for_timeout(500)
+    assert not stub.payloads("saveBackup"), "a backup was sent to a script that cannot keep it"
     s.no_errors()
 
 

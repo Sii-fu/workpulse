@@ -36,7 +36,27 @@ Notes:
 - Updating WorkPulse's script in future (a new version of the app may bring a new script): paste it again and update
   the same deployment (step 3). The change only takes effect after that new version is deployed.
 - The Sheet gains tabs (`WorkPulse_Tasks`, `WorkPulse_Days`, `WorkPulse_Recent`, `WorkPulse_Inbox`,
-  `WorkPulse_Projects`). `WorkPulse_Logs` is unchanged. Do not edit the new tabs; WorkPulse rewrites them.
+  `WorkPulse_Projects`, and from version 4 `WorkPulse_Backup`). `WorkPulse_Logs` is unchanged. Do not edit the new tabs; WorkPulse rewrites them.
+
+## Backup to the Sheet
+
+From script **version 4**, WorkPulse keeps a full copy of your data in the Sheet, in the `WorkPulse_Backup` tab, so a
+cleared browser or a dead computer does not lose it.
+
+- **What is saved:** logs, tasks, projects, tags, clock-ins and settings (the same content as **Download JSON backup**).
+  **Not saved:** the screenshots attached to old logs (too big for a Sheet), your Gemini key and the phone link.
+- **When:** about 30 seconds after a change, at least every 10 minutes while a timer runs, and once when you open
+  WorkPulse if the last copy is over an hour old. A fresh profile that only holds the demo data is never copied by itself.
+  The last 3 copies are kept. A copy over 20 MB is refused with a message.
+- **Where to look:** **Settings > Phone & evening email > Sheet backup** shows the last copy and its counts, a
+  **Back up to the Sheet now** button, and the saved copies.
+- **Restore:** press **Restore this copy** on a copy, then confirm. WorkPulse first downloads your current data as a
+  file (`workpulse-before-restore-<date>.json`), then replaces everything on this computer with the copy and reloads.
+  Screenshots stay on logs that are still on this computer.
+- **On a new browser:** paste your Sheet link in **Settings > Google Sheet** and save, then **Reset phone access**
+  (it asks for your PIN and a new one) so this browser gets a token, then restore. The PIN is not stored.
+- **Redeploy needed:** with script version 3 the phone page and email still work, but the backup needs version 4.
+  Paste the new script and update the existing deployment (step 3 above, **New version**).
 
 ## Manual checklist for the first real deployment
 
