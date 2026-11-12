@@ -104,7 +104,7 @@ export function buildSnapshot(i: {
     tasks,
     logs,
     workdays,
-    projects: i.projects.filter((p) => !p.isArchived && !isSampleProject(p)).map((p) => ({ id: p.id, name: p.name, color: p.color })),
+    projects: i.projects.filter((p) => !p.isArchived && !p.trashedAt && !isSampleProject(p)).map((p) => ({ id: p.id, name: p.name, color: p.color })),
     workdayHours: i.workdayHours ?? DEFAULT_WORKDAY_HOURS,
     tz: i.tz,
     deviceId: i.deviceId,
@@ -144,7 +144,7 @@ export function mergeInbox(
   items: InboxItem[],
   today: string,
 ): { backlog: BacklogTask[]; added: BacklogTask[]; takenIds: string[] } {
-  const active = projects.filter((p) => !p.isArchived);
+  const active = projects.filter((p) => !p.isArchived && !p.trashedAt);
   const known = new Set(backlog.map((t) => t.id));
   const added: BacklogTask[] = [];
 

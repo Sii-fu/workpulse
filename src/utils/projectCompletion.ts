@@ -62,6 +62,6 @@ export function nextSwatchColor(projects: Project[]): string {
 
 /** The project the selector shows: the one picked this session, else the last one used, else the first active. */
 export function resolveProject(projects: Project[], chosenId: string | undefined, lastId: string | undefined): Project | undefined {
-  const usable = (id: string | undefined) => (id ? projects.find((p) => p.id === id && !p.isArchived) : undefined);
+  const usable = (id: string | undefined) => (id ? projects.find((p) => p.id === id && !p.isArchived && !p.trashedAt) : undefined);
   return usable(chosenId) ?? usable(lastId) ?? defaultProject(projects);
 }

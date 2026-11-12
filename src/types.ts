@@ -62,6 +62,8 @@ export interface Project {
   name: string;
   color: string;
   isArchived: boolean;
+  /** ISO time the project was moved to the Trash (Settings > Projects & tags). Absent: not in the Trash. */
+  trashedAt?: string;
 }
 
 // The three themes. Older stored ids (modern, compact, minimalist, matrix) are mapped by normalizeTheme.

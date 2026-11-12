@@ -12,13 +12,13 @@ import {
 import { parseBackup } from '../utils/backup';
 import { ActivityFoldersSettings } from './activity/ActivityFoldersSettings';
 import { ThemePicker } from './v2/settings/ThemePicker';
-import { ProjectsSection } from './v2/settings/ProjectsSection';
+import { ProjectsSection, type ActionResult } from './v2/settings/ProjectsSection';
 import { PhoneEmailSection } from './v2/settings/PhoneEmailSection';
 import type { PhoneSyncStatus } from '../hooks/usePhoneSync';
 import { IconButton } from './ui/IconButton';
 import { normalizeTheme, type ThemeId } from '../utils/theme';
 import { activityFieldsFromSources, aiField, aiFromSettings, sourcesFromSettings } from '../utils/activity/settings';
-import type { ActivityAi, ActivityFolder, ActivitySources } from '../utils/activity/types';
+import type { ActivityAi, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
 import { logsToCsv } from '../utils/exportLogs';
@@ -48,7 +48,12 @@ interface SettingsViewProps {
   /** Saves only these fields at once, onto the newest settings (the Phone & evening email section). */
   onUpdateSettings: (patch: Partial<AppSettings>) => void;
   /** Creates or reuses the project named after the folder and links the folder, saved at once. */
-  onAddProjectFromFolder: (path: string) => { ok: boolean; message: string };
+  onAddProjectWithFolder: (input: { name?: string; color?: string; path?: string }) => ActionResult;
+  onSetProjectFolder: (projectId: string, oldPath: string | undefined, newPath: string) => ActionResult;
+  onRemoveProjectFolder: (path: string) => void;
+  onTrashProject: (id: string) => void;
+  onRestoreProject: (id: string) => void;
+  onDeleteProjectForever: (id: string) => void;
 }
 
 const SECTIONS = [
@@ -118,7 +123,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onNotify,
   phoneStatus,
   onUpdateSettings,
-  onAddProjectFromFolder,
+  onAddProjectWithFolder,
+  onSetProjectFolder,
+  onRemoveProjectFolder,
+  onTrashProject,
+  onRestoreProject,
+  onDeleteProjectForever,
 }) => {
   const uid = useId();
   const [current, setCurrent] = useState<SectionId>('appearance');
@@ -142,23 +152,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [defaultRecipientName, setDefaultRecipientName] = useState<string>(settings.defaultRecipientName || '');
 
   // Activity suggestions state
-  const [activityFolders, setActivityFolders] = useState<ActivityFolder[]>(settings.activityFolders ?? []);
   const [activitySources, setActivitySources] = useState<ActivitySources>(sourcesFromSettings(settings));
   const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
-
-  // A folder linked from Projects ("Add project from folder") is saved at once; fold it into the draft
-  // so a later Save does not drop it, and keep the other unsaved edits.
-  // Only folders new since the last merge are folded in, so one removed in the unsaved draft stays removed.
-  const mergedFolders = useRef<ActivityFolder[]>(settings.activityFolders ?? []);
-  useEffect(() => {
-    const saved = settings.activityFolders ?? [];
-    const previous = mergedFolders.current;
-    mergedFolders.current = saved;
-    setActivityFolders((draft) => {
-      const added = saved.filter((f) => !previous.some((o) => o.path === f.path) && !draft.some((d) => d.path === f.path));
-      return added.length > 0 ? [...draft, ...added] : draft;
-    });
-  }, [settings.activityFolders]);
 
   // The anchor list marks the section that is at the top of the screen.
   useEffect(() => {
@@ -203,7 +198,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       geminiApiKey: geminiApiKey.trim(),
       defaultTone,
       defaultRecipientName: defaultRecipientName.trim() || undefined,
-      activityFolders: activityFolders.length > 0 ? activityFolders : undefined,
       ...activityFieldsFromSources(activitySources),
       activityAi: aiField(activityAi),
     };
@@ -364,7 +358,15 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               tags={tags}
               onUpdateProjects={onUpdateProjects}
               onUpdateTags={onUpdateTags}
-              onAddProjectFromFolder={onAddProjectFromFolder}
+              folders={settings.activityFolders ?? []}
+              logs={logs}
+              backlog={backlog}
+              onAddProjectWithFolder={onAddProjectWithFolder}
+              onSetProjectFolder={onSetProjectFolder}
+              onRemoveProjectFolder={onRemoveProjectFolder}
+              onTrashProject={onTrashProject}
+              onRestoreProject={onRestoreProject}
+              onDeleteProjectForever={onDeleteProjectForever}
             />
           </Section>
 
@@ -557,16 +559,13 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           <Section
             id="activity"
             title="Activity suggestions"
-            intro="At the end of the day WorkPulse can suggest logs from your work. Only the folders listed here are read."
+            intro="At the end of the day WorkPulse can suggest logs from your work. Only the folders linked to your projects are read."
           >
             <ActivityFoldersSettings
-              folders={activityFolders}
+              folders={settings.activityFolders ?? []}
               sources={activitySources}
               projects={projects}
-              onChange={(folders, sources) => {
-                setActivityFolders(folders);
-                setActivitySources(sources);
-              }}
+              onSourcesChange={setActivitySources}
             />
           </Section>
 

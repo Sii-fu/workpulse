@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Project } from '../types';
 import { SWATCHES } from '../components/v2/ProjectSwatches';
-import { folderProjectName, planProjectFromFolder } from './projectFromFolder';
+import { folderProjectName, planProjectWithFolder } from './projectFromFolder';
 
 const proj = (id: string, name: string, color: string, isArchived = false): Project => ({ id, name, color, isArchived });
+const planProjectFromFolder = (projects: Project[], folders: { path: string; projectId: string }[], path: string, id: string) =>
+  planProjectWithFolder(projects, folders, { path }, id);
 
 describe('folderProjectName', () => {
   it('uses the last path segment', () => {
@@ -44,7 +46,7 @@ describe('planProjectFromFolder', () => {
     const plan = planProjectFromFolder(existing, [], 'C:\\work\\HMIS', 'proj-9');
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
-    expect(plan.unarchived).toBe(true);
+    expect(plan.revived).toBe('archived');
     expect(plan.projects.find((p) => p.id === 'p1')?.isArchived).toBe(false);
   });
 

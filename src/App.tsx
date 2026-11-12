@@ -49,7 +49,8 @@ import { backupStatus } from './utils/backupReminder';
 import { sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
-import { planProjectFromFolder } from './utils/projectFromFolder';
+import { planProjectWithFolder, relinkFolder, unlinkFolder } from './utils/projectFromFolder';
+import { deleteProjectForever, liveProjectsOf, restoreProject, trashProject } from './utils/projects';
 import { usePhoneSync } from './hooks/usePhoneSync';
 import { keepDeviceSettings } from './utils/phoneSettings';
 import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
@@ -101,6 +102,7 @@ export default function App() {
   // shows a project from the old links. (The first run, with nothing kept, does nothing.)
   const activitySetupKey = JSON.stringify([
     (settings.activityFolders ?? []).map((f) => [f.path, f.projectId]),
+    projects.filter((p) => p.trashedAt).map((p) => p.id),
     settings.activityUseGit,
     settings.activityUseClaude,
     settings.activityAi,
@@ -902,13 +904,14 @@ export default function App() {
   const handleAddProject = (name: string, color: string): Project => {
     // A name that matches an archived project brings that one back instead of making a twin.
     const key = name.replace(/\s+/g, '').toLowerCase();
-    const archived = projects.find((p) => p.isArchived && p.name.replace(/\s+/g, '').toLowerCase() === key);
+    const archived = projects.find((p) => (p.isArchived || p.trashedAt) && p.name.replace(/\s+/g, '').toLowerCase() === key);
     if (archived) {
-      const restored: Project = { ...archived, isArchived: false };
+      const { trashedAt: _gone, ...rest } = archived;
+      const restored: Project = { ...rest, isArchived: false };
       const next = projects.map((p) => (p.id === archived.id ? restored : p));
       setProjects(next);
       saveProjects(next);
-      addToast(`Project "${restored.name}" brought back from the archive`);
+      addToast(`Project "${restored.name}" brought back`);
       return restored;
     }
     const newProj: Project = {
@@ -924,25 +927,74 @@ export default function App() {
     return newProj;
   };
 
-  // Settings > Projects > "Add project from folder": creates or reuses the project named after the folder and
-  // links the folder for activity suggestions, all saved at once (not waiting for the Settings Save button).
-  const handleAddProjectFromFolder = (path: string): { ok: boolean; message: string } => {
-    const plan = planProjectFromFolder(projects, settingsRef.current.activityFolders ?? [], path, `proj-${Date.now()}`);
+  // Settings > Projects & tags: the project and its folder links are saved at once (not waiting for the
+  // Settings Save button). `path` is optional.
+  const handleAddProjectWithFolder = (input: { name?: string; color?: string; path?: string }): { ok: boolean; message: string } => {
+    const plan = planProjectWithFolder(projects, settingsRef.current.activityFolders ?? [], input, `proj-${Date.now()}`);
     if (!plan.ok) return { ok: false, message: plan.message };
     if (plan.projects !== projects) {
       setProjects(plan.projects);
       saveProjects(plan.projects);
     }
-    updateSettings({ activityFolders: plan.folders });
+    if (input.path?.trim()) updateSettings({ activityFolders: plan.folders });
     const name = plan.project.name;
+    const where = input.path?.trim() ? ' and linked to that folder' : '';
     return {
       ok: true,
       message: plan.created
-        ? `Project "${name}" added and linked to that folder.`
-        : plan.unarchived
-          ? `Project "${name}" brought back from the archive and linked to that folder.`
+        ? `Project "${name}" added${where}.`
+        : plan.revived
+          ? `Project "${name}" brought back from the ${plan.revived === 'trashed' ? 'Trash' : 'archive'}${where}.`
           : `Folder linked to the existing project "${name}".`,
     };
+  };
+
+  // "Change" (oldPath given) or "Add folder" on a project row.
+  const handleSetProjectFolder = (projectId: string, oldPath: string | undefined, newPath: string): { ok: boolean; message: string } => {
+    const res = relinkFolder(projects, settingsRef.current.activityFolders ?? [], projectId, oldPath, newPath.trim());
+    if (!res.ok) return res;
+    updateSettings({ activityFolders: res.folders.length > 0 ? res.folders : undefined });
+    return { ok: true, message: 'Folder linked.' };
+  };
+
+  const handleRemoveProjectFolder = (path: string) => {
+    const left = unlinkFolder(settingsRef.current.activityFolders ?? [], path);
+    updateSettings({ activityFolders: left.length > 0 ? left : undefined });
+  };
+
+  const handleTrashProject = (id: string) => {
+    const project = projects.find((p) => p.id === id);
+    if (!project) return;
+    const next = trashProject(projects, id, new Date().toISOString());
+    setProjects(next);
+    saveProjects(next);
+    addToast(`"${project.name}" moved to the Trash`, 'success', {
+      label: 'Undo',
+      onClick: () =>
+        setProjects((cur) => {
+          const back = restoreProject(cur, id);
+          saveProjects(back);
+          return back;
+        }),
+    });
+  };
+
+  const handleRestoreProject = (id: string) => {
+    const next = restoreProject(projects, id);
+    setProjects(next);
+    saveProjects(next);
+    addToast(`"${projects.find((p) => p.id === id)?.name ?? 'Project'}" restored`);
+  };
+
+  // Removes the record and its folder links; tasks and logs are left as they are.
+  const handleDeleteProjectForever = (id: string) => {
+    const out = deleteProjectForever(projects, settingsRef.current.activityFolders ?? [], id);
+    setProjects(out.projects);
+    saveProjects(out.projects);
+    if (out.folders.length !== (settingsRef.current.activityFolders ?? []).length) {
+      updateSettings({ activityFolders: out.folders.length > 0 ? out.folders : undefined });
+    }
+    addToast('Project deleted for good. Its tasks and logs are untouched.');
   };
 
   const backupNow = () => buildBackup({ logs, backlog, projects, tags, settings, workdays });
@@ -1173,7 +1225,13 @@ export default function App() {
 
   const pendingSuggestions = useSyncExternalStore(subscribeActivitySession, () => pendingCount(todayStr));
   const checkedActivityToday = useSyncExternalStore(subscribeActivitySession, () => checkedToday(todayStr));
-  const folders = settings.activityFolders && settings.activityFolders.length > 0 ? settings.activityFolders : NO_FOLDERS;
+  // Trashed projects leave every screen and picker; their folders are not read for suggestions either.
+  const liveProjects = useMemo(() => liveProjectsOf(projects), [projects]);
+  const folders = useMemo(() => {
+    const trashed = new Set(projects.filter((p) => p.trashedAt).map((p) => p.id));
+    const list = (settings.activityFolders ?? []).filter((f) => !trashed.has(f.projectId));
+    return list.length > 0 ? list : NO_FOLDERS;
+  }, [settings.activityFolders, projects]);
 
   const next = chooseNextAction({
     clock: clockState(openDay?.rec, hours, Date.now()),
@@ -1236,7 +1294,12 @@ export default function App() {
     moveToToday: useStableCallback(handleMoveToToday),
     addLog: useStableCallback(handleAddLog),
     createProject: useStableCallback(handleAddProject),
-    addProjectFromFolder: useStableCallback(handleAddProjectFromFolder),
+    addProjectWithFolder: useStableCallback(handleAddProjectWithFolder),
+    setProjectFolder: useStableCallback(handleSetProjectFolder),
+    removeProjectFolder: useStableCallback(handleRemoveProjectFolder),
+    trashProject: useStableCallback(handleTrashProject),
+    restoreProject: useStableCallback(handleRestoreProject),
+    deleteProjectForever: useStableCallback(handleDeleteProjectForever),
     projectUsed: useStableCallback((id: string) => {
       if (settingsRef.current.lastProjectId !== id) updateSettings({ lastProjectId: id });
     }),
@@ -1324,7 +1387,7 @@ export default function App() {
           staleOpen={staleOpen}
           hours={hours}
           tasks={backlog}
-          projects={projects}
+          projects={liveProjects}
           onClockIn={() => setIsClockInOpen(true)}
           onClockOut={handleClockOut}
           onResume={handleResume}
@@ -1351,7 +1414,7 @@ export default function App() {
           <TodayScreen
             backlog={backlog}
             logs={logs}
-            projects={projects}
+            projects={liveProjects}
             today={todayStr}
             onAddTask={h.addTask}
             onStage={h.stage}
@@ -1383,7 +1446,7 @@ export default function App() {
         {activeTab === 'tasks' && (
           <TasksScreen
             backlog={backlog}
-            projects={projects}
+            projects={liveProjects}
             today={todayStr}
             onAddTask={h.addTask}
             onStage={h.stage}
@@ -1399,7 +1462,7 @@ export default function App() {
         {activeTab === 'history' && (
           <HistoryScreen
             logs={logs}
-            projects={projects}
+            projects={liveProjects}
             workdays={workdays}
             hours={hours}
             onEditLog={h.editLog}
@@ -1444,7 +1507,12 @@ export default function App() {
             onNotify={(msg, type, action) => addToast(msg, type || 'info', action)}
             phoneStatus={phone.status}
             onUpdateSettings={updateSettings}
-            onAddProjectFromFolder={h.addProjectFromFolder}
+            onAddProjectWithFolder={h.addProjectWithFolder}
+            onSetProjectFolder={h.setProjectFolder}
+            onRemoveProjectFolder={h.removeProjectFolder}
+            onTrashProject={h.trashProject}
+            onRestoreProject={h.restoreProject}
+            onDeleteProjectForever={h.deleteProjectForever}
           />
         )}
       </main>
@@ -1460,7 +1528,7 @@ export default function App() {
         phoneTasks={plan?.phoneTasks ?? []}
         candidates={plan?.candidates ?? []}
         defaultCheckedIds={plan?.defaultCheckedIds ?? []}
-        projects={projects}
+        projects={liveProjects}
         onStart={handleStartDay}
         lastProjectId={settings.lastProjectId}
         onProjectUsed={h.projectUsed}
@@ -1474,7 +1542,7 @@ export default function App() {
         today={todayStr}
         logs={logs}
         backlog={backlog}
-        projects={projects}
+        projects={liveProjects}
         settings={settings}
         workday={openDay?.rec}
         workdayDate={openDay?.date}
@@ -1494,7 +1562,7 @@ export default function App() {
         onClose={() => setIsEodSynthesizerOpen(false)}
         tasksSnapshot={eodTasksSnapshot}
         isCustomSelection={isEodCustomSelection}
-        projects={projects}
+        projects={liveProjects}
         ai={ai}
         geminiApiKey={settings.geminiApiKey}
         hasGoogleSheetLinked={Boolean(settings.googleScriptUrl)}
@@ -1508,7 +1576,7 @@ export default function App() {
         onClose={() => setIsActivityOpen(false)}
         logs={logs}
         backlog={backlog}
-        projects={projects}
+        projects={liveProjects}
         folders={folders}
         sources={activityProps.sources}
         ai={ai}
@@ -1533,7 +1601,7 @@ export default function App() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         logs={logs}
-        projects={projects}
+        projects={liveProjects}
         onSelectLog={(log) => {
           setActiveTab('history');
           setHistoryFocus({ date: log.date, id: log.id });
@@ -1547,7 +1615,7 @@ export default function App() {
       {logForm && (
         <LogFormDialog
           isOpen
-          projects={projects}
+          projects={liveProjects}
           tags={tags}
           editing={logForm.editing}
           prefill={logForm.prefill}

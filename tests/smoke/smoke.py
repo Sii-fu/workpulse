@@ -1451,45 +1451,110 @@ def phone_email_settings(s):
     s.no_errors()
 
 
-@check("add_project_from_folder")
-def add_project_from_folder(s):
-    """Settings > Projects & tags > Add project from folder (the folder dialog is stubbed, never opened): the project
-    and the folder link are saved at once, the same folder again is reported as already linked, a later Save All
-    Settings keeps the link, and a typed path works too."""
+@check("projects_with_folder_and_trash")
+def projects_with_folder_and_trash(s):
+    """Settings > Projects & tags (the folder dialog is stubbed, never opened): a project is created with its folder in
+    one form and saved at once, the same folder again is refused, a row's folder can be changed and its link removed,
+    the colour changes, Move to trash hides it from the pickers, Restore brings it back, and Delete forever (after a
+    confirmation) removes the project and its folder link. A later Save All Settings keeps the links."""
     p = s.page
-    picks = []
+    state = {"path": "C:\\work\\HMIS", "picks": 0}
 
     def pick(route):
-        picks.append(route.request.post_data)
-        route.fulfill(json={"path": "C:\\work\\HMIS"})
+        state["picks"] += 1
+        route.fulfill(json={"path": state["path"]})
 
     p.route("**/api/pick-folder", pick)
     s.tab("settings")
     sec = p.locator("#settings-projects")
     sec.scroll_into_view_if_needed()
-    btn(sec, "Add project from folder", exact=True).click()
-    expect(sec).to_contain_text('Project "HMIS" added and linked to that folder.', timeout=5000)
-    assert len(picks) == 1
-    projects = [x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"]
-    assert len(projects) == 1 and not projects[0].get("isArchived"), "the project was not saved at once"
-    folders = s.ls("workpulse_settings").get("activityFolders")
-    assert folders == [{"path": "C:\\work\\HMIS", "projectId": projects[0]["id"]}], f"folder link not saved: {folders}"
-    expect(sec.get_by_role("textbox", name="Name of HMIS")).to_be_visible()
 
-    btn(sec, "Add project from folder", exact=True).click()
+    def hmis():
+        found = [x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"]
+        assert len(found) == 1, f"expected one HMIS project, found {len(found)}"
+        return found[0]
+
+    def folders():
+        return s.ls("workpulse_settings").get("activityFolders") or []
+
+    btn(sec, "Choose folder", exact=True).click()
+    expect(sec.get_by_label("Project name")).to_have_value("HMIS", timeout=5000)
+    btn(sec, "Add project", exact=True).click()
+    expect(sec).to_contain_text('Project "HMIS" added and linked to that folder.', timeout=5000)
+    assert state["picks"] == 1
+    proj = hmis()
+    assert not proj.get("isArchived") and "trashedAt" not in proj, "the project was not saved at once"
+    assert folders() == [{"path": "C:\\work\\HMIS", "projectId": proj["id"]}], f"folder link not saved: {folders()}"
+    expect(sec.get_by_title("C:\\work\\HMIS")).to_be_visible()
+
+    # the same folder again changes nothing
+    btn(sec, "Choose folder", exact=True).click()
+    expect(sec.get_by_label("Project name")).to_have_value("HMIS", timeout=5000)
+    btn(sec, "Add project", exact=True).click()
     expect(sec).to_contain_text('That folder is already linked to "HMIS".', timeout=5000)
-    assert len([x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"]) == 1, "the project was added twice"
-    assert len(s.ls("workpulse_settings")["activityFolders"]) == 1, "the folder was linked twice"
+    assert len(folders()) == 1 and hmis(), "the folder or the project was added twice"
+    sec.get_by_label("Project name").fill("")
 
     # a later Save keeps the link that was saved from Projects
     btn(p, SEL["settings_save"]).first.click()
-    assert len(s.ls("workpulse_settings").get("activityFolders") or []) == 1, "Save All Settings dropped the folder link"
+    assert len(folders()) == 1, "Save All Settings dropped the folder link"
 
-    # a typed path
-    sec.get_by_label("Or type the folder path").fill("E:\\code\\Billing")
-    btn(sec, "Add", exact=True).click()
-    expect(sec).to_contain_text('Project "Billing" added and linked to that folder.', timeout=5000)
-    assert len(s.ls("workpulse_settings")["activityFolders"]) == 2
+    # Change a row's folder (typed), then Remove link
+    btn(sec, "Change folder C:\\work\\HMIS", exact=True).click()
+    sec.get_by_label("New folder").fill("C:\\work\\HMIS2")
+    btn(sec, "Link folder", exact=True).click()
+    expect(sec.get_by_title("C:\\work\\HMIS2")).to_be_visible(timeout=5000)
+    assert folders() == [{"path": "C:\\work\\HMIS2", "projectId": proj["id"]}], f"folder not changed: {folders()}"
+    btn(sec, "Remove link to C:\\work\\HMIS2", exact=True).click()
+    expect(sec.get_by_title("C:\\work\\HMIS2")).to_have_count(0)
+    assert folders() == [], "the folder link was not removed"
+    # Add folder with the stubbed picker
+    btn(sec, "Add folder to HMIS", exact=True).click()
+    btn(sec, "Choose folder", exact=True).first.click()
+    expect(sec.get_by_label("Folder", exact=True)).to_have_value("C:\\work\\HMIS", timeout=5000)
+    btn(sec, "Link folder", exact=True).click()
+    expect(sec.get_by_title("C:\\work\\HMIS")).to_be_visible(timeout=5000)
+    assert len(folders()) == 1
+
+    # colour
+    btn(sec, "Change colour of HMIS", exact=True).click()
+    sec.get_by_role("group", name="Colour of HMIS").get_by_role("button", name="Red").click()
+    assert hmis()["color"] == "#d6455d", "the colour did not change"
+
+    # Move to trash: gone from the pickers, listed in the Trash, and the Undo toast brings it back
+    btn(sec, "Move HMIS to the Trash", exact=True).click()
+    expect(sec.get_by_role("textbox", name="Name of HMIS")).to_have_count(0)
+    expect(btn(sec, "Restore HMIS", exact=True)).to_be_visible()
+    assert hmis().get("trashedAt"), "trashedAt was not saved"
+    s.tab("today")
+    options = p.get_by_label("Project", exact=True).first.locator("option").all_inner_texts()
+    assert "HMIS" not in options and options, f"a trashed project is still in the quick-add list: {options}"
+    s.tab("settings")
+    sec = p.locator("#settings-projects")
+    sec.scroll_into_view_if_needed()
+    btn(sec, "Restore HMIS", exact=True).click()
+    expect(sec.get_by_role("textbox", name="Name of HMIS")).to_be_visible()
+    assert "trashedAt" not in hmis(), "Restore did not clear trashedAt"
+    assert len(folders()) == 1, "the folder link was lost in the Trash"
+    s.tab("today")
+    assert "HMIS" in p.get_by_label("Project", exact=True).first.locator("option").all_inner_texts(), "restored project is not offered"
+    s.tab("settings")
+    sec = p.locator("#settings-projects")
+    sec.scroll_into_view_if_needed()
+
+    # Trash again, then Delete forever after the confirmation (Cancel keeps it)
+    btn(sec, "Move HMIS to the Trash", exact=True).click()
+    btn(sec, "Delete HMIS forever", exact=True).click()
+    dlg = p.get_by_role("dialog", name=re.compile("Delete .HMIS. for good"))
+    expect(dlg).to_be_visible()
+    p.keyboard.press("Escape")
+    expect(dlg).to_have_count(0)
+    assert hmis(), "Escape on the confirmation deleted the project"
+    btn(sec, "Delete HMIS forever", exact=True).click()
+    btn(p.get_by_role("dialog"), "Delete forever", exact=True).click()
+    expect(p.get_by_role("dialog")).to_have_count(0)
+    assert not [x for x in s.ls("workpulse_projects") if x["name"] == "HMIS"], "the project was not deleted"
+    assert folders() == [], "Delete forever left the folder link"
     s.no_overflow("Settings")
     s.no_errors()
 

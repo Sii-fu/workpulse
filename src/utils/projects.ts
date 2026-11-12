@@ -1,11 +1,59 @@
-import { Project } from '../types';
+import { BacklogTask, Project, WorkLog } from '../types';
+import type { ActivityFolder } from './activity/types';
 
-// Archived projects are hidden from pickers; a log must never default to one (B13).
-export const activeProjectsOf = (projects: Project[]): Project[] => projects.filter((p) => !p.isArchived);
+export const isTrashed = (p: Project): boolean => !!p.trashedAt;
 
-// First non-archived project, or (if every project is archived) the first one.
+// Trashed projects are gone from every list and picker (Settings > Trash lists them); App hands the screens this.
+export const liveProjectsOf = (projects: Project[]): Project[] => projects.filter((p) => !p.trashedAt);
+export const trashedProjectsOf = (projects: Project[]): Project[] => projects.filter((p) => !!p.trashedAt);
+
+// Archived and trashed projects are hidden from pickers; a log must never default to one (B13).
+export const activeProjectsOf = (projects: Project[]): Project[] => projects.filter((p) => !p.isArchived && !p.trashedAt);
+
+// First active project, or (if every project is archived) the first one that is not trashed.
 export const defaultProject = (projects: Project[]): Project | undefined =>
-  projects.find((p) => !p.isArchived) || projects[0];
+  projects.find((p) => !p.isArchived && !p.trashedAt) || projects.find((p) => !p.trashedAt);
+
+/** Moves a project to the Trash. It keeps its tasks, logs and folder links. */
+export const trashProject = (projects: Project[], id: string, nowIso: string): Project[] =>
+  projects.map((p) => (p.id === id && !p.trashedAt ? { ...p, trashedAt: nowIso } : p));
+
+/** Brings a project back from the Trash (an archived one is still archived). */
+export const restoreProject = (projects: Project[], id: string): Project[] =>
+  projects.map((p) => {
+    if (p.id !== id || !p.trashedAt) return p;
+    const { trashedAt: _gone, ...rest } = p;
+    return rest;
+  });
+
+/** Removes the project record and its folder links. Tasks and logs are left as they are. */
+export function deleteProjectForever(
+  projects: Project[],
+  folders: ActivityFolder[],
+  id: string,
+): { projects: Project[]; folders: ActivityFolder[] } {
+  return { projects: projects.filter((p) => p.id !== id), folders: folders.filter((f) => f.projectId !== id) };
+}
+
+/** How many tasks and logs point at this project (for the "Delete forever" warning). */
+export const projectUse = (
+  id: string,
+  backlog: Pick<BacklogTask, 'projectId'>[],
+  logs: Pick<WorkLog, 'projectId'>[],
+): { tasks: number; logs: number } => ({
+  tasks: backlog.filter((t) => t.projectId === id).length,
+  logs: logs.filter((l) => l.projectId === id).length,
+});
+
+/** The folder shortened to its last two segments ("...\work\HMIS"); the full path goes in a tooltip. */
+export function shortFolder(path: string): string {
+  const t = path.trim();
+  const drive = /^([A-Za-z]:)[\\/]*$/.exec(t);
+  if (drive) return `${drive[1]}\\`;
+  const parts = t.split(/[\\/]+/).filter(Boolean);
+  if (parts.length <= 2) return t;
+  return `...\\${parts.slice(-2).join('\\')}`;
+}
 
 const squash = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
