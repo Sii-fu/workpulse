@@ -1,6 +1,6 @@
 ---
 name: WorkPulse
-description: A scoreboard for the office day. One layout, three themes (The Chase, Time Card, Graphite Console), all built around worked / to go / leave time.
+description: A scoreboard for the office day. One layout, three themes (The Chase, Time Card, Graphite Console), all built around now / to go / leave time.
 colors:
   chase-pitch: "#0f3d2e"
   chase-chalk: "#f4f1e8"
@@ -154,7 +154,7 @@ components:
 
 **Creative North Star: "The Scorer's Book"**
 
-The office day is a chase against an 8-hour target. The top band is a scoreboard that is glanced at, not a dashboard that is read: how long worked, how long to go, when to leave. Everything below the band is a plain ruled book of tasks and logs. There is no sidebar of navigation and no grid of stat cards.
+The office day is a chase against an 8-hour target. The top band is a scoreboard that is glanced at, not a dashboard that is read: the time now, how long to go, when to leave. Everything below the band is a plain ruled book of tasks and logs. There is no sidebar of navigation and no grid of stat cards.
 
 One layout serves three themes. A theme changes type, palette, density, radius and one signature move; it never moves components around. The Chase (default) is a pitch-green band with gold and condensed numerals. Time Card is a manila punch-clock card with stamped figures. Graphite Console is a dark panel set split by hairline seams where colour only means state. Whichever theme is active, every figure is tabular, every project carries one ribbon colour on each row, ball and bar, and the band is its own surface with its own ink.
 
@@ -224,9 +224,9 @@ A sticky header band: row 1 is 60px (brand, nav tabs with counts, search, one pr
 Rows use `--row-pad` (14 / 13 / 13px) with a 1px line between, and a 16px inset from the card edge (Time Card runs rows to the rule's ends). Rhythm: 4px steps, 8-12px inside rows, 28px between sections.
 
 ### Band by theme
-- **Chase:** four columns: Worked, To go with leave time, the overs strip, Clock out. The overs strip shows on lg; below that a 6px meter.
-- **Time Card:** ruled cells divided by 1px rules (In, Worked, To go, Out at) then a punched bar with a red leave tick, ending in Clock out.
-- **Console:** a single dense line: "in" chip, worked, a 180px meter, left or over, Clock out.
+- **Chase:** four columns: Now (HH:MM:SS), To go (H:MM:SS) with leave time, the overs strip, Clock out. The overs strip shows on lg; below that a 6px meter.
+- **Time Card:** ruled cells divided by 1px rules (In, Now, To go, Out at) then a punched bar with a red leave tick, ending in Clock out.
+- **Console:** a single dense line: "in" chip, now, a 180px meter, left or over, Clock out.
 
 Pending tasks are grouped by due date on Tasks and Today: today's group first, then one group per earlier day (Yesterday, Mon 9 Nov). On Tasks each earlier day is its own section (heading, then a `v2-panel`); on Today each is a block inside the Today's tasks card with the same heading, inset 16px. Dialogs such as Plan your day stack their sections in one scrolling column with 24px between sections, full-screen on phones and `max-w-xl` from sm up.
 

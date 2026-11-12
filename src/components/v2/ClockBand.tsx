@@ -1,6 +1,6 @@
 import React from 'react';
 import type { BacklogTask, Project, WorkdayRecord } from '../../types';
-import { clockState, formatHm, type ClockState } from '../../utils/workday';
+import { clockState, formatClock, formatHm, formatHms, type ClockState } from '../../utils/workday';
 import { buildOvers } from '../../utils/segments';
 import { localTimeStr, parseLocalDate } from '../../utils/dates';
 import type { ThemeId } from '../../utils/theme';
@@ -25,8 +25,6 @@ interface ClockBandProps {
 }
 
 const hhmm = (ms: number) => localTimeStr(new Date(ms));
-// Worked rounds down and "to go" rounds up, so the two always add up to the workday.
-const toGo = (sec: number) => formatHm(Math.ceil(sec / 60) * 60);
 
 const PAD: Record<ThemeId, string> = {
   chase: 'px-4 md:px-6 lg:px-8 py-4',
@@ -75,11 +73,11 @@ const Meter: React.FC<{ pct: number; className?: string }> = ({ pct, className =
 const RemainingValue: React.FC<{ s: ClockState; tone: string }> = ({ s, tone }) =>
   s.phase === 'over' ? (
     <>
-      <span className={tone}>+{formatHm(s.overSec)}</span>
+      <span className={tone}>+{formatHms(s.overSec)}</span>
       <span className={`${SMALL} ml-1 font-semibold tracking-normal text-[var(--band-ink)]`}>over</span>
     </>
   ) : (
-    <>{toGo(s.leftSec)}</>
+    <>{formatHms(s.leftSec)}</>
   );
 
 export const ClockBand: React.FC<ClockBandProps> = ({
@@ -154,13 +152,13 @@ export const ClockBand: React.FC<ClockBandProps> = ({
       </BandButton>
     );
 
-    // Under md every theme shows worked / to go and a thin meter.
+    // Under md every theme shows now / to go and a thin meter.
     const compact = (
       <div className="md:hidden px-4 py-3">
-        <div className="flex items-end gap-6">
+        <div className="flex items-end gap-2.5">
           <div>
-            <div className={`${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1`}>Worked</div>
-            <div className={`${BIG} ${tone}`}>{formatHm(s.workedSec)}</div>
+            <div className={`${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1`}>Now</div>
+            <div className={`${BIG} ${tone}`}>{formatClock(now)}</div>
           </div>
           <div>
             <div className={`${SMALL} font-semibold uppercase tracking-[0.12em] text-[var(--band-muted)] mb-1`}>
@@ -170,7 +168,7 @@ export const ClockBand: React.FC<ClockBandProps> = ({
               <RemainingValue s={s} tone={tone} />
             </div>
           </div>
-          <div className="ml-auto">{clockOut}</div>
+          <div className="ml-auto [&_button]:!px-2 [&_button]:!tracking-[0.04em]">{clockOut}</div>
         </div>
         <Meter pct={pct} className="mt-3 h-1" />
       </div>
@@ -183,8 +181,8 @@ export const ClockBand: React.FC<ClockBandProps> = ({
       wide = (
         <div className="hidden md:grid grid-cols-[auto_auto_1fr_auto] items-center gap-8 lg:gap-12 px-6 lg:px-8 pt-[18px] pb-[22px]">
           <div>
-            <div className={label}>Worked today</div>
-            <div className={`${BIG} ${tone}`}>{formatHm(s.workedSec)}</div>
+            <div className={label}>Now</div>
+            <div className={`${BIG} ${tone}`}>{formatClock(now)}</div>
           </div>
           <div>
             <div className={label}>
@@ -215,8 +213,8 @@ export const ClockBand: React.FC<ClockBandProps> = ({
             <div className={value}>{hhmm(s.clockInMs ?? now)}</div>
           </div>
           <div className={cell}>
-            <div className={label}>Worked</div>
-            <div className={`${value} ${tone}`}>{formatHm(s.workedSec)}</div>
+            <div className={label}>Now</div>
+            <div className={`${value} ${tone}`}>{formatClock(now)}</div>
           </div>
           <div className={cell}>
             <div className={label}>To go</div>
@@ -245,12 +243,12 @@ export const ClockBand: React.FC<ClockBandProps> = ({
             <span aria-hidden="true" className="size-2 rounded-full bg-[var(--clock)]" />
             in {hhmm(s.clockInMs ?? now)}
           </span>
-          <span>{formatHm(s.workedSec)} worked</span>
+          <span>now {formatClock(now)}</span>
           <Meter pct={pct} className="w-[180px] h-1.5" />
           {s.phase === 'over' ? (
-            <span className="font-semibold">+{formatHm(s.overSec)} over</span>
+            <span className="font-semibold">+{formatHms(s.overSec)} over</span>
           ) : (
-            <span className="text-[var(--band-muted)]">{toGo(s.leftSec)} left</span>
+            <span className="text-[var(--band-muted)]">left {formatHms(s.leftSec)}</span>
           )}
           <div className="ml-auto font-[family-name:var(--font-body)]">{clockOut}</div>
         </div>

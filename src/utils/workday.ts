@@ -100,7 +100,20 @@ export function formatHm(sec: number): string {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+// 8411 -> "2:20:11". Negative counts as 0.
+export function formatHms(sec: number): string {
+  const total = Math.max(0, Math.floor(sec));
+  const s = total % 60;
+  return `${formatHm(total)}:${String(s).padStart(2, '0')}`;
+}
+
+// A moment as local 24-hour "HH:MM:SS".
+export function formatClock(ms: number): string {
+  const d = new Date(ms);
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+const DATE_KEY =/^\d{4}-\d{2}-\d{2}$/;
 
 export function isWorkdays(v: unknown): v is Workdays {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
