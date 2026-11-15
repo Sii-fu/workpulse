@@ -77,6 +77,16 @@ export type ColorMode = 'light' | 'dark';
 
 export type AppNavTab = 'today' | 'tasks' | 'history' | 'settings';
 
+/** One desktop widget: shown or not, and whether it stays on top of other windows (absent = on top). */
+export interface WidgetPrefs {
+  on: boolean;
+  top?: boolean;
+}
+export interface WidgetsSettings {
+  time?: WidgetPrefs;
+  tasks?: WidgetPrefs;
+}
+
 export interface AppSettings {
   theme: ThemeId;
   // No longer used (the theme decides light or dark); kept so stored data round-trips.
@@ -121,6 +131,8 @@ export interface AppSettings {
   // Last full copy of the data to the Sheet (ISO) and why the last try failed. Device-only, like the phone fields.
   sheetBackupAt?: string;
   sheetBackupError?: string;
+  // Desktop widgets (Electron app only). Device-only: never in backups, never replaced by an import. Absent = both off.
+  widgets?: WidgetsSettings;
   // Evening email from the Apps Script. emailTime is "HH:MM" local time; absent = 18:00.
   emailEnabled?: boolean;
   emailTime?: string;

@@ -53,6 +53,7 @@ import { planProjectWithFolder, relinkFolder, unlinkFolder } from './utils/proje
 import { deleteProjectForever, liveProjectsOf, restoreProject, trashProject } from './utils/projects';
 import { usePhoneSync } from './hooks/usePhoneSync';
 import { useSheetBackup } from './hooks/useSheetBackup';
+import { useWidgetBridge } from './hooks/useWidgetBridge';
 import { keepDeviceSettings } from './utils/phoneSettings';
 import { applyPlan, planCandidates, planSummary } from './utils/planYourDay';
 import { publishTimers } from './utils/timerStore';
@@ -1263,6 +1264,22 @@ export default function App() {
     onTasksAdded: (added) => {
       phoneArrivals.current = [...phoneArrivals.current, ...added];
       addToast(`${added.length} ${added.length === 1 ? 'task' : 'tasks'} added from your phone`, 'success');
+    },
+  });
+  // Desktop widgets: their buttons call the same handlers as the task rows.
+  useWidgetBridge({
+    settings,
+    backlog,
+    projects,
+    workdays,
+    loaded: dataLoaded,
+    onCommand: (c) => {
+      if (c.type === 'start' || c.type === 'resume') handleUpdateTaskStage(c.id, 'in_progress');
+      else if (c.type === 'pause') handlePauseTask(c.id);
+      else if (c.type === 'close') {
+        const w = settingsRef.current.widgets;
+        updateSettings({ widgets: { ...w, [c.kind]: { ...w?.[c.kind], on: false } } });
+      }
     },
   });
   const sheetBackup = useSheetBackup({

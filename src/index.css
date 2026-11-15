@@ -586,3 +586,20 @@
 .fade-in {
   animation: fade-in 120ms ease-out;
 }
+
+/* Desktop widget windows: frameless and transparent; drag from the body, buttons stay clickable. */
+html[data-widget],
+html[data-widget] body {
+  background: transparent !important;
+  overflow: hidden;
+  user-select: none;
+}
+html[data-widget] #root {
+  height: 100vh;
+}
+html[data-widget] .wg {
+  -webkit-app-region: drag;
+}
+html[data-widget] .wg-btn {
+  -webkit-app-region: no-drag;
+}

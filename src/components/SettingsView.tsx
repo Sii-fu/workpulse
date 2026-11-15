@@ -1,5 +1,5 @@
 import { DEFAULT_CLOCK_IN_MESSAGE, buildClockInMessage, clockInOpenPlan, parseChatTarget } from '../utils/clockInMessage';
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { createContext, useContext, useId, useRef, useState } from 'react';
 import { localDateStr } from '../utils/dates';
 import {
   Project,
@@ -23,6 +23,8 @@ import { activityFieldsFromSources, aiField, aiFromSettings, autoScanFromSetting
 import type { ActivityAi, ActivitySources } from '../utils/activity/types';
 import { backupStatus, describeBackupAge } from '../utils/backupReminder';
 import { findMisdatedLogs, DateFix } from '../utils/logDates';
+import { UpdatesSection } from './v2/settings/UpdatesSection';
+import { WidgetsSection } from './v2/settings/WidgetsSection';
 import { logsToCsv } from '../utils/exportLogs';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../utils/googleAppsScriptTemplate';
 import { testSheetConnection } from '../utils/sheetsSync';
@@ -64,12 +66,14 @@ interface SettingsViewProps {
 const SECTIONS = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'office', label: 'Office day' },
+  { id: 'widgets', label: 'Widgets' },
   { id: 'projects', label: 'Projects & tags' },
   { id: 'sheet', label: 'Google Sheet' },
   { id: 'phone', label: 'Phone & evening email' },
   { id: 'ai', label: 'AI' },
   { id: 'activity', label: 'Activity suggestions' },
   { id: 'data', label: 'Data & backup' },
+  { id: 'updates', label: 'App updates' },
   { id: 'sample', label: 'Sample data' },
 ] as const;
 
@@ -85,22 +89,33 @@ const DANGER_BTN =
   'inline-flex items-center justify-center min-h-11 px-4 rounded-[var(--radius-btn)] bg-danger-solid hover:bg-danger-solid-hover text-white text-[length:var(--fs-small)] font-semibold cursor-pointer';
 const HINT = 'text-[length:var(--fs-small)] text-[var(--text-muted)]';
 
+// Only the chosen section is shown; the others stay mounted (hidden) so typed values are kept.
+const CurrentSection = createContext<SectionId>('appearance');
+
 const Section: React.FC<{ id: SectionId; title: string; intro?: string; children: React.ReactNode }> = ({
   id,
   title,
   intro,
   children,
-}) => (
-  <section id={`settings-${id}`} aria-labelledby={`settings-${id}-h`} className="scroll-mt-24">
-    <h2 id={`settings-${id}-h`} tabIndex={-1} className="v2-head">
-      <span>{title}</span>
-    </h2>
-    <div className="flex flex-col gap-5">
-      {intro && <p className={HINT}>{intro}</p>}
-      {children}
-    </div>
-  </section>
-);
+}) => {
+  const current = useContext(CurrentSection);
+  return (
+    <section
+      id={`settings-${id}`}
+      aria-labelledby={`settings-${id}-h`}
+      hidden={current !== id}
+      className="scroll-mt-24"
+    >
+      <h2 id={`settings-${id}-h`} tabIndex={-1} className="v2-head">
+        <span>{title}</span>
+      </h2>
+      <div className="flex flex-col gap-5">
+        {intro && <p className={HINT}>{intro}</p>}
+        {children}
+      </div>
+    </section>
+  );
+};
 
 // One action in Data & backup or Sample data: what it does, then the button.
 const Block: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -167,32 +182,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activityAutoScan, setActivityAutoScan] = useState<boolean>(autoScanFromSettings(settings));
   const [activityAi, setActivityAi] = useState<ActivityAi>(aiFromSettings(settings));
 
-  // The anchor list marks the section that is at the top of the screen.
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const seen = new Map<string, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) seen.set(e.target.id, e.isIntersecting ? e.boundingClientRect.top : Infinity);
-        const first = SECTIONS.find((s) => (seen.get(`settings-${s.id}`) ?? Infinity) !== Infinity);
-        if (first) setCurrent(first.id);
-      },
-      { rootMargin: '-10% 0px -70% 0px' },
-    );
-    SECTIONS.forEach((s) => {
-      const el = document.getElementById(`settings-${s.id}`);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, []);
-
   const goTo = (id: SectionId) => {
-    const el = document.getElementById(`settings-${id}`);
-    if (!el) return;
-    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
-    document.getElementById(`settings-${id}-h`)?.focus({ preventScroll: true });
     setCurrent(id);
+    window.scrollTo({ top: 0 });
   };
 
   // Opens WhatsApp exactly as a clock-in would, with the values typed here (saved or not). Nothing is sent until you press Send there.
@@ -322,11 +314,11 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
   return (
     <div className="mx-auto max-w-[1040px] px-4 sm:px-8 py-6 sm:py-7">
       <h1 className="sr-only">Settings</h1>
-      <div className="grid gap-10 lg:grid-cols-[12rem_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="hidden lg:block">
-          <ul className="sticky top-24 flex flex-col gap-0.5">
+      <div className="grid gap-6 lg:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)]">
+        <nav aria-label="Settings sections" className="min-w-0">
+          <ul className="flex gap-1 overflow-x-auto pb-1 lg:sticky lg:top-24 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:pb-0">
             {SECTIONS.map((s) => (
-              <li key={s.id}>
+              <li key={s.id} className="shrink-0">
                 <a
                   href={`#settings-${s.id}`}
                   aria-current={current === s.id ? 'location' : undefined}
@@ -334,7 +326,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                     e.preventDefault();
                     goTo(s.id);
                   }}
-                  className={`block min-h-9 rounded-[var(--radius-btn)] px-3 py-2 text-[length:var(--fs-small)] font-semibold ${
+                  className={`block min-h-9 whitespace-nowrap rounded-[var(--radius-btn)] px-3 py-2 text-[length:var(--fs-small)] font-semibold ${
                     current === s.id
                       ? 'bg-[var(--bg-subtle)] text-[var(--text-main)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-main)]'
@@ -347,6 +339,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           </ul>
         </nav>
 
+        <CurrentSection.Provider value={current}>
         <div className="flex min-w-0 max-w-[44rem] flex-col gap-10">
           <Section id="appearance" title="Appearance" intro="Pick how WorkPulse looks. It changes as soon as you choose.">
             <ThemePicker value={normalizeTheme(settings.theme)} onChange={onThemeChange} />
@@ -433,6 +426,14 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 </div>
               )}
             </div>
+          </Section>
+
+          <Section
+            id="widgets"
+            title="Widgets"
+            intro="Small frameless windows that stay on your screen while you work. They follow your theme."
+          >
+            <WidgetsSection settings={settings} onUpdateSettings={onUpdateSettings} />
           </Section>
 
           <Section id="projects" title="Projects & tags">
@@ -720,6 +721,10 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             )}
           </Section>
 
+          <Section id="updates" title="App updates" intro="Check for a newer version of the WorkPulse desktop app and install it. Your data stays as it is.">
+            <UpdatesSection />
+          </Section>
+
           <Section
             id="sample"
             title="Sample data"
@@ -753,6 +758,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
             </div>
           </div>
         </div>
+        </CurrentSection.Provider>
       </div>
     </div>
   );

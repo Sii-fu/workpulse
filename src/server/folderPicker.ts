@@ -7,7 +7,72 @@ import { spawn } from 'child_process';
 export const PICK_TIMEOUT_MS = 5 * 60_000;
 export const PICK_UNAVAILABLE = 'Type the folder path instead.';
 
+// The modern Explorer-style folder dialog (address bar, search, Quick access; you can paste a path), reached through
+// the Windows common item dialog (FOS_PICKFOLDERS). Kept as plain C# 5 so Windows PowerShell 5.1 can compile it.
+export const FOLDER_DIALOG_CS = `
+using System;
+using System.Runtime.InteropServices;
+public static class WpFolderPicker {
+  [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")] class FileOpenDialogCom {}
+  [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IShellItem {
+    void BindToHandler(IntPtr pbc, ref Guid bhid, ref Guid riid, out IntPtr ppv);
+    void GetParent(out IShellItem ppsi);
+    void GetDisplayName(uint sigdnName, [MarshalAs(UnmanagedType.LPWStr)] out string name);
+    void GetAttributes(uint mask, out uint attrs);
+    void Compare(IShellItem psi, uint hint, out int order);
+  }
+  [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IFileDialog {
+    [PreserveSig] int Show(IntPtr parent);
+    void SetFileTypes(uint c, IntPtr t);
+    void SetFileTypeIndex(uint i);
+    void GetFileTypeIndex(out uint i);
+    void Advise(IntPtr p, out uint cookie);
+    void Unadvise(uint cookie);
+    void SetOptions(uint o);
+    void GetOptions(out uint o);
+    void SetDefaultFolder(IShellItem s);
+    void SetFolder(IShellItem s);
+    void GetFolder(out IShellItem s);
+    void GetCurrentSelection(out IShellItem s);
+    void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string n);
+    void GetFileName([MarshalAs(UnmanagedType.LPWStr)] out string n);
+    void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void GetResult(out IShellItem s);
+    void AddPlace(IShellItem s, int f);
+    void SetDefaultExtension([MarshalAs(UnmanagedType.LPWStr)] string e);
+    void Close(int hr);
+    void SetClientGuid(ref Guid g);
+    void ClearClientData();
+    void SetFilter(IntPtr f);
+  }
+  public static IntPtr Prepare(out object dialog) {
+    IFileDialog d = (IFileDialog)new FileOpenDialogCom();
+    uint o; d.GetOptions(out o);
+    d.SetOptions(o | 0x20u | 0x40u | 0x800u);
+    d.SetTitle("Choose the project folder");
+    d.SetOkButtonLabel("Select folder");
+    dialog = d;
+    return IntPtr.Zero;
+  }
+  public static string Pick(IntPtr owner) {
+    object o; Prepare(out o);
+    IFileDialog d = (IFileDialog)o;
+    int hr = d.Show(owner);
+    if (hr == unchecked((int)0x800704C7)) return null;
+    if (hr != 0) Marshal.ThrowExceptionForHR(hr);
+    IShellItem item; d.GetResult(out item);
+    string path; item.GetDisplayName(0x80058000u, out path);
+    return path;
+  }
+}
+`;
+
 // The dialog gets a hidden, top-most owner window, so it opens in front of the browser instead of behind it.
+// If the modern dialog cannot be created, the old tree dialog is used instead.
 export const PICK_FOLDER_SCRIPT = [
   "$ErrorActionPreference = 'Stop'",
   'Add-Type -AssemblyName System.Windows.Forms',
@@ -20,10 +85,23 @@ export const PICK_FOLDER_SCRIPT = [
   '$owner.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen',
   '$owner.Show()',
   '$owner.Activate()',
-  '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
-  "$dialog.Description = 'Choose the project folder'",
-  '$dialog.ShowNewFolderButton = $true',
-  'if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.SelectedPath) }',
+  '$picked = $null',
+  '$modern = $false',
+  'try {',
+  "  Add-Type -TypeDefinition @'",
+  FOLDER_DIALOG_CS.trim(),
+  "'@",
+  '  $modern = $true',
+  '} catch { }',
+  'if ($modern) {',
+  '  $picked = [WpFolderPicker]::Pick($owner.Handle)',
+  '} else {',
+  '  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+  "  $dialog.Description = 'Choose the project folder'",
+  '  $dialog.ShowNewFolderButton = $true',
+  '  if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $picked = $dialog.SelectedPath }',
+  '}',
+  'if ($picked) { [Console]::Out.Write($picked) }',
   '$owner.Close()',
 ].join('\n');
 

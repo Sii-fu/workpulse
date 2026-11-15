@@ -97,6 +97,7 @@ describe('pickFolderArgs', () => {
     const encoded = args[args.indexOf('-EncodedCommand') + 1];
     expect(Buffer.from(encoded, 'base64').toString('utf16le')).toBe(PICK_FOLDER_SCRIPT);
     expect(PICK_FOLDER_SCRIPT).toContain('TopMost');
+    expect(PICK_FOLDER_SCRIPT).toContain('WpFolderPicker]::Pick($owner.Handle)');
     expect(PICK_FOLDER_SCRIPT).toContain('ShowDialog($owner)');
   });
 });

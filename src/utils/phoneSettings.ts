@@ -69,5 +69,6 @@ export function keepDeviceSettings(imported: AppSettings, current: AppSettings):
     activityFolders: current.activityFolders && current.activityFolders.length > 0 ? current.activityFolders : imported.activityFolders,
     sheetBackupAt: current.sheetBackupAt,
     sheetBackupError: current.sheetBackupError,
+    widgets: current.widgets,
   };
 }

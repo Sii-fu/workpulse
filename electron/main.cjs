@@ -1,6 +1,6 @@
 // WorkPulse desktop shell: starts the bundled server on a fixed local port and shows the app in a window.
 // The port is fixed on purpose: saved data (localStorage) belongs to the address, so it must not change.
-const { app, BrowserWindow, Menu, Tray, dialog, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, shell, nativeImage, ipcMain, screen } = require('electron');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
@@ -8,6 +8,7 @@ const os = require('os');
 
 const PORT = 38417;
 const ORIGIN = `http://localhost:${PORT}`;
+const PRELOAD = path.join(__dirname, 'preload.cjs');
 
 process.env.PORT = String(PORT);
 process.env.HOST = '127.0.0.1';
@@ -79,48 +80,66 @@ function serveUpdates() {
   server.listen(UPDATE_PORT, '127.0.0.1');
 }
 
-let manualCheck = false;
+// What Settings -> App updates shows. status: idle | checking | current | downloading | ready | error | unavailable.
+let updateState = { status: app.isPackaged ? 'idle' : 'unavailable', version: app.getVersion(), message: '' };
+let updater = null;
+
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  if (win && !win.isDestroyed()) win.webContents.send('wp:update', updateState);
+}
+
+function installUpdate() {
+  quitting = true;
+  updater.quitAndInstall();
+}
 
 function setupUpdates() {
   if (!app.isPackaged) return;
   const { autoUpdater } = require('electron-updater');
+  updater = autoUpdater;
   serveUpdates();
   autoUpdater.autoDownload = true;
   autoUpdater.disableDifferentialDownload = true;
+  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', message: '' }));
+  autoUpdater.on('update-available', (info) => setUpdateState({ status: 'downloading', newVersion: info.version, percent: 0 }));
+  autoUpdater.on('download-progress', (p) => setUpdateState({ status: 'downloading', percent: Math.round(p.percent || 0) }));
   autoUpdater.on('update-downloaded', (info) => {
-    manualCheck = false;
+    setUpdateState({ status: 'ready', newVersion: info.version });
     dialog
       .showMessageBox(win && win.isVisible() ? win : undefined, {
         type: 'info',
         title: 'WorkPulse update',
         message: `WorkPulse ${info.version} is ready.`,
-        detail: 'Restart now to update? Your data stays as it is.',
+        detail: 'Restart now to update? Your data stays as it is. You can also do it later from Settings.',
         buttons: ['Restart now', 'Later'],
         defaultId: 0,
         cancelId: 1,
       })
       .then((r) => {
-        if (r.response === 0) {
-          quitting = true;
-          autoUpdater.quitAndInstall();
-        }
+        if (r.response === 0) installUpdate();
       });
   });
-  autoUpdater.on('update-not-available', () => {
-    if (manualCheck) dialog.showMessageBox({ type: 'info', title: 'WorkPulse', message: 'WorkPulse is up to date.' });
-    manualCheck = false;
-  });
-  autoUpdater.on('error', () => {
-    manualCheck = false;
-  });
+  autoUpdater.on('update-not-available', () => setUpdateState({ status: 'current', checkedAt: Date.now() }));
+  autoUpdater.on('error', () =>
+    setUpdateState({ status: 'error', message: 'Could not check for updates. Close and reopen WorkPulse, then try again.' }),
+  );
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
   check();
   setInterval(check, 30 * 60 * 1000);
   checkNow = () => {
-    manualCheck = true;
+    if (updateState.status === 'checking' || updateState.status === 'downloading') return;
     check();
   };
 }
+
+ipcMain.handle('wp:update-state', (event) => (fromOurPage(event) ? updateState : null));
+ipcMain.on('wp:update-check', (event) => {
+  if (fromOurPage(event)) checkNow();
+});
+ipcMain.on('wp:update-install', (event) => {
+  if (fromOurPage(event) && updater && updateState.status === 'ready') installUpdate();
+});
 
 let checkNow = () => {};
 
@@ -132,7 +151,7 @@ function createWindow() {
     minHeight: 600,
     title: 'WorkPulse',
     autoHideMenuBar: true,
-    webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true },
+    webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
   });
   Menu.setApplicationMenu(null);
   win.loadURL(ORIGIN);
@@ -178,7 +197,13 @@ function createTray() {
           app.setLoginItemSettings({ openAtLogin: item.checked });
         },
       },
-      { label: 'Check for updates', click: () => checkNow() },
+      {
+        label: 'Check for updates',
+        click: () => {
+          showWindow();
+          checkNow();
+        },
+      },
       { type: 'separator' },
       {
         label: 'Quit',
@@ -191,6 +216,126 @@ function createTray() {
   tray.setContextMenu(build());
   tray.on('click', showWindow);
 }
+
+// ---- Desktop widgets ----
+// Two small frameless windows (time, tasks) that show the same page in widget mode (`?widget=`). The main window
+// owns the data: it sends snapshots here, we pass them on, and button presses go back the same way.
+const WIDGET_SIZE = { time: { width: 232, height: 112 }, tasks: { width: 300, height: 340 } };
+const widgetWins = { time: null, tasks: null };
+let widgetConfig = { time: { on: false, top: true }, tasks: { on: false, top: true } };
+let lastSnapshot = null;
+const POS_FILE = () => path.join(app.getPath('userData'), 'widget-positions.json');
+
+function readPositions() {
+  try {
+    return JSON.parse(fs.readFileSync(POS_FILE(), 'utf8')) || {};
+  } catch {
+    return {};
+  }
+}
+
+function savePosition(kind, win) {
+  const [x, y] = win.getPosition();
+  const all = readPositions();
+  all[kind] = { x, y };
+  try {
+    fs.writeFileSync(POS_FILE(), JSON.stringify(all));
+  } catch {
+    // position is a nicety
+  }
+}
+
+// Remembered spot if it is still on a screen; else the top-right corner, time above tasks.
+function widgetPosition(kind) {
+  const size = WIDGET_SIZE[kind];
+  const saved = readPositions()[kind];
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+    const area = screen.getDisplayMatching({ x: saved.x, y: saved.y, width: size.width, height: size.height }).workArea;
+    const inside = saved.x + 40 > area.x && saved.x < area.x + area.width - 40 && saved.y + 40 > area.y && saved.y < area.y + area.height - 40;
+    if (inside) return saved;
+  }
+  const area = screen.getPrimaryDisplay().workArea;
+  const x = area.x + area.width - size.width - 16;
+  return { x, y: kind === 'time' ? area.y + 16 : area.y + 16 + WIDGET_SIZE.time.height + 12 };
+}
+
+function openWidget(kind, top) {
+  const size = WIDGET_SIZE[kind];
+  const pos = widgetPosition(kind);
+  const w = new BrowserWindow({
+    ...size,
+    x: pos.x,
+    y: pos.y,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: top,
+    focusable: true,
+    title: 'WorkPulse widget',
+    webPreferences: { backgroundThrottling: false, contextIsolation: true, sandbox: true, preload: PRELOAD },
+  });
+  if (top) w.setAlwaysOnTop(true, 'floating');
+  w.loadURL(`${ORIGIN}/?widget=${kind}`);
+  w.webContents.on('did-finish-load', () => {
+    if (lastSnapshot) w.webContents.send('wp:state', lastSnapshot);
+  });
+  w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  w.webContents.on('will-navigate', (e) => e.preventDefault());
+  w.on('moved', () => savePosition(kind, w));
+  w.on('closed', () => {
+    if (widgetWins[kind] === w) widgetWins[kind] = null;
+  });
+  widgetWins[kind] = w;
+}
+
+function applyWidgets(config) {
+  widgetConfig = config;
+  for (const kind of ['time', 'tasks']) {
+    const want = config[kind];
+    const w = widgetWins[kind];
+    if (!want.on) {
+      if (w) w.close();
+    } else if (!w) {
+      openWidget(kind, want.top);
+    } else {
+      w.setAlwaysOnTop(want.top, want.top ? 'floating' : 'normal');
+    }
+  }
+}
+
+const fromOurPage = (event) => {
+  try {
+    return event.senderFrame && event.senderFrame.url.startsWith(ORIGIN);
+  } catch {
+    return false;
+  }
+};
+
+const cleanConfig = (c) => {
+  const one = (x) => ({ on: !!(x && x.on === true), top: !(x && x.top === false) });
+  return { time: one(c && c.time), tasks: one(c && c.tasks) };
+};
+
+ipcMain.on('wp:widget-config', (event, config) => {
+  if (fromOurPage(event)) applyWidgets(cleanConfig(config));
+});
+
+ipcMain.on('wp:state', (event, snapshot) => {
+  if (!fromOurPage(event) || typeof snapshot !== 'object' || snapshot === null) return;
+  lastSnapshot = snapshot;
+  for (const w of Object.values(widgetWins)) if (w && !w.isDestroyed()) w.webContents.send('wp:state', snapshot);
+});
+
+ipcMain.on('wp:command', (event, cmd) => {
+  if (!fromOurPage(event) || typeof cmd !== 'object' || cmd === null) return;
+  if (cmd.type === 'open') return showWindow();
+  if (win && !win.isDestroyed()) win.webContents.send('wp:command', cmd);
+});
 
 app.on('before-quit', () => {
   quitting = true;

@@ -111,12 +111,13 @@ describe('phone settings in backups', () => {
     phoneLastError: 'It broke',
     sheetBackupAt: '2026-11-11T12:00:00.000Z',
     sheetBackupError: 'SHEET-ERR',
+    widgets: { time: { on: true } },
     emailEnabled: true,
     emailTime: '18:30',
   });
   it('buildBackup omits the four device-only keys but keeps the email settings', () => {
     const text = buildBackup({ ...data(), settings: phoneSettings() });
-    for (const k of ['phoneToken', 'phoneSyncAt', 'phoneDeviceId', 'phoneLastError', 'sheetBackupAt', 'sheetBackupError', 'TOKEN-SECRET']) {
+    for (const k of ['phoneToken', 'phoneSyncAt', 'phoneDeviceId', 'phoneLastError', 'sheetBackupAt', 'sheetBackupError', 'widgets', 'TOKEN-SECRET']) {
       expect(text).not.toContain(k);
     }
     const s = JSON.parse(text).settings;
@@ -134,6 +135,7 @@ describe('phone settings in backups', () => {
       expect(s.phoneLastError).toBeUndefined();
       expect(s.sheetBackupAt).toBeUndefined();
       expect(s.sheetBackupError).toBeUndefined();
+      expect(s.widgets).toBeUndefined();
       expect(s.emailEnabled).toBe(true);
       expect(s.emailTime).toBe('18:30');
     }

@@ -17,6 +17,7 @@ export function backupSettings(all: AppSettings): Omit<AppSettings, DeviceOnlySe
     phoneLastError: _omitError,
     sheetBackupAt: _omitSheetAt,
     sheetBackupError: _omitSheetError,
+    widgets: _omitWidgets,
     ...settings
   } = all;
   return settings;
@@ -30,7 +31,8 @@ type DeviceOnlySetting =
   | 'phoneDeviceId'
   | 'phoneLastError'
   | 'sheetBackupAt'
-  | 'sheetBackupError';
+  | 'sheetBackupError'
+  | 'widgets';
 
 // The backup file's text. `indent` 0 gives the compact form used for the copy in the Sheet.
 export function buildBackup(d: BackupData, indent = 2): string {
@@ -97,6 +99,7 @@ export function parseBackup(text: string): ParseBackupResult {
     phoneLastError: undefined,
     sheetBackupAt: undefined,
     sheetBackupError: undefined,
+    widgets: undefined,
   };
   settings.workdayHours = validWorkdayHours(settings.workdayHours);
   return {
