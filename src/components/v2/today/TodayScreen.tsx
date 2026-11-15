@@ -24,6 +24,7 @@ export interface TodayScreenProps {
   /** Reopens a done task into planned ("Back to planned"). */
   onReopen(id: string): void;
   onDeleteTask(id: string): void;
+  onEditTask?(task: BacklogTask): void;
   /** Sets the due date of the given pending tasks to today. */
   onMoveToToday(ids: string[]): void;
   /** Opens Plan your day. */
@@ -61,6 +62,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
   onLogTask,
   onReopen,
   onDeleteTask,
+  onEditTask,
   onMoveToToday,
   onPlanDay,
   onOpenTasks,
@@ -94,6 +96,7 @@ const TodayScreenView: React.FC<TodayScreenProps> = ({
         onLogTask={onLogTask}
         onReopen={onReopen}
         onDeleteTask={onDeleteTask}
+        onEditTask={onEditTask}
         onMoveToToday={onMoveToToday}
         onPlanDay={onPlanDay}
         onOpenTasks={onOpenTasks}

@@ -92,7 +92,7 @@ export function ackInbox(url: string, token: string, ids: string[]): Promise<Pho
 export function setEmailSchedule(
   url: string,
   token: string,
-  cfg: { enabled: boolean; hour: number; minute: number; tz: string },
+  cfg: { enabled: boolean; hour: number; minute: number; tz: string; to?: string },
 ): Promise<PhoneApiResult> {
   return call(url, 'setEmail', { token, ...cfg }, cfg.enabled ? 'Evening email is on.' : 'Evening email is off.');
 }

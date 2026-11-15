@@ -31,6 +31,7 @@ const STATUS_LABEL: Record<WorkLog['status'], string> = { completed: 'Done', in_
 /** One log: time · ribbon · text · duration, and a ⋯ menu (Edit, Duplicate, Copy, Delete). */
 export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicate, onDelete, showDate, selected, onToggleSelect, extraMenuItems = [], onOpenImage }) => {
   const [copied, setCopied] = useState<'' | 'ok' | 'failed'>('');
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!copied) return;
@@ -87,9 +88,14 @@ export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicat
               <span className={log.status === 'blocked' ? 'text-danger font-semibold' : 'font-semibold'}>{STATUS_LABEL[log.status]}</span>
             )}
             {log.underlyingTasks && log.underlyingTasks.length > 0 && (
-              <span>
-                {log.underlyingTasks.length} {log.underlyingTasks.length === 1 ? 'sub-task' : 'sub-tasks'}
-              </span>
+              <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                aria-expanded={open}
+                className="underline underline-offset-2 decoration-dotted hover:text-[var(--text-main)] cursor-pointer"
+              >
+                {open ? '▾' : '▸'} {log.underlyingTasks.length} {log.underlyingTasks.length === 1 ? 'sub-task' : 'sub-tasks'}
+              </button>
             )}
             <SampleBadge show={isSampleLog(log)} />
             {copied && (
@@ -98,6 +104,15 @@ export const LogRow: React.FC<LogRowProps> = ({ log, project, onEdit, onDuplicat
               </span>
             )}
           </p>
+          {open && log.underlyingTasks && (
+            <ul className="mt-1.5 list-disc pl-5 space-y-0.5 text-[length:var(--fs-small)] text-[var(--text-main)]">
+              {log.underlyingTasks.map((t, i) => (
+                <li key={i} className="break-words">
+                  {typeof t === 'string' ? t : (t as { text?: string; title?: string }).text ?? (t as { title?: string }).title ?? ''}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <span className="num shrink-0 text-[length:var(--fs-body)] font-semibold text-[var(--text-main)]">
           {minutes > 0 ? (

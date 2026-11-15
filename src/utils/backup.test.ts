@@ -140,12 +140,14 @@ describe('phone settings in backups', () => {
   });
 });
 
-describe('activity folders stay on the device', () => {
-  it('buildBackup never writes activityFolders and parseBackup never imports them', () => {
-    const withFolders = { ...data(), settings: { ...data().settings, activityFolders: [{ path: 'E:/secret/proj', projectId: 'p' }] } };
-    expect(buildBackup(withFolders)).not.toContain('activityFolders');
-    expect(buildBackup(withFolders)).not.toContain('secret');
-    const forged = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { activityFolders: [{ path: 'E:/x', projectId: 'p' }] } }));
-    expect(forged.ok && forged.data.settings.activityFolders).toBeUndefined();
+describe('project folder links in backups', () => {
+  const pid = data().projects[0].id;
+  it('are written, and imported only when they point at a project in the same backup', () => {
+    const withFolders = { ...data(), settings: { ...data().settings, activityFolders: [{ path: 'E:/work/proj', projectId: pid }, { path: 'E:/x', projectId: 'nope' }] } };
+    expect(buildBackup(withFolders)).toContain('E:/work/proj');
+    const back = parseBackup(buildBackup(withFolders));
+    expect(back.ok && back.data.settings.activityFolders).toEqual([{ path: 'E:/work/proj', projectId: pid }]);
+    const junk = parseBackup(JSON.stringify({ ...JSON.parse(buildBackup(data())), settings: { activityFolders: 'x' } }));
+    expect(junk.ok && junk.data.settings.activityFolders).toBeUndefined();
   });
 });

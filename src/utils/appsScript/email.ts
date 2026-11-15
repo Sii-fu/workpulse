@@ -24,6 +24,10 @@ function setEmailAction_(c) {
   var hour = c.hour;
   var minute = c.minute;
   var tz = str_(c.tz).slice(0, 100);
+  // Who gets the email: empty = the Google account that owns the script. Absent = keep the saved one.
+  var hasTo = typeof c.to === 'string';
+  var to = hasTo ? recipients_(c.to) : null;
+  if (hasTo && to === null) return badRequest_('Enter an email address, or several separated by commas (at most 5).');
   if (c.enabled) {
     if (typeof hour !== 'number' || hour % 1 !== 0 || hour < 0 || hour > 23 ||
         typeof minute !== 'number' || minute % 1 !== 0 || minute < 0 || minute > 59) {
@@ -46,13 +50,14 @@ function setEmailAction_(c) {
       } catch (err) {}
       if (c.enabled) {
         ScriptApp.newTrigger(EMAIL_FN).timeBased().atHour(hour).nearMinute(minute).everyDays(1).inTimezone(tz).create();
-        saved = { enabled: true, hour: hour, minute: minute, tz: tz };
+        saved = { enabled: true, hour: hour, minute: minute, tz: tz, to: saved.to };
       } else {
         saved.enabled = false;
       }
+      if (hasTo) saved.to = to;
       removeTriggers_(old);
       props.setProperty('email', JSON.stringify(saved));
-      return { status: 'ok', enabled: !!saved.enabled, hour: saved.hour, minute: saved.minute, tz: saved.tz };
+      return { status: 'ok', enabled: !!saved.enabled, hour: saved.hour, minute: saved.minute, tz: saved.tz, to: saved.to || '' };
     });
   } catch (error) {
     console.error(error);
@@ -90,6 +95,28 @@ function validZone_(tz) {
   } catch (err) {
     return false;
   }
+}
+
+// Run this once by hand in the Apps Script editor (Run). It touches each permission the script needs, so Google asks for
+// every one that is missing, and it logs which ones work. It reads nothing, sends nothing and takes no input.
+function authorizeWorkPulse() {
+  var steps = [
+    ['your Sheet', function () { SpreadsheetApp.getActiveSpreadsheet().getName(); }],
+    ['sending email', function () { MailApp.getRemainingDailyQuota(); }],
+    ['the daily timer', function () { ScriptApp.getProjectTriggers(); }],
+    ['your email address', function () { Session.getEffectiveUser().getEmail(); }]
+  ];
+  var failed = 0;
+  for (var i = 0; i < steps.length; i++) {
+    try {
+      steps[i][1]();
+      Logger.log('OK      ' + steps[i][0]);
+    } catch (err) {
+      failed++;
+      Logger.log('MISSING ' + steps[i][0] + ': ' + err);
+    }
+  }
+  Logger.log(failed === 0 ? 'All permissions are in place. Now deploy a New version.' : failed + ' permission(s) missing. See the lines above.');
 }
 
 // ---- The daily send ----
@@ -131,8 +158,44 @@ function nearSavedTime_(now, settings, meta) {
   return Math.abs(nowMin - savedMin) <= 45;
 }
 
+// "a@x.com, b@y.com" as a cleaned comma-separated text; '' for none; null when any address is not valid or there are over 5.
+function recipients_(text) {
+  var parts = String(text).split(',');
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var a = parts[i].replace(/^\s+|\s+$/g, '');
+    if (a === '') continue;
+    if (a.length > 200 || !/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(a)) return null;
+    out.push(a);
+  }
+  return out.length > 5 ? null : out.join(',');
+}
+
+// The script owner's address. Session.getEffectiveUser needs a permission some deployments never got, so when it is
+// refused the owner of the Sheet is used (the Sheet permission is always there). '' when neither is known.
+function ownerEmail_() {
+  try {
+    var me = Session.getEffectiveUser().getEmail();
+    if (me) return me;
+  } catch (err) {}
+  try {
+    var owner = SpreadsheetApp.getActiveSpreadsheet().getOwner();
+    return owner ? owner.getEmail() : '';
+  } catch (err2) {
+    return '';
+  }
+}
+
+// The mail goes from the Google account that owns the script, to the saved recipients or, with none saved, to that same account.
 function sendMail_(mail) {
-  var to = Session.getEffectiveUser().getEmail();
+  var saved = {};
+  try {
+    saved = JSON.parse(PropertiesService.getScriptProperties().getProperty('email') || '{}') || {};
+  } catch (err) {}
+  var to = saved.to ? String(saved.to) : ownerEmail_();
+  if (!to) {
+    throw new Error('No address to send to. Type your email in the Send it to box in WorkPulse Settings and save.');
+  }
   MailApp.sendEmail({ to: to, subject: mail.subject, htmlBody: mail.html, body: mail.text });
   return to;
 }
@@ -151,7 +214,7 @@ function composeEmail_(isTest, now, meta) {
     if (t[0] === '') continue;
     tasks.push({
       id: String(t[0]), title: String(t[1]), project: String(t[2]), dueDate: dateText_(t[4], ssTz),
-      stage: String(t[5]), completedAt: isoText_(t[7])
+      stage: String(t[5]), trackedMinutes: num_(t[6]), completedAt: isoText_(t[7])
     });
   }
   var logs = [];
@@ -161,7 +224,8 @@ function composeEmail_(isTest, now, meta) {
     if (l[0] === '') continue;
     logs.push({
       id: String(l[0]), date: dateText_(l[1], ssTz), time: timeText_(l[2], ssTz), project: String(l[3]),
-      projectId: String(l[4]), description: String(l[5]), status: String(l[6]), minutes: num_(l[7])
+      projectId: String(l[4]), description: String(l[5]), status: String(l[6]), minutes: num_(l[7]),
+      subTasks: String(l[8] || '') === '' ? [] : String(l[8]).split('\n')
     });
   }
   var workday = null;
@@ -392,6 +456,24 @@ function openTaskGroups_(open, today) {
   return out;
 }
 
+// Project and tracked time of a task, as text ('' when there is nothing to say).
+function taskMetaParts_(task, withProject) {
+  var parts = [];
+  if (withProject && task.project) parts.push(task.project);
+  if (num_(task.trackedMinutes) > 0) parts.push(fmtHM_(num_(task.trackedMinutes)) + ' tracked');
+  return parts;
+}
+
+function taskMeta_(task, withProject) {
+  var parts = taskMetaParts_(task, withProject);
+  return parts.length ? ' <span style="color:#5d6b63">&middot; ' + esc_(parts.join(' · ')) + '</span>' : '';
+}
+
+function taskMetaText_(task, withProject) {
+  var parts = taskMetaParts_(task, withProject);
+  return parts.length ? ' · ' + plain_(parts.join(' · ')) : '';
+}
+
 function stageNote_(task) {
   if (task.stage === 'blocked') return 'blocked';
   if (task.stage === 'paused') return 'paused';
@@ -436,6 +518,10 @@ function emailHtml_(m) {
       for (var k = 0; k < grp.logs.length; k++) {
         h.push('<tr><td style="padding:3px 0 3px 18px;font-size:14px">' + esc_(grp.logs[k].description) +
           '</td><td align="right" style="font-size:14px;font-weight:bold;white-space:nowrap">' + esc_(fmtHM_(num_(grp.logs[k].minutes))) + '</td></tr>');
+        var subs = grp.logs[k].subTasks || [];
+        for (var su = 0; su < subs.length; su++) {
+          h.push('<tr><td colspan="2" style="padding:1px 0 1px 36px;font-size:13px;color:#5d6b63">&ndash; ' + esc_(subs[su]) + '</td></tr>');
+        }
       }
     }
     h.push('</table>');
@@ -446,9 +532,9 @@ function emailHtml_(m) {
   if (m.done.length === 0) {
     h.push('<div style="border-top:2px solid #1d2b24;margin-top:6px;font-size:14px;padding-top:8px;color:#5d6b63">None yet.</div>');
   } else {
-    var titles = [];
-    for (var d = 0; d < m.done.length; d++) titles.push(esc_(m.done[d].title));
-    h.push('<div style="border-top:2px solid #1d2b24;margin-top:6px;font-size:14px;line-height:1.7;padding-top:8px;color:#1d2b24">' + titles.join(' &middot; ') + '</div>');
+    var lines = [];
+    for (var d = 0; d < m.done.length; d++) lines.push('<div>' + esc_(m.done[d].title) + taskMeta_(m.done[d], true) + '</div>');
+    h.push('<div style="border-top:2px solid #1d2b24;margin-top:6px;font-size:14px;line-height:1.7;padding-top:8px;color:#1d2b24">' + lines.join('') + '</div>');
   }
   h.push('</td></tr>');
 
@@ -462,7 +548,7 @@ function emailHtml_(m) {
     for (var q = 0; q < m.openGroups[o].tasks.length; q++) {
       var task = m.openGroups[o].tasks[q];
       var note = stageNote_(task);
-      h.push('<div style="padding-left:18px">' + esc_(task.title) + (note ? ' <span style="color:#5d6b63">(' + note + ')</span>' : '') + '</div>');
+      h.push('<div style="padding-left:18px">' + esc_(task.title) + (note ? ' <span style="color:#5d6b63">(' + note + ')</span>' : '') + taskMeta_(task, false) + '</div>');
     }
   }
   h.push('</div>');
@@ -495,12 +581,14 @@ function emailText_(m) {
     t.push(plain_(m.groups[g].name) + ' \u00b7 ' + fmtHM_(m.groups[g].minutes));
     for (var k = 0; k < m.groups[g].logs.length; k++) {
       t.push('  - ' + plain_(m.groups[g].logs[k].description) + ' (' + fmtHM_(num_(m.groups[g].logs[k].minutes)) + ')');
+      var subs = m.groups[g].logs[k].subTasks || [];
+      for (var su = 0; su < subs.length; su++) t.push('      - ' + plain_(subs[su]));
     }
   }
   t.push('');
   t.push('TASKS DONE TODAY \u00b7 ' + m.done.length);
   if (m.done.length === 0) t.push('None yet.');
-  for (var d = 0; d < m.done.length; d++) t.push('  - ' + plain_(m.done[d].title));
+  for (var d = 0; d < m.done.length; d++) t.push('  - ' + plain_(m.done[d].title) + taskMetaText_(m.done[d], true));
   t.push('');
   t.push('STILL OPEN \u00b7 ' + m.openCount);
   if (m.openGroups.length === 0) t.push('Nothing open.');
@@ -509,7 +597,7 @@ function emailText_(m) {
     for (var q = 0; q < m.openGroups[o].tasks.length; q++) {
       var task = m.openGroups[o].tasks[q];
       var note = stageNote_(task);
-      t.push('  - ' + plain_(task.title) + (note ? ' (' + note + ')' : ''));
+      t.push('  - ' + plain_(task.title) + (note ? ' (' + note + ')' : '') + taskMetaText_(task, false));
     }
   }
   if (m.pendingLine) t.push(m.pendingLine);

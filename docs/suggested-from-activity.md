@@ -38,7 +38,7 @@ All in `AppSettings` (`src/types.ts`):
 
 | Setting | Meaning | Default |
 |---|---|---|
-| `activityFolders` | List of `{ path, projectId }`: a folder on this PC linked to a project. **Device-only, not in backups.** | none |
+| `activityFolders` | List of `{ path, projectId }`: a folder on this PC linked to a project. **In backups (file and Sheet); an import uses them only when this PC has none.** | none |
 | `activityUseGit` | Read git commits. | on (off only if `=== false`) |
 | `activityUseClaude` | Read Claude Code prompts. | on (off only if `=== false`) |
 | `activityAutoScan` | Check for new activity every 5 minutes while Today or End my day is open. | on (off only if `=== false`) |

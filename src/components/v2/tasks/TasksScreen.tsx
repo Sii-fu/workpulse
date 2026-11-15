@@ -21,6 +21,7 @@ export interface TasksScreenProps {
   /** Reopens a done task into planned ("Back to planned"). */
   onReopen(id: string): void;
   onDeleteTask(id: string): void;
+  onEditTask?(task: BacklogTask): void;
   /** "Write timesheet from N tasks": the ids of the selected done tasks. */
   onLogSelected(ids: string[]): void;
   /** Sets the due date of the given pending tasks to today ("Move to today", "Move all to today"). */
@@ -56,6 +57,7 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
   onLogTask,
   onReopen,
   onDeleteTask,
+  onEditTask,
   onLogSelected,
   onMoveToToday,
 }) => {
@@ -106,6 +108,7 @@ const TasksScreenView: React.FC<TasksScreenProps> = ({
       onLogTask={onLogTask}
       onReopen={onReopen}
       onDeleteTask={onDeleteTask}
+      onEditTask={onEditTask}
       {...extra}
     />
   );

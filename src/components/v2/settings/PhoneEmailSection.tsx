@@ -3,7 +3,8 @@ import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import type { AppSettings } from '../../../types';
 import type { PhoneSyncStatus } from '../../../hooks/usePhoneSync';
 import { getScriptVersion, resetPhoneAccess, sendTestEmail, setEmailSchedule, setPhonePin } from '../../../utils/phoneApi';
-import { DEFAULT_EMAIL_TIME, emailTimeAllowed, parseEmailTime, phoneLink } from '../../../utils/phoneSettings';
+import { APPS_SCRIPT_SCOPES_SNIPPET } from '../../../utils/googleAppsScriptTemplate';
+import { DEFAULT_EMAIL_TIME, cleanRecipients, emailTimeAllowed, parseEmailTime, phoneLink } from '../../../utils/phoneSettings';
 import { GOOGLE_APPS_SCRIPT_CODE } from '../../../utils/googleAppsScriptTemplate';
 import { localDateOfIso, localDateStr, localTimeStr } from '../../../utils/dates';
 import { dayLabelLong } from '../../../utils/taskSections';
@@ -16,6 +17,10 @@ interface PhoneEmailSectionProps {
   status: PhoneSyncStatus;
   sheetBackup: SheetBackupControls;
   onNotify(msg: string, type?: 'success' | 'error' | 'info'): void;
+  /** The URL typed in the Google Sheet box is not the saved one: this section still uses the saved one. */
+  urlUnsaved?: boolean;
+  /** The same as the sticky Save All Settings button. */
+  onSaveAll?(): void;
 }
 
 const LABEL = 'block mb-1 text-[length:var(--fs-small)] font-semibold text-[var(--text-muted)]';
@@ -32,6 +37,43 @@ const PIN_RE = /^\d{4}$/;
 
 type PinMode = 'none' | 'set' | 'change' | 'reset';
 type Result = { ok: boolean; message: string } | null;
+
+/** Shown when Google refuses a permission: how to let the script use mail, timers and the owner's address. */
+const PermissionHelp: React.FC<{ open: boolean; onNotify: PhoneEmailSectionProps['onNotify'] }> = ({ open, onNotify }) => (
+  <details open={open} className="w-full text-[length:var(--fs-small)] text-[var(--text-main)]">
+    <summary className="cursor-pointer font-semibold min-h-8">Google says a permission is missing?</summary>
+    <ol className="list-decimal pl-5 mt-2 flex flex-col gap-2">
+      <li>Open your Sheet, then <strong>Extensions &gt; Apps Script</strong>.</li>
+      <li>On the left, click the <strong>gear icon (Project Settings)</strong>, then tick <strong>Show &quot;appsScript.json&quot; manifest file in editor</strong>.</li>
+      <li>Go back to the <strong>Editor</strong> (the &lt;/&gt; icon) and click <strong>appsScript.json</strong> in the file list.</li>
+      <li>
+        Add (or replace) the <code>oauthScopes</code> part with the lines below. Keep your other lines (such as <code>timeZone</code> and{' '}
+        <code>webapp</code>) as they are, and mind the commas.
+        <pre className="mt-2 p-2 overflow-x-auto rounded-[var(--radius-btn)] border border-[var(--border-control)] bg-[var(--bg-subtle)]">{APPS_SCRIPT_SCOPES_SNIPPET}</pre>
+        <button
+          type="button"
+          className={`${BTN} mt-2`}
+          onClick={() =>
+            navigator.clipboard?.writeText(APPS_SCRIPT_SCOPES_SNIPPET).then(
+              () => onNotify('Copied. Paste it into appsScript.json.', 'success'),
+              () => onNotify('Could not copy to the clipboard.', 'error'),
+            )
+          }
+        >
+          <Copy className="h-4 w-4" aria-hidden="true" />
+          <span>Copy these lines</span>
+        </button>
+      </li>
+      <li>
+        Press <strong>Save</strong>. At the top choose the function <code>authorizeWorkPulse</code> and press <strong>Run</strong>. Google
+        asks for permission: click <strong>Review permissions</strong> and <strong>Allow</strong> (if it warns the app is not verified:
+        Advanced, then Go to …, then Allow). Then open <strong>Execution log</strong> at the bottom: every line should start with{' '}
+        <code>OK</code>. A line starting with <code>MISSING</code> names what is still blocked: send me that line.
+      </li>
+      <li>Last: <strong>Deploy &gt; Manage deployments</strong>, the pencil, Version <strong>New version</strong>, <strong>Deploy</strong>. Then try again here.</li>
+    </ol>
+  </details>
+);
 
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
@@ -69,7 +111,7 @@ const SetupSteps: React.FC<{ onCopy(): void; copied: boolean }> = ({ onCopy, cop
   </ol>
 );
 
-export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onUpdateSettings, status, sheetBackup, onNotify }) => {
+export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, onUpdateSettings, status, sheetBackup, onNotify, urlUnsaved, onSaveAll }) => {
   const uid = useId();
   const url = settings.googleScriptUrl || '';
   const token = settings.phoneToken || '';
@@ -89,6 +131,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
   const savedTime = parseEmailTime(settings.emailTime) ? (settings.emailTime as string) : DEFAULT_EMAIL_TIME;
   const [emailOn, setEmailOn] = useState(settings.emailEnabled === true);
   const [emailTime, setEmailTime] = useState(savedTime);
+  const [emailTo, setEmailTo] = useState(settings.emailTo ?? '');
   const [emailBusy, setEmailBusy] = useState<'save' | 'test' | null>(null);
   const [emailResult, setEmailResult] = useState<Result>(null);
 
@@ -181,17 +224,23 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
       setEmailResult({ ok: false, message: 'Pick a time between 00:30 and 23:29.' });
       return;
     }
+    const to = cleanRecipients(emailTo);
+    if (to === null) {
+      setEmailResult({ ok: false, message: 'Enter an email address, or several separated by commas (at most 5).' });
+      return;
+    }
     const time = t ?? parseEmailTime(DEFAULT_EMAIL_TIME)!;
     setEmailBusy('save');
     setEmailResult(null);
-    const r = await setEmailSchedule(url, token, { enabled: emailOn, hour: time.hour, minute: time.minute, tz: zone() });
+    const r = await setEmailSchedule(url, token, { enabled: emailOn, hour: time.hour, minute: time.minute, tz: zone(), to });
     setEmailBusy(null);
     if (!r.ok) {
       setEmailResult({ ok: false, message: r.message });
       return;
     }
     const hhmm = `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
-    onUpdateSettings({ emailEnabled: emailOn, emailTime: hhmm });
+    onUpdateSettings({ emailEnabled: emailOn, emailTime: hhmm, emailTo: to || undefined });
+    setEmailTo(to);
     setEmailResult({
       ok: true,
       message: emailOn
@@ -211,6 +260,21 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
     );
   };
 
+  if (urlUnsaved) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-[length:var(--fs-body)] text-[var(--text-main)]">
+          The Sheet URL above is not saved yet.{' '}
+          {url ? 'This section is still using the URL you saved before.' : 'Save it, then this section can reach your script.'}
+        </p>
+        {onSaveAll && (
+          <button type="button" onClick={onSaveAll} className={BTN}>
+            Save settings now
+          </button>
+        )}
+      </div>
+    );
+  }
   if (!url) {
     return <p className={HINT}>Connect the Google Sheet above and save, then come back here.</p>;
   }
@@ -439,6 +503,47 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
               />
               <span className="font-semibold">Send me an evening email</span>
             </label>
+            <div className="w-full sm:max-w-md">
+              <label htmlFor={`${uid}-to`} className={LABEL}>
+                Send it to
+              </label>
+              <input
+                id={`${uid}-to`}
+                type="text"
+                inputMode="email"
+                autoComplete="off"
+                placeholder="Your Google address (leave empty), or name@example.com"
+                value={emailTo}
+                onChange={(e) => {
+                  setEmailTo(e.target.value);
+                  setEmailResult(null);
+                }}
+                className={FIELD}
+              />
+              <p className="mt-1.5 text-[length:var(--fs-body)] text-[var(--text-main)]" data-testid="email-recipient">
+                {settings.emailTo ? (
+                  <>
+                    Right now the email goes to <strong className="break-all">{settings.emailTo.split(',').join(', ')}</strong>.
+                  </>
+                ) : (
+                  <>
+                    Right now the email goes to <strong>the Google account that owns your Sheet script</strong>. Press Send a test
+                    email to see which address that is.
+                  </>
+                )}
+              </p>
+              <p className={`${HINT} mt-1`}>
+                To use another address: type it above (up to 5, separated by commas), then press <strong>Save email settings</strong>. To
+                change it later, edit the box and save again. Empty the box and save to go back to your Google account. The sender is always
+                the Google account that owns your Sheet script.
+              </p>
+              {version !== null && version !== undefined && version < 5 && (
+                <p role="alert" className="mt-1 text-[length:var(--fs-small)] text-danger">
+                  Your Sheet script is version {version}. Choosing an address needs version 5: re-paste the latest script and update your
+                  existing deployment, or the box is ignored.
+                </p>
+              )}
+            </div>
             {/* Phones: the time field and the two buttons stack at full width, like Test connection above. */}
             <div className="w-full flex flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
               <div>
@@ -463,7 +568,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
                 {/* Outlined, and named for what it saves, so it is not taken for the sticky Save All Settings. */}
                 <button type="button" onClick={saveEmail} disabled={emailBusy !== null} className={BTN}>
                   {emailBusy === 'save' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                  <span>Save email time</span>
+                  <span>Save email settings</span>
                 </button>
                 <button type="button" onClick={testEmail} disabled={emailBusy !== null} className={BTN}>
                   {emailBusy === 'test' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
@@ -472,6 +577,7 @@ export const PhoneEmailSection: React.FC<PhoneEmailSectionProps> = ({ settings, 
               </div>
             </div>
             <ResultLine result={emailResult} />
+            <PermissionHelp open={!!emailResult && !emailResult.ok && /permission|daily timer|Google/i.test(emailResult.message)} onNotify={onNotify} />
           </>
         )}
       </div>

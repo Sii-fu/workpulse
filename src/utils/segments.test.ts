@@ -1,6 +1,6 @@
 process.env.TZ = 'Asia/Dhaka';
 import { describe, it, expect } from 'vitest';
-import { startSegment, endSegment, ensureOpenSegment, buildOvers, splitSegmentsAtGap } from './segments';
+import { startSegment, endSegment, ensureOpenSegment, buildOvers, splitSegmentsAtGap, workBuckets } from './segments';
 import type { BacklogTask, Project } from '../types';
 
 const task = (over: Partial<BacklogTask> = {}): BacklogTask => ({
@@ -146,5 +146,20 @@ describe('splitSegmentsAtGap', () => {
     const out = splitSegmentsAtGap([closed, none], ms('10:00'), ms('11:30'));
     expect(out[0]).toBe(closed);
     expect(out[1]).toBe(none);
+  });
+});
+
+describe('workBuckets', () => {
+  const t = (start: string, end?: string) => ({ segments: [{ start, end }] }) as never;
+  const from = Date.parse('2026-01-01T09:00:00Z');
+  it('shares each 15-minute piece by how long a timer ran in it', () => {
+    const b = workBuckets([t('2026-01-01T09:00:00Z', '2026-01-01T09:15:00Z'), t('2026-01-01T09:30:00Z', '2026-01-01T09:37:30Z')], from, from + 3_600_000, from + 3_600_000);
+    expect(b).toEqual([1, 0, 0.5, 0]);
+  });
+  it('ends an open segment at now and clamps overlaps to 1', () => {
+    const now = from + 20 * 60_000;
+    const b = workBuckets([t('2026-01-01T09:10:00Z'), t('2026-01-01T09:00:00Z', '2026-01-01T09:15:00Z')], from, from + 30 * 60_000, now);
+    expect(b[0]).toBe(1);
+    expect(b[1]).toBeCloseTo(5 / 15);
   });
 });

@@ -18,6 +18,18 @@ export function emailTimeAllowed(hhmm: string): boolean {
   return minutes >= 30 && minutes <= 23 * 60 + 29;
 }
 
+// Recipients typed as "a@x.com, b@y.com": the cleaned text ('' = none, meaning the script owner), or null when an address is invalid or there are over 5.
+export function cleanRecipients(text: string): string | null {
+  const out: string[] = [];
+  for (const raw of text.split(',')) {
+    const a = raw.trim();
+    if (!a) continue;
+    if (a.length > 200 || !/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(a)) return null;
+    out.push(a);
+  }
+  return out.length > 5 ? null : out.join(', ');
+}
+
 const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 function randomId(length: number): string {
@@ -41,7 +53,7 @@ export function phoneLink(scriptUrl: string): string | null {
 }
 
 // A backup import replaces settings, but some belong to this computer and are never in a backup:
-// the Gemini key, the backup dates, the activity folders and the phone link (its token, device id and sync status).
+// the Gemini key, the backup dates, the phone link (its token, device id and sync status).
 export function keepDeviceSettings(imported: AppSettings, current: AppSettings): AppSettings {
   return {
     ...imported,
@@ -53,7 +65,8 @@ export function keepDeviceSettings(imported: AppSettings, current: AppSettings):
     phoneDeviceId: current.phoneDeviceId,
     phoneSyncAt: current.phoneSyncAt,
     phoneLastError: current.phoneLastError,
-    activityFolders: current.activityFolders,
+    // This computer's own folder links win; a computer with none takes the ones in the backup.
+    activityFolders: current.activityFolders && current.activityFolders.length > 0 ? current.activityFolders : imported.activityFolders,
     sheetBackupAt: current.sheetBackupAt,
     sheetBackupError: current.sheetBackupError,
   };

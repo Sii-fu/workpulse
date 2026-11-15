@@ -89,6 +89,9 @@ describe('keepDeviceSettings', () => {
     const out = keepDeviceSettings({ ...DEFAULT_SETTINGS, googleScriptUrl: 'https://script.google.com/macros/s/OLD/exec' }, cur);
     expect(out.googleScriptUrl).toBe('https://script.google.com/macros/s/NOW/exec');
     expect(out.activityFolders).toEqual(cur.activityFolders);
+    // a computer with no folders takes the backup's
+    const fromBackup = [{ path: 'D:/p', projectId: 'p1' }];
+    expect(keepDeviceSettings({ ...DEFAULT_SETTINGS, activityFolders: fromBackup }, { ...current, activityFolders: undefined }).activityFolders).toEqual(fromBackup);
     expect(out.sheetBackupAt).toBe('2026-11-11T12:00:00.000Z');
     expect(out.sheetBackupError).toBe('x');
     expect(keepDeviceSettings({ ...DEFAULT_SETTINGS, googleScriptUrl: 'https://script.google.com/macros/s/OLD/exec' }, { ...current, googleScriptUrl: '' }).googleScriptUrl).toBe('https://script.google.com/macros/s/OLD/exec');

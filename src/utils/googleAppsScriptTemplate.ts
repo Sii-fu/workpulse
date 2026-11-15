@@ -171,3 +171,17 @@ function upsertRows(sheet, rows) {
 `;
 
 export const GOOGLE_APPS_SCRIPT_CODE = HEADER + LOGS_SCRIPT + SCRIPT_CORE + SCRIPT_EMAIL + SCRIPT_BACKUP + SCRIPT_PHONE;
+
+/**
+ * The permissions the script needs, for the "oauthScopes" part of the project's appsScript.json. A project whose manifest lists
+ * scopes explicitly (or whose owner never approved the newer ones) is refused with "you do not have permission to call ...".
+ * Keep it in step with the services the script uses (a test in googleAppsScriptTemplate.test.ts pins this).
+ */
+export const APPS_SCRIPT_OAUTH_SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/script.send_mail',
+  'https://www.googleapis.com/auth/script.scriptapp',
+  'https://www.googleapis.com/auth/userinfo.email',
+];
+
+export const APPS_SCRIPT_SCOPES_SNIPPET = `"oauthScopes": [\n${APPS_SCRIPT_OAUTH_SCOPES.map((s) => `    "${s}"`).join(',\n')}\n  ],`;

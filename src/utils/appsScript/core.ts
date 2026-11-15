@@ -10,7 +10,7 @@ export const SCRIPT_CORE = String.raw`
 // Version 3: phone page, phone inbox and desktop state
 // =========================================================================
 
-var SCRIPT_VERSION = 4;
+var SCRIPT_VERSION = 5;
 var MAX_PIN_TRIES = 5;
 var LOCK_MINUTES = 15;
 var MAX_TITLE = 200;
@@ -22,7 +22,7 @@ var DEFAULT_WORKDAY_HOURS = 8;
 var TAB_COLUMNS = {
   WorkPulse_Tasks: ['Id', 'Title', 'Project', 'ProjectId', 'DueDate', 'Stage', 'TrackedMinutes', 'CompletedAt', 'FromPhone'],
   WorkPulse_Days: ['Date', 'ClockIn', 'ClockOut'],
-  WorkPulse_Recent: ['Id', 'Date', 'Time', 'Project', 'ProjectId', 'Description', 'Status', 'Minutes'],
+  WorkPulse_Recent: ['Id', 'Date', 'Time', 'Project', 'ProjectId', 'Description', 'Status', 'Minutes', 'SubTasks'],
   WorkPulse_Inbox: ['Id', 'CreatedAt', 'Title', 'ProjectId', 'ProjectName', 'DueDate', 'Status'],
   WorkPulse_Projects: ['Id', 'Name', 'Color'],
   WorkPulse_Backup: ['Version', 'Chunk', 'Total', 'Data', 'SavedAt', 'Counts']
@@ -273,7 +273,7 @@ function pushStateAction_(c) {
       var l = c.logs[i] || {};
       logs.push([
         str_(l.id), str_(l.date), str_(l.time), str_(l.project), str_(l.projectId), str_(l.description),
-        str_(l.status), num_(l.minutes)
+        str_(l.status), num_(l.minutes), subTasksText_(l.subTasks)
       ]);
     }
     var projects = [];
@@ -585,6 +585,17 @@ function isDate_(v) {
 
 function isDateText_(v) {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+// Sub-task titles as one cell: a title per line, at most 30.
+function subTasksText_(list) {
+  if (!isArray_(list)) return '';
+  var out = [];
+  for (var i = 0; i < list.length && out.length < 30; i++) {
+    var t = str_(list[i]).replace(/\s+/g, ' ');
+    if (t) out.push(t);
+  }
+  return out.join('\n').slice(0, MAX_CELL);
 }
 
 function str_(v) {

@@ -46,7 +46,7 @@ import {
 import { chooseNextAction } from './utils/nextAction';
 import { checkedToday, invalidateActivitySessions, pendingCount, subscribeActivitySession } from './utils/activity/sessionStore';
 import { backupStatus } from './utils/backupReminder';
-import { sampleCounts, withoutSampleData } from './data/sampleData';
+import { isSampleLog, sampleCounts, withoutSampleData } from './data/sampleData';
 import { plainSheetMessage } from './utils/aiErrors';
 import { useStableCallback } from './hooks/useStableCallback';
 import { planProjectWithFolder, relinkFolder, unlinkFolder } from './utils/projectFromFolder';
@@ -64,6 +64,8 @@ import type { ActivityFolder } from './utils/activity/types';
 import { AppHeader } from './components/v2/AppHeader';
 import { ClockBand } from './components/v2/ClockBand';
 import { BottomNav } from './components/v2/BottomNav';
+import { buildClockInMessage, clockInOpenPlan } from './utils/clockInMessage';
+import { EditTaskDialog } from './components/v2/EditTaskDialog';
 import { ClockInDialog } from './components/v2/ClockInDialog';
 import { useNow } from './components/v2/useNow';
 import { TodayScreen, TodayActivityProps } from './components/v2/today/TodayScreen';
@@ -421,6 +423,12 @@ export default function App() {
       return next;
     });
     setIsClockInOpen(false);
+    // Runs inside the click that clocked in, so the browser allows the new tab.
+    if (firstOfDate && settingsRef.current.clockInMessageEnabled !== false) {
+      const plan = clockInOpenPlan(settingsRef.current.clockInChat, buildClockInMessage(settingsRef.current.clockInMessage, at));
+      if (plan.copy) void navigator.clipboard?.writeText(plan.copy).catch(() => {});
+      window.open(plan.url, '_blank', 'noopener');
+    }
     if (firstOfDate) void openPlanAfterPull();
   };
 
@@ -892,6 +900,15 @@ export default function App() {
     }
   };
 
+  const [editingTask, setEditingTask] = useState<BacklogTask | null>(null);
+  const handleSaveTaskEdit = (taskId: string, changes: { title: string; projectId: string; dueDate: string }) => {
+    const updated = backlog.map((t) => (t.id === taskId ? { ...t, ...changes } : t));
+    setBacklog(updated);
+    saveBacklog(updated);
+    setEditingTask(null);
+    addToast('Task updated', 'info');
+  };
+
   const handleDeleteBacklogTask = (taskId: string) => {
     const index = backlog.findIndex((t) => t.id === taskId);
     if (index === -1) return;
@@ -1154,6 +1171,28 @@ export default function App() {
     }
   };
 
+  // Sends every log of yours to the Sheet again, old ones included (Settings -> Google Sheet). The script
+  // updates a row by the log's id, so a log already there is replaced, not doubled.
+  const handleSyncAllLogs = async () => {
+    if (!settings.googleScriptUrl) {
+      addToast('Add your Google Apps Script Web App URL and save first.', 'info');
+      return;
+    }
+    const all = logs.filter((l) => !isSampleLog(l));
+    if (all.length === 0) {
+      addToast('There are no logs to send yet.', 'info');
+      return;
+    }
+    setIsSyncingSheet(true);
+    const result = await syncBatchLogsToSheet(settings.googleScriptUrl, all).finally(() => setIsSyncingSheet(false));
+    if (result.success) {
+      markLogsSynced(all.map((l) => l.id));
+      addToast(`Sent ${all.length} ${all.length === 1 ? 'log' : 'logs'} to the Sheet.`, 'success');
+    } else {
+      reportSyncFailure(result.message, () => handleSyncAllLogs());
+    }
+  };
+
   // End my day's Sync step: the same send, but a failure rejects so the step can show it.
   const handleSyncForEndDay = async () => {
     if (!settings.googleScriptUrl) return;
@@ -1330,6 +1369,7 @@ export default function App() {
     logTask: useStableCallback(handleConvertTaskToLog),
     reopenToPlanned: useStableCallback((id: string) => handleReopenTask(id, 'planned')),
     deleteTask: useStableCallback(handleDeleteBacklogTask),
+    editTask: useStableCallback((t: BacklogTask) => setEditingTask(t)),
     moveToToday: useStableCallback(handleMoveToToday),
     addLog: useStableCallback(handleAddLog),
     createProject: useStableCallback(handleAddProject),
@@ -1463,6 +1503,7 @@ export default function App() {
             onLogTask={h.logTask}
             onReopen={h.reopenToPlanned}
             onDeleteTask={h.deleteTask}
+            onEditTask={h.editTask}
             onMoveToToday={h.moveToToday}
             onPlanDay={h.planDay}
             onOpenTasks={h.openTasks}
@@ -1495,6 +1536,7 @@ export default function App() {
             onLogTask={h.logTask}
             onReopen={h.reopenToPlanned}
             onDeleteTask={h.deleteTask}
+            onEditTask={h.editTask}
             onLogSelected={h.logSelectedTasks}
             onMoveToToday={h.moveToToday}
           />
@@ -1527,6 +1569,7 @@ export default function App() {
           <SettingsView
             settings={settings}
             onSaveSettings={handleSaveSettings}
+            onSyncAllLogs={handleSyncAllLogs}
             onThemeChange={handleThemeChange}
             projects={projects}
             onUpdateProjects={(p) => {
@@ -1561,6 +1604,9 @@ export default function App() {
 
       <BottomNav active={activeTab} onChange={setActiveTab} openTasks={openTasks} />
 
+      {editingTask && (
+        <EditTaskDialog task={editingTask} projects={liveProjects} onClose={() => setEditingTask(null)} onSave={handleSaveTaskEdit} />
+      )}
       <ClockInDialog isOpen={isClockInOpen} onClose={() => setIsClockInOpen(false)} onConfirm={handleClockIn} />
 
       <PlanYourDayDialog

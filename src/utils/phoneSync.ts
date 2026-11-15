@@ -27,6 +27,8 @@ export interface SnapshotLog {
   description: string;
   status: string;
   minutes: number;
+  /** Titles of the log's sub-tasks, for the evening email. */
+  subTasks?: string[];
 }
 
 export interface PhoneSnapshot {
@@ -95,6 +97,7 @@ export function buildSnapshot(i: {
       description: l.description,
       status: l.status,
       minutes: l.durationMinutes || 0,
+      subTasks: (l.underlyingTasks ?? []).map((u) => u.title),
     }));
 
   const workdays: Workdays = {};
@@ -120,7 +123,7 @@ export function snapshotSignature(s: PhoneSnapshot): string {
     s.today,
     s.workdayHours,
     s.tasks.map((t) => [t.id, t.title, t.projectId, t.project, t.dueDate, t.stage, t.completedAt ?? '', t.fromPhone]),
-    s.logs.map((l) => [l.id, l.date, l.time, l.project, l.projectId, l.description, l.status, l.minutes]),
+    s.logs.map((l) => [l.id, l.date, l.time, l.project, l.projectId, l.description, l.status, l.minutes, l.subTasks ?? []]),
     Object.keys(s.workdays)
       .sort()
       .map((d) => [d, s.workdays[d].clockIn, s.workdays[d].clockOut ?? '']),

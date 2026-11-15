@@ -106,6 +106,12 @@ export interface AppSettings {
   lastProjectId?: string;
   // Length of the workday in hours, for the office clock. Absent = 8.
   workdayHours?: number;
+  // Open WhatsApp Web with a typed "arrived at office" message after the first clock-in of a day. Absent = on; false = off.
+  clockInMessageEnabled?: boolean;
+  // The message; {time} is the clock-in time. Absent or empty = "I've arrived at office at {time}".
+  clockInMessage?: string;
+  // The chat for it: a phone number, or a WhatsApp group invite link. Absent = pick the chat in WhatsApp.
+  clockInChat?: string;
   // Phone page link. The token, last sync time, device id and last error belong to this device:
   // none of them is written into backup files or replaced by an import.
   phoneToken?: string;
@@ -118,6 +124,8 @@ export interface AppSettings {
   // Evening email from the Apps Script. emailTime is "HH:MM" local time; absent = 18:00.
   emailEnabled?: boolean;
   emailTime?: string;
+  // Who the evening email goes to (comma-separated, up to 5). Absent = the Google account that owns the script.
+  emailTo?: string;
 }
 
 // One day at the office. ISO timestamps (UTC).

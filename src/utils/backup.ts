@@ -5,12 +5,12 @@ import { isWorkdays, validWorkdayHours } from './workday';
 
 // JSON backup text. The Gemini API key is never written to a backup file (S4), and neither is
 // lastBackupAt (and the Sheet copy's date and error): that date belongs to this device, not to the data. The same goes for the phone token,
-// last phone sync, device id and last phone error. The email settings are kept.
+// last phone sync, device id and last phone error. The email settings and the project folder links are kept
+// (an import only uses the folder links when this computer has none: see keepDeviceSettings).
 export function backupSettings(all: AppSettings): Omit<AppSettings, DeviceOnlySetting> {
   const {
     geminiApiKey: _omit,
     lastBackupAt: _omitBackup,
-    activityFolders: _omitFolders,
     phoneToken: _omitToken,
     phoneSyncAt: _omitSyncAt,
     phoneDeviceId: _omitDevice,
@@ -25,7 +25,6 @@ export function backupSettings(all: AppSettings): Omit<AppSettings, DeviceOnlySe
 type DeviceOnlySetting =
   | 'geminiApiKey'
   | 'lastBackupAt'
-  | 'activityFolders'
   | 'phoneToken'
   | 'phoneSyncAt'
   | 'phoneDeviceId'
@@ -49,6 +48,17 @@ export function buildBackup(d: BackupData, indent = 2): string {
     null,
     indent,
   );
+}
+
+// Folder links from a backup: only well-formed ones that point at a project in the same backup.
+function validFolders(v: unknown, projects: { id: string }[]): AppSettings['activityFolders'] {
+  if (!Array.isArray(v)) return undefined;
+  const ids = new Set(projects.map((p) => p.id));
+  const out = v.filter(
+    (f): f is { path: string; projectId: string } =>
+      !!f && typeof f === 'object' && typeof f.path === 'string' && f.path.length > 0 && f.path.length < 500 && typeof f.projectId === 'string' && ids.has(f.projectId),
+  );
+  return out.length > 0 ? out : undefined;
 }
 
 export type ParseBackupResult = { ok: true; data: BackupData } | { ok: false; error: string };
@@ -80,7 +90,7 @@ export function parseBackup(text: string): ParseBackupResult {
     ...((o.settings as object) || {}),
     geminiApiKey: '',
     lastBackupAt: undefined,
-    activityFolders: undefined,
+    activityFolders: validFolders((o.settings as { activityFolders?: unknown } | undefined)?.activityFolders, o.projects),
     phoneToken: undefined,
     phoneSyncAt: undefined,
     phoneDeviceId: undefined,

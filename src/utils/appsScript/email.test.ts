@@ -59,7 +59,40 @@ function evening(over: Record<string, unknown> = {}, withEmail = true, pushAt: D
   return { h, token };
 }
 
+describe('evening email: recipients', () => {
+  it('sends to the saved addresses instead of the owner, test email too', () => {
+    const { h, token } = evening();
+    expect(h.call('setEmail', { token, enabled: true, hour: 18, minute: 0, tz: DHAKA, to: 'boss@example.com, me@example.org' })).toMatchObject({ status: 'ok', to: 'boss@example.com,me@example.org' });
+    h.run('sendEveningEmail');
+    expect(h.mails[0].to).toBe('boss@example.com,me@example.org');
+    h.call('sendTestEmail', { token });
+    expect(h.mails[1].to).toBe('boss@example.com,me@example.org');
+  });
+
+  it('refuses a bad address or more than 5, keeps the saved ones when no address is sent, and empty goes back to the owner', () => {
+    const { h, token } = evening();
+    const cfg = { token, enabled: true, hour: 18, minute: 0, tz: DHAKA };
+    expect(h.call('setEmail', { ...cfg, to: 'not an address' })).toMatchObject({ status: 'error', code: 'bad_request' });
+    expect(h.call('setEmail', { ...cfg, to: 'a@x.com,b@x.com,c@x.com,d@x.com,e@x.com,f@x.com' })).toMatchObject({ status: 'error' });
+    h.call('setEmail', { ...cfg, to: 'a@x.com' });
+    expect(h.call('setEmail', cfg)).toMatchObject({ to: 'a@x.com' });
+    expect(h.call('setEmail', { ...cfg, to: '' })).toMatchObject({ to: '' });
+  });
+});
+
 describe('evening email: content', () => {
+  it('lists the sub-tasks of each log and the project and tracked time of each task', () => {
+    const logs = [{ ...MOCKUP_LOGS[0], subTasks: ['Filter by team', 'Fix <b>timezone</b>'] }, ...MOCKUP_LOGS.slice(1)];
+    const { h } = evening({ logs });
+    h.run('sendEveningEmail');
+    const { htmlBody: html, body: text } = h.mails[0];
+    expect(html).toContain('&ndash; Filter by team');
+    expect(html).toContain('Fix &lt;b&gt;timezone&lt;/b&gt;');
+    expect(text).toContain('      - Filter by team');
+    expect(html).toContain('BGB Portal · 0:30 tracked');
+    expect(text).toContain('Deploy suggestions build · BGB Portal · 0:30 tracked');
+  });
+
   it('has the exact subject for 5 logs and 484 minutes', () => {
     const { h } = evening();
     expect(h.run('sendEveningEmail')).toEqual({ sent: true });

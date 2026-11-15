@@ -17,6 +17,7 @@ export interface TodayTasksProps {
   onLogTask(task: BacklogTask): void;
   onReopen(id: string): void;
   onDeleteTask(id: string): void;
+  onEditTask?(task: BacklogTask): void;
   /** Sets the due date of the given pending tasks to today. */
   onMoveToToday(ids: string[]): void;
   /** Opens Plan your day (earlier tasks to carry, new tasks for today). */
@@ -50,7 +51,7 @@ const StateGroup: React.FC<{ state: TaskState; label: string; count: number; chi
   );
 };
 
-export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onMoveToToday, onPlanDay, onOpenTasks, lastProjectId, onProjectUsed, onCreateProject }) => {
+export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today, onAddTask, onStage, onComplete, onLogTask, onReopen, onDeleteTask, onEditTask, onMoveToToday, onPlanDay, onOpenTasks, lastProjectId, onProjectUsed, onCreateProject }) => {
   const id = useId();
   const [draft, setDraft] = useState('');
   const g = useMemo(() => todayStateGroups(backlog, today), [backlog, today]);
@@ -75,6 +76,7 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ backlog, projects, today
           onLogTask={onLogTask}
           onReopen={onReopen}
           onDeleteTask={onDeleteTask}
+          onEditTask={onEditTask}
           onMoveToToday={moveOne}
         />
       ))}

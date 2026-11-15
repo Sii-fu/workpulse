@@ -1,7 +1,7 @@
 import React from 'react';
 import type { BacklogTask, Project, WorkdayRecord } from '../../types';
 import { clockState, formatClock, formatHm, formatHms, type ClockState } from '../../utils/workday';
-import { buildOvers } from '../../utils/segments';
+import { buildOvers, workBuckets } from '../../utils/segments';
 import { localTimeStr, parseLocalDate } from '../../utils/dates';
 import type { ThemeId } from '../../utils/theme';
 import { OversStrip } from './OversStrip';
@@ -202,7 +202,12 @@ export const ClockBand: React.FC<ClockBandProps> = ({
         </div>
       );
     } else if (theme === 'timecard') {
-      const tick = (target / scale) * 100;
+      // One block per 15 minutes from clock-in to the leave time (or now); each fills from the bottom by how much of it was worked.
+      const SLOT = 15 * 60_000;
+      const fromMs = Math.floor((s.clockInMs ?? now) / SLOT) * SLOT;
+      const toMs = Math.ceil(Math.max(leaveAt, now) / SLOT) * SLOT;
+      const buckets = workBuckets(tasks, fromMs, toMs, now, SLOT);
+      const nowIdx = Math.floor((now - fromMs) / SLOT);
       const cell = 'pt-3.5 pb-4 pr-5 mr-5 lg:pr-7 lg:mr-7 border-r border-[var(--band-line)]';
       const label = `${SMALL} font-bold uppercase tracking-[0.14em] text-[var(--band-muted)] mb-1`;
       const value = 'num font-bold leading-none text-[length:var(--fs-num)]';
@@ -226,12 +231,20 @@ export const ClockBand: React.FC<ClockBandProps> = ({
             <div className={label}>Out at</div>
             <div className={`${value} text-[var(--clock-over)]`}>{hhmm(leaveAt)}</div>
           </div>
-          <div aria-hidden="true" className="relative self-center flex-1 min-w-16 h-[26px] mr-5 lg:mr-7 border-[1.5px] border-[var(--band-ink)]">
-            <div className="v2-punch absolute inset-y-0 left-0" style={{ width: `${pct}%` }} />
-            <div
-              className="absolute -top-2 -bottom-2 border-r-2 border-[var(--clock-over)]"
-              style={{ left: `calc(${tick}% - 1px)` }}
-            />
+          <div
+            role="img"
+            aria-label={`Work by hour: ${buckets.map((v, i) => `${hhmm(fromMs + i * SLOT)} ${Math.round(v * 60)} min`).join(', ')}`}
+            className="self-center flex-1 min-w-16 mr-5 lg:mr-7 flex gap-px"
+          >
+            {buckets.map((v, i) => (
+              <div
+                key={i}
+                title={`${hhmm(fromMs + i * SLOT)} to ${hhmm(fromMs + (i + 1) * SLOT)}: ${Math.round(v * 60)} min worked`}
+                className={`relative flex-1 h-[38px] flex items-end bg-[var(--band-bg)] ${i === nowIdx ? 'border-2' : 'border'} border-[var(--band-ink)] min-w-0`}
+              >
+                <div className="w-full bg-[var(--clock)]" style={{ height: `${Math.round(v * 100)}%` }} />
+              </div>
+            ))}
           </div>
           <div className="self-center">{clockOut}</div>
         </div>

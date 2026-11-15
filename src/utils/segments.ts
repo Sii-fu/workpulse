@@ -128,3 +128,25 @@ export function buildOvers(
   }
   return overs;
 }
+
+/**
+ * How busy each stretch of the day was: the axis runs from `fromMs` to `toMs` in `bucketMs` pieces and each
+ * value is the share (0 to 1) of that piece the timers ran. Open segments end at `nowMs`. Used by the Time Card band.
+ */
+export function workBuckets(tasks: BacklogTask[], fromMs: number, toMs: number, nowMs: number, bucketMs = 15 * 60_000): number[] {
+  const n = Math.max(1, Math.ceil((toMs - fromMs) / bucketMs));
+  const sums = new Array<number>(n).fill(0);
+  for (const t of tasks) {
+    for (const seg of t.segments ?? []) {
+      const a = Math.max(Date.parse(seg.start), fromMs);
+      const b = Math.min(seg.end ? Date.parse(seg.end) : nowMs, toMs);
+      if (!(b > a)) continue;
+      for (let i = Math.floor((a - fromMs) / bucketMs); i < n; i++) {
+        const lo = fromMs + i * bucketMs;
+        if (lo >= b) break;
+        sums[i] += Math.min(b, lo + bucketMs) - Math.max(a, lo);
+      }
+    }
+  }
+  return sums.map((v) => Math.min(1, v / bucketMs));
+}

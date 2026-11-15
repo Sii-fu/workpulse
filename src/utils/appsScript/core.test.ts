@@ -38,9 +38,9 @@ const snapshot = (over: Record<string, unknown> = {}) => ({
 describe('script v3: existing behaviour', () => {
   it('ping reports version 4 on GET and POST', () => {
     const h = createScriptHarness();
-    expect(h.get({ action: 'ping' })).toMatchObject({ status: 'ok', version: 4 });
-    expect(h.get({})).toMatchObject({ status: 'ok', version: 4 });
-    expect(h.call('ping')).toMatchObject({ status: 'ok', version: 4 });
+    expect(h.get({ action: 'ping' })).toMatchObject({ status: 'ok', version: 5 });
+    expect(h.get({})).toMatchObject({ status: 'ok', version: 5 });
+    expect(h.call('ping')).toMatchObject({ status: 'ok', version: 5 });
   });
 
   it('appendLog still upserts by Id into the 12 log columns', () => {
@@ -203,7 +203,7 @@ describe('script v3: pushState', () => {
 
     expect(h.sheets.WorkPulse_Tasks[0]).toEqual(['Id', 'Title', 'Project', 'ProjectId', 'DueDate', 'Stage', 'TrackedMinutes', 'CompletedAt', 'FromPhone']);
     expect(h.sheets.WorkPulse_Days[0]).toEqual(['Date', 'ClockIn', 'ClockOut']);
-    expect(h.sheets.WorkPulse_Recent[0]).toEqual(['Id', 'Date', 'Time', 'Project', 'ProjectId', 'Description', 'Status', 'Minutes']);
+    expect(h.sheets.WorkPulse_Recent[0]).toEqual(['Id', 'Date', 'Time', 'Project', 'ProjectId', 'Description', 'Status', 'Minutes', 'SubTasks']);
     expect(h.sheets.WorkPulse_Projects[0]).toEqual(['Id', 'Name', 'Color']);
     expect(h.sheets.WorkPulse_Tasks).toHaveLength(4);
     // date columns stay plain text, not Date objects
@@ -465,7 +465,7 @@ describe('script v3: exposure and style', () => {
     const names = [...GOOGLE_APPS_SCRIPT_CODE.matchAll(/^function ([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]);
     const exposed = names.filter((n) => !n.endsWith('_')).sort();
     expect(exposed).toEqual([
-      'buildEveningEmail', 'checkPin', 'checkToken', 'doGet', 'doPost', 'getOrCreateLogsSheet', 'hashSecret',
+      'authorizeWorkPulse', 'buildEveningEmail', 'checkPin', 'checkToken', 'doGet', 'doPost', 'getOrCreateLogsSheet', 'hashSecret',
       'phoneAddTask', 'phoneData', 'phoneOlderLogs', 'sendEveningEmail', 'servePhonePage', 'upsertRows', 'withLock',
     ]);
   });

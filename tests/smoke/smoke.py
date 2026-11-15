@@ -93,7 +93,7 @@ SEL = {
     "phone_section": "#settings-phone",                   # CSS: Settings > Phone & evening email
     "set_pin": "Set PIN", "change_pin": "Change PIN", "reset_access": "Reset phone access",
     "pin_new": "New PIN", "pin_again": "New PIN again", "phone_link": "Phone link",
-    "email_on": "Send me an evening email", "email_save": "Save email time", "email_test": "Send a test email",
+    "email_on": "Send me an evening email", "email_save": "Save email settings", "email_test": "Send a test email",
     # dialogs
     "palette_trigger_key": "Control+k",
     "palette_input": "[role=dialog] input[role=combobox]",  # CSS (the quick inputs are comboboxes too)
@@ -108,7 +108,7 @@ EXPECTED_FAIL = {}
 THEMES = ["chase", "timecard", "console"]
 SCREENS = ["today", "tasks", "history", "settings"]
 SEED_SETTINGS = {
-    "googleScriptUrl": "", "geminiApiKey": "", "defaultTone": "casual",
+    "googleScriptUrl": "", "geminiApiKey": "", "defaultTone": "casual", "clockInMessageEnabled": False,
 }
 IGNORED_CONSOLE = (
     re.compile(r"favicon", re.I),
@@ -721,6 +721,26 @@ def office_clock(s):
     expect(btn(band, SEL["clock_out"], exact=True)).to_be_visible()
     p.wait_for_timeout(500)
     expect(p.get_by_role("dialog", name=SEL["plan_day_dialog"])).to_have_count(0)
+    s.no_errors()
+
+
+@check("clock_in_whatsapp_message")
+def clock_in_whatsapp_message(s):
+    """With the setting left at its default (on), the first clock-in opens WhatsApp Web (stubbed, never loaded) with the typed message."""
+    p = s.page
+    p.context.route("https://web.whatsapp.com/**", lambda route: route.fulfill(status=200, body="stub"))
+    p.evaluate("""() => { const k = 'workpulse_settings'; const v = JSON.parse(localStorage.getItem(k) || '{}');
+                          delete v.clockInMessageEnabled; /* absent = on */ localStorage.setItem(k, JSON.stringify(v)); }""")
+    s.reload()
+    btn(p.get_by_role("region", name=SEL["clock_band"]), SEL["clock_in"], exact=True).click()
+    dlg = p.get_by_role("dialog", name=SEL["clock_in_dialog"])
+    with p.context.expect_page() as popup:
+        btn(dlg, SEL["clock_in"], exact=True).click()
+    url = popup.value.url
+    assert url.startswith("https://web.whatsapp.com/send?text="), url
+    assert re.search(r"arrived%20at%20office%20at%20\d{2}%3A\d{2}", url), url
+    popup.value.close()
+    s.skip_plan()
     s.no_errors()
 
 

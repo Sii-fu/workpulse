@@ -1,3 +1,4 @@
+import { DEFAULT_CLOCK_IN_MESSAGE, buildClockInMessage, clockInOpenPlan, parseChatTarget } from '../utils/clockInMessage';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { localDateStr } from '../utils/dates';
 import {
@@ -41,6 +42,8 @@ interface SettingsViewProps {
   onResetSeedData: () => void;
   onImportBackup: (data: BackupData) => void;
   onBackupNow: () => void;
+  /** Sends every log, old ones included, to the Google Sheet. */
+  onSyncAllLogs: () => void;
   onFixLogDates: (fixes: DateFix[]) => void;
   onStartFresh: () => void;
   onNotify: (msg: string, type?: 'success' | 'error' | 'info', action?: ToastMessage['action']) => void;
@@ -120,6 +123,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onResetSeedData,
   onImportBackup,
   onBackupNow,
+  onSyncAllLogs,
   onFixLogDates,
   onStartFresh,
   onNotify,
@@ -141,6 +145,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Office day state
   const [workdayHours, setWorkdayHours] = useState<string>(String(settings.workdayHours ?? DEFAULT_WORKDAY_HOURS));
   const [hoursError, setHoursError] = useState<string | null>(null);
+  const [clockMsgOn, setClockMsgOn] = useState(settings.clockInMessageEnabled !== false);
+  const [clockChat, setClockChat] = useState(settings.clockInChat ?? '');
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [clockMsg, setClockMsg] = useState(settings.clockInMessage ?? DEFAULT_CLOCK_IN_MESSAGE);
 
   // Google Sheets state
   const [googleScriptUrl, setGoogleScriptUrl] = useState<string>(settings.googleScriptUrl || '');
@@ -187,6 +195,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setCurrent(id);
   };
 
+  // Opens WhatsApp exactly as a clock-in would, with the values typed here (saved or not). Nothing is sent until you press Send there.
+  const handleTestWhatsApp = () => {
+    if (!parseChatTarget(clockChat)) {
+      setChatError('Enter a phone number with the country code, a WhatsApp group invite link, or leave it empty.');
+      return;
+    }
+    setChatError(null);
+    const plan = clockInOpenPlan(clockChat, buildClockInMessage(clockMsg, new Date().toISOString()));
+    if (plan.copy) void navigator.clipboard?.writeText(plan.copy).catch(() => {});
+    window.open(plan.url, '_blank', 'noopener');
+    onNotify(plan.copy ? 'WhatsApp opened and the message is copied: press Ctrl+V, then Enter.' : 'WhatsApp opened. Press Send there when you are ready.', 'info');
+  };
+
   const handleSaveAll = () => {
     const hours = Number(workdayHours);
     if (!workdayHours.trim() || !Number.isFinite(hours) || hours < 1 || hours > 16) {
@@ -195,9 +216,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return;
     }
     setHoursError(null);
+    if (clockMsgOn && !parseChatTarget(clockChat)) {
+      setChatError('Enter a phone number with the country code, a WhatsApp group invite link, or leave it empty.');
+      return;
+    }
+    setChatError(null);
     const updated: AppSettings = {
       ...settings,
       workdayHours: hours,
+      clockInMessageEnabled: clockMsgOn ? undefined : false,
+      clockInChat: clockMsgOn && clockChat.trim() ? clockChat.trim() : undefined,
+      clockInMessage: clockMsg.trim() && clockMsg.trim() !== DEFAULT_CLOCK_IN_MESSAGE ? clockMsg.trim() : undefined,
       googleScriptUrl: googleScriptUrl.trim(),
       geminiApiKey: geminiApiKey.trim(),
       defaultTone,
@@ -355,6 +384,55 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
                 </p>
               )}
             </div>
+            <div className="mt-5">
+              <label className="flex items-center gap-2 text-[length:var(--fs-body)] font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={clockMsgOn}
+                  onChange={(e) => setClockMsgOn(e.target.checked)}
+                  className="w-4 h-4 accent-[var(--accent-text)]"
+                />
+                Open WhatsApp with a message when I clock in
+              </label>
+              <p className="mt-1 text-[length:var(--fs-small)] text-[var(--text-muted)]">
+                After your first clock-in of the day, WhatsApp Web opens in a new tab with the message typed in. You pick the group and press Send.
+              </p>
+              {clockMsgOn && (
+                <div className="mt-3">
+                  <label htmlFor={`${uid}-clockmsg`} className={LABEL}>
+                    Message ({'{time}'} becomes your clock-in time)
+                  </label>
+                  <input id={`${uid}-clockmsg`} value={clockMsg} onChange={(e) => setClockMsg(e.target.value)} maxLength={500} className={FIELD} />
+                  <label htmlFor={`${uid}-clockchat`} className={`${LABEL} mt-3`}>
+                    Send to (optional)
+                  </label>
+                  <input
+                    id={`${uid}-clockchat`}
+                    value={clockChat}
+                    onChange={(e) => {
+                      setClockChat(e.target.value);
+                      setChatError(null);
+                    }}
+                    placeholder="Phone number with country code, or a group invite link"
+                    autoComplete="off"
+                    aria-invalid={chatError ? true : undefined}
+                    className={FIELD}
+                  />
+                  <p className="mt-1 text-[length:var(--fs-small)] text-[var(--text-muted)]">
+                    A phone number opens that person's chat with the message typed in. A group invite link (chat.whatsapp.com/...)
+                    opens the group and copies the message: press Ctrl+V, then Enter. Empty: you pick the chat in WhatsApp.
+                  </p>
+                  <button type="button" onClick={handleTestWhatsApp} className={`${BTN} mt-3`}>
+                    Send a test message
+                  </button>
+                  {chatError && (
+                    <p role="alert" className="mt-1 text-[length:var(--fs-small)] text-danger">
+                      {chatError}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </Section>
 
           <Section id="projects" title="Projects & tags">
@@ -412,6 +490,16 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
               </div>
             </div>
 
+            <div>
+              <button type="button" onClick={onSyncAllLogs} disabled={!settings.googleScriptUrl} className={BTN}>
+                Send all my logs to the Sheet
+              </button>
+              <p className="mt-1 text-[length:var(--fs-small)] text-[var(--text-muted)]">
+                Connecting sends only logs made from now on. This sends every log you have, old ones too. A log already in the Sheet is
+                updated, not added twice. Save your URL first.
+              </p>
+            </div>
+
             {sheetTestResult && (
               <div
                 role="status"
@@ -465,7 +553,7 @@ Your current Gemini API key is kept. Export a backup first if you want to keep y
           </Section>
 
           <Section id="phone" title="Phone & evening email">
-            <PhoneEmailSection settings={settings} onUpdateSettings={onUpdateSettings} status={phoneStatus} sheetBackup={sheetBackup} onNotify={onNotify} />
+            <PhoneEmailSection settings={settings} onUpdateSettings={onUpdateSettings} status={phoneStatus} sheetBackup={sheetBackup} onNotify={onNotify} urlUnsaved={googleScriptUrl.trim() !== (settings.googleScriptUrl || '')} onSaveAll={handleSaveAll} />
           </Section>
 
           <Section
