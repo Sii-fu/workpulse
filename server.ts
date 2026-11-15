@@ -1,7 +1,6 @@
 import express from 'express';
 import { localDateStr } from './src/utils/dates';
 import http from 'http';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -427,6 +426,8 @@ ${userPrompt}`, schema: ACTIVITY_TASKS_SCHEMA });
   // Vite middleware in dev or static files in prod
   const isProd = process.env.NODE_ENV === 'production' || process.argv.includes('--prod');
   if (!isProd) {
+    // Imported only here, so the packaged desktop app (production) does not need Vite.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       // Share the app's HTTP server for HMR so no extra port (24678) is needed
       server: { middlewareMode: true, ws: { server: httpServer } },
@@ -434,9 +435,11 @@ ${userPrompt}`, schema: ACTIVITY_TASKS_SCHEMA });
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    // WORKPULSE_DIST: the desktop app keeps the built page next to its own files.
+    const distDir = process.env.WORKPULSE_DIST || path.resolve(__dirname, 'dist');
+    app.use(express.static(distDir));
     app.get('*', (req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.join(distDir, 'index.html'));
     });
   }
 

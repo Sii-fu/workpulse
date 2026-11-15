@@ -23,3 +23,8 @@ CONOUT$
 # Python bytecode from tests/smoke
 __pycache__/
 *.pyc
+
+# Desktop app build output
+electron/node_modules/
+electron/release*/
+electron/app/

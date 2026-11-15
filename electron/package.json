@@ -1,0 +1,47 @@
+{
+  "name": "workpulse-desktop",
+  "productName": "WorkPulse",
+  "version": "1.0.4",
+  "description": "WorkPulse desktop app",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "dist": "electron-builder --win --config.electronDist=C:/Users/DELL/wp-electron --config.directories.output=C:/Users/DELL/wp-release",
+    "pack": "electron-builder --win --dir --config.electronDist=C:/Users/DELL/wp-electron --config.directories.output=C:/Users/DELL/wp-release"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "local.workpulse.desktop",
+    "productName": "WorkPulse",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "app/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://127.0.0.1:38418"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  }
+}
